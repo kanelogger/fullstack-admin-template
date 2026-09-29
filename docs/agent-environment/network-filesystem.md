@@ -22,7 +22,7 @@
 
 ## 状态写入协议
 
-`.agents/state/workflow.json` 是可选的本地恢复提示，不是任务事实或授权源。没有该文件时仍从 `tasks/` 恢复进行中的任务。
+`.agents/state/workflow.json` 是可选的本地恢复提示，不是任务事实或授权源。任务事实以 `tasks/` 为准；没有该文件时仍恢复进行中或阻塞的任务。冲突、多个任务或无任务时按 [任务恢复规则](../../tasks/README.md) 处理。
 
 - 字段至少包含 `schema_version`、`project_id`、`workspace_id`（当前根的稳定本地标识）、`owner`（会话标识）、`revision`、`stage`、`active_task`（任务相对路径或 null）、`updated_at`。读取时先核对项目与工作区，缺少归属字段的旧状态需重新生成。
 - 同一工作区由一个 owner 写共享阶段。并发 Agent 使用独立 worktree，或使用 `.agents/state/sessions/<owner>/` 的独立状态，不能共同覆盖共享文件。

@@ -24,7 +24,7 @@
 
 ## 状态恢复
 
-- 新会话先读 `.agents/state/workflow.json`（存在时）和 `tasks/`，恢复当前目标、进度与阻塞；缺少本地状态文件表示没有可恢复的活动会话。需求讨论过程见 `workflow/`，历史决策见 `docs/adr/`。
+- 新会话先读 `tasks/README.md` 和 `tasks/` 中的未完成任务，恢复当前目标、进度与阻塞；任务事实以 `tasks/` 为准。`.agents/state/workflow.json`（存在时）仅作本地提示，缺失不代表没有未完成任务；冲突、多个任务或无任务时按 `tasks/README.md` 处理。需求讨论过程见 `workflow/`，历史决策见 `docs/adr/`。
 - 开始新需求时更新本地 `.agents/state/workflow.json` 并在 `tasks/` 建立记录；完成后按 `tasks/README.md` 归档，避免过期进度误导后续会话。
 
 ## 按需指南
