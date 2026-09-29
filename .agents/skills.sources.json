@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "description": "按任务触发、延迟解析的项目内 Skill 来源索引。当前未登记外部 Skill；本地维护 Skill 直接从 .agents/skills 发现。",
+  "skillsRoot": ".agents/skills",
+  "defaults": {
+    "resolve": "deferred",
+    "install": "on-demand",
+    "pinPolicy": "immutable-ref-required",
+    "verify": ["entry-exists", "track-resolves", "skill-manifest-valid"]
+  },
+  "sources": []
+}

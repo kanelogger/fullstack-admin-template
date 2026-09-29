@@ -64,3 +64,8 @@ pids
 # ===== Project-specific =====
 uploads/
 private-*/
+
+# ===== Agent local runtime state =====
+.agents/state/
+.agents/cache/
+.agents/*.local.*

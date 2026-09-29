@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "stage": "idle",
-  "active_task": null,
-  "allowed_actions": ["read", "plan", "implement", "verify"],
-  "updated_at": "2026-09-28",
-  "notes": "Agent 工作环境初始化完成。stage 取值建议：idle / aligning / implementing / verifying / blocked；开始新需求时更新本文件并在 tasks/ 建立对应记录。"
-}

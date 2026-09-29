@@ -16,6 +16,7 @@
 - 不自动创建提交、不擅自推送；用户要求提交或推送时，通过 `git-commit-push` Skill 执行（见 `rules/git.md`）。
 - 生产写入、发布、外部系统变更和破坏性操作必须获得人工批准（见 `rules/security.md`）。
 - 本仓库是模板仓库：改动应让后续 fork/复制的项目直接受益，不写死特定业务方信息。
+- 行为或接口契约变更时，同步更新受影响的文档（`specs/architecture.md`、根 `README.md`、前后端 `AGENTS.md` 等），并 grep 旧措辞确认没有残留的过期描述。
 
 ## 稳定领域概念
 
@@ -23,11 +24,13 @@
 
 ## 状态恢复
 
-- 新会话先读 `workflow-state.json` 和 `tasks/` 恢复当前目标、进度与阻塞；需求讨论过程见 `workflow/`，历史决策见 `docs/adr/`。
-- 开始新需求时更新 `workflow-state.json` 并在 `tasks/` 建立记录；完成后按 `tasks/README.md` 归档，避免过期进度误导后续会话。
+- 新会话先读 `.agents/state/workflow.json`（存在时）和 `tasks/`，恢复当前目标、进度与阻塞；缺少本地状态文件表示没有可恢复的活动会话。需求讨论过程见 `workflow/`，历史决策见 `docs/adr/`。
+- 开始新需求时更新本地 `.agents/state/workflow.json` 并在 `tasks/` 建立记录；完成后按 `tasks/README.md` 归档，避免过期进度误导后续会话。
 
 ## 按需指南
 
+- 环境事实与按任务路由：`AI_ENVIRONMENT.md`
+- 项目命令、写入范围与权限：`project.yml`
 - 测试约定：`rules/testing.md`
 - Git 工作区与提交规则：`rules/git.md`
 - 安全边界：`rules/security.md`

@@ -1,0 +1,132 @@
+schema_version: 2
+
+project:
+  id: fullstack-admin-template
+  name: fullstack-admin-template
+  summary: "Vue 3 + Element Plus 与 Fastify + MySQL 的全栈管理后台模板"
+  in_scope: [frontend, backend, rules, specs, tasks, workflow, docs, .agents]
+  out_of_scope: ["private-*/", "未授权的生产数据或外部系统"]
+
+repositories:
+  primary: "."
+  related: []
+
+workspace:
+  current_checkout_root: "."
+  root_probe: "git rev-parse --show-toplevel"
+  project_identity: "https://github.com/kanelogger/fullstack-admin-template.git"
+  project_scope_resource_roots: [".", frontend, backend, .agents/skills]
+  local_state_root: .agents/state
+  worktree_policy: docs/agent-environment/network-filesystem.md
+  # 不声明已通过多平台或多 worktree 执行验证。
+  worktree_aware: unknown
+
+environment:
+  supported_os: unknown
+  supported_architectures: unknown
+  toolchains:
+    node: {source: "frontend/package.json#engines.node"}
+    pnpm: {source: "frontend/package.json#engines.pnpm"}
+    backend_package_manager: npm
+    mysql: {source: "backend/db/schema.sql", requirement: "8.0+"}
+  probe_guide: docs/agent-environment/capabilities.md
+  local_probe_results: .agents/state/environment.json
+
+# command 只包装包清单中的脚本；实现以 command_ref 为准。
+# 当前没有锁文件；正常安装会生成锁文件和 node_modules，需按改动范围审查。
+commands:
+  install:
+    frontend:
+      command: "pnpm install"
+      cwd: frontend
+      command_ref: "frontend/package.json"
+      network: package-registry
+      side_effects: [frontend/node_modules, frontend/pnpm-lock.yaml]
+    backend:
+      command: "npm install"
+      cwd: backend
+      command_ref: "backend/package.json"
+      network: package-registry
+      side_effects: [backend/node_modules, backend/package-lock.json]
+  develop:
+    frontend:
+      command: "pnpm dev"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.dev"
+      requires: [frontend-dependencies, frontend-env, posix-script-shell]
+      side_effects: [listening-http-server, frontend/node_modules/.vite]
+    backend:
+      command: "npm run dev"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.dev"
+      requires: [backend-dependencies, backend-env, mysql-with-schema-and-seed]
+      side_effects: [listening-http-server, database-writes, backend/logs, backend/uploads]
+  typecheck:
+    frontend:
+      command: "pnpm typecheck"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.typecheck"
+    backend:
+      command: "npm run typecheck"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.typecheck"
+  build:
+    frontend:
+      command: "pnpm build"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.build"
+      requires: [frontend-dependencies, posix-script-shell]
+      side_effects: ["删除并生成 frontend/dist"]
+    backend:
+      command: "npm run build"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.build"
+      requires: [backend-dependencies]
+      side_effects: [backend/dist]
+  test: not-applicable
+  lint: not-applicable
+  e2e: not-applicable
+  browser_test: not-applicable
+  execution_guide: docs/agent-environment/commands.md
+  validation_policy: rules/testing.md
+
+authoritative_context:
+  agent_entry: AGENTS.md
+  ai_environment: AI_ENVIRONMENT.md
+  architecture: specs/architecture.md
+  source_manifests: [frontend/package.json, backend/package.json]
+  rules: rules/README.md
+  specs: specs/
+  decisions: docs/adr/
+
+capabilities:
+  skill_sources: .agents/skills.sources.json
+  local_skills: [.agents/skills/agents-maintenance/SKILL.md]
+  mcp: not-applicable
+  hooks: not-applicable
+
+workflow:
+  definitions: [tasks/README.md, workflow/README.md]
+  default: "aligning -> implementing -> verifying -> idle; blocked 记录原因和恢复条件"
+  active_state: .agents/state/workflow.json
+  verification_guide: rules/testing.md
+  evidence_root: .agents/state/evidence/
+
+permissions:
+  default: read-only
+  write_roots: ["."]
+  local_reversible_edits: allowed-when-authorized
+  external_system_writes: approval-required
+  require_human_approval: [publish, production-write, destructive-operation, external-system-write]
+  policy: rules/security.md
+
+freshness:
+  scope: "仓库静态配置；本机状态每次使用前探测"
+  evidence: [frontend/package.json, backend/package.json, backend/db/schema.sql, .gitignore]
+  verified_at: "2026-09-29"
+  owner: 项目维护者
+  status: verified-static
+  refresh_triggers: [toolchain-change, dependency-change, workflow-change, permission-change, service-configuration-change]
+
+completion:
+  definition: "满足验收标准，运行相关验证，修复本次引入的失败，报告未执行或失败的检查；任务记录归档，运行态仅保存在当前工作区。"

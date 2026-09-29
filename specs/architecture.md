@@ -1,6 +1,6 @@
 # 架构与接口事实
 
-本文件记录当前仍然有效、且不能从单一文件一眼看全的契约性事实。实时实现细节以代码为准；本文件随实现核实更新，旧结论被取代时标明替代关系。最近核实：2026-09-28（对照 `backend/src/app.ts`、`frontend/vite.config.ts`、`backend/db/schema.sql`）。
+- 本文件记录当前仍然有效、且不能从单一文件一眼看全的契约性事实。实时实现细节以代码为准；本文件随实现核实更新，旧结论被取代时标明替代关系。最近核实：2026-09-29（对照 `backend/src/app.ts`、`backend/src/config/index.ts`、`frontend/vite.config.ts`、`backend/db/schema.sql`）。
 
 ## 总体结构
 
@@ -25,3 +25,9 @@
 ## 暂无
 
 - 无自动化测试、无 E2E、无 CI、无 MCP/外部连接。引入后在根 `AGENTS.md` 和 `rules/testing.md` 登记入口。
+
+## Agent 工作环境
+
+- 根级角色与导航由 `AGENTS.md` 提供；项目命令、写入范围和人工门禁由 `project.yml` 提供；环境事实按 `AI_ENVIRONMENT.md` 和 `docs/agent-environment/` 按需加载。
+- `tasks/` 与 `workflow/` 保存可合并的过程记忆；阶段、锁、缓存和本地验证证据放在 `.agents/state/`，该目录被 `.gitignore` 排除。
+- 当前没有 CI、E2E、发布配置、MCP 或外部系统连接；引入后必须同步登记相关命令、权限和验证入口。
