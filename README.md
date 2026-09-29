@@ -2,6 +2,42 @@
 
 全栈管理后台模板：Vue 3 + Element Plus 前端、Fastify + MySQL 后端，提供认证、动态路由、组织与权限、字典、配置、消息、附件和日志等基础模块。
 
+Application
+├── Vue 3
+├── Vue Router
+├── Pinia
+├── shadcn-vue
+├── Tailwind CSS v4
+└── VueUse
+
+Build & Language
+├── TypeScript
+├── Vite
+└── pnpm
+
+Backend Platform
+└── Supabase
+    ├── PostgreSQL
+    ├── Auth
+    ├── Storage
+    ├── Realtime
+    └── Edge Functions
+
+Contract
+└── Zod
+
+Quality
+├── Vitest
+├── Playwright
+├── Type Check
+├── Migration Check
+└── Browser Test
+
+AI Engineering
+├── Codex / OMP
+├── AGENTS.md
+└── Skills
+
 ## 快速开始
 
 ### 环境要求
