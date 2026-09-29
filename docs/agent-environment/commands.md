@@ -9,7 +9,7 @@
 | `install.frontend` | `pnpm install` | `frontend/` | pnpm `>=9` | 需要访问包仓库 | `frontend/node_modules/` |
 | `install.backend` | `npm install` | `backend/` | Node/npm | 需要访问包仓库 | `backend/node_modules/` |
 
-仓库没有根级锁文件；安装行为以对应目录的 `package.json` 为准。安装依赖后应刷新 [`AI_ENVIRONMENT.md`](../../AI_ENVIRONMENT.md) 中前后端依赖状态。
+仓库没有根级锁文件；安装行为以对应目录的 `package.json` 为准。安装依赖后按 [能力探测](capabilities.md) 核实前后端依赖，将结果写入当前工作区被忽略的 `.agents/state/environment.json`，字段遵循 [`AI_ENVIRONMENT.md`](../../AI_ENVIRONMENT.md) 的运行态记录约定；不要将本机依赖状态写回版本化索引。
 
 ## 开发与构建
 
@@ -26,12 +26,21 @@ Windows 下前端 `dev`、`build` 脚本使用 POSIX 环境变量写法；使用
 
 ## 数据库初始化
 
-`backend/db/schema.sql` 含有 `DROP TABLE IF EXISTS`，属于破坏性初始化；`backend/db/seed.sql` 会写入默认数据。仅对专用本地数据库执行，并在 `project.yml#permissions.require_human_approval` 要求的人工批准后运行：
+`backend/db/schema.sql` 含有 `DROP TABLE IF EXISTS`，属于破坏性初始化；`backend/db/seed.sql` 会写入默认数据。两份 SQL 均不负责建库或选择数据库。仅对已确认归属的专用本地数据库执行，并在 `project.yml#permissions.require_human_approval` 要求的人工批准后运行；不要对已有业务库试跑。
 
-```bash
-mysql --host=localhost --port=3306 --user=<local-user> --password < backend/db/schema.sql
-mysql --host=localhost --port=3306 --user=<local-user> --password < backend/db/seed.sql
-```
+1. 按 `backend/.env.example` 准备本地配置。核对 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER` 和 `MYSQL_DATABASE`，确保指向本次获准使用的本地库。
+2. 如果目标库尚不存在，由有建库权限的本地账号连接该 MySQL 实例并创建。例如下面的 SQL 创建 `admin_template_local`；实际库名可自定，但必须与本地 `MYSQL_DATABASE` 一致。已有数据库先确认归属，不重复创建。
+
+   ```sql
+   CREATE DATABASE `admin_template_local` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+3. 从仓库根目录执行下面的 Bash 命令。先把所有 `<MYSQL_...>` 占位符替换为本地配置的对应值（保留引号），不要直接执行占位符。显式使用 `--database`，不依赖客户端默认库；先确认 Schema 导入成功，再导入 Seed：
+
+   ```bash
+   mysql --host='<MYSQL_HOST>' --port='<MYSQL_PORT>' --user='<MYSQL_USER>' --password --database='<MYSQL_DATABASE>' < backend/db/schema.sql &&
+   mysql --host='<MYSQL_HOST>' --port='<MYSQL_PORT>' --user='<MYSQL_USER>' --password --database='<MYSQL_DATABASE>' < backend/db/seed.sql
+   ```
 
 命令中的密码必须由 MySQL 客户端交互读取或由本地安全机制提供，禁止写入脚本、Prompt、日志或仓库文件。客户端和服务状态按 [能力探测](capabilities.md) 重新检查，结果写入本地 `.agents/state/`。
 

@@ -14,7 +14,7 @@
 ### 后端
 
 1. 复制 `backend/.env.example` 为 `backend/.env`，填写本机 JWT 密钥和 MySQL 连接信息。
-2. 在 MySQL 中创建目标数据库，并按顺序执行 `backend/db/schema.sql`、`backend/db/seed.sql`。
+2. 创建与本地 `MYSQL_DATABASE` 一致的专用本地数据库，按 [数据库初始化指南](docs/agent-environment/commands.md#数据库初始化) 显式指定目标库，依次导入 Schema 和 Seed。Schema 会删除并重建表；执行前须确认目标并获得批准。
 3. 安装并启动：
 
    ```bash
