@@ -69,3 +69,9 @@ private-*/
 .agents/state/
 .agents/cache/
 .agents/*.local.*
+
+# ===== Host-specific skill links =====
+# 只保留仓库自带、可提交的 Skill；其余由本机 skill 管理器注入的软链接是绝对路径，
+# 提交进模板仓库会污染 fork。项目启用的 Skill 见 .omp/config.yml。
+.agents/skills/*
+!.agents/skills/agents-maintenance/
