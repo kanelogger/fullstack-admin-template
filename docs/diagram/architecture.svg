@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+    text { font-family: 'JetBrains Mono', 'Noto Sans SC', 'PingFang SC', sans-serif; }
+  </style>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrow-open" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polyline points="0 0, 10 3.5, 0 7" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- 1. Background -->
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <!-- 2. Region boundaries -->
+  <rect x="30" y="70" width="600" height="164" rx="12" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="42" y="88" fill="#22d3ee" font-size="9" font-weight="600">Application · 前端应用</text>
+
+  <rect x="654" y="70" width="316" height="164" rx="12" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="666" y="88" fill="#94a3b8" font-size="9" font-weight="600">Build &amp; Language · 构建与语言</text>
+
+  <rect x="30" y="320" width="940" height="124" rx="12" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="42" y="338" fill="#34d399" font-size="9" font-weight="600">Supabase · 后端平台 (BaaS)</text>
+
+  <rect x="30" y="480" width="560" height="142" rx="12" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="42" y="498" fill="#60a5fa" font-size="9" font-weight="600">Quality · 质量保障</text>
+
+  <rect x="614" y="480" width="356" height="142" rx="12" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="626" y="498" fill="#fbbf24" font-size="9" font-weight="600">AI Engineering · AI 工程</text>
+
+  <!-- 3. Connections -->
+  <!-- Build -> Application -->
+  <path d="M 654,152 L 634,152" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <text x="644" y="144" fill="#94a3b8" font-size="7" text-anchor="middle">构建</text>
+
+  <!-- Vue SPA -> Zod -->
+  <path d="M 330,202 L 330,256" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+  <text x="342" y="234" fill="#22d3ee" font-size="8">类型安全的 API 调用</text>
+
+  <!-- Zod -> Supabase boxes -->
+  <path d="M 136,300 L 136,356" fill="none" stroke="#64748b" stroke-width="1.2" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 318,300 L 318,356" fill="none" stroke="#64748b" stroke-width="1.2" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 500,300 L 500,356" fill="none" stroke="#64748b" stroke-width="1.2" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <path d="M 864,300 L 864,356" fill="none" stroke="#64748b" stroke-width="1.2" stroke-opacity="0.6" marker-end="url(#arrow)"/>
+  <!-- Realtime push back -->
+  <path d="M 682,356 L 682,302" fill="none" stroke="#22d3ee" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-cyan)"/>
+  <text x="694" y="332" fill="#22d3ee" font-size="7">Realtime 推送</text>
+
+  <!-- Quality / AI -> Supabase -->
+  <path d="M 200,480 L 200,450" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" stroke-opacity="0.7" marker-end="url(#arrow-open)"/>
+  <text x="212" y="468" fill="#94a3b8" font-size="7">迁移 / 浏览器测试</text>
+  <path d="M 850,480 L 850,450" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" stroke-opacity="0.7" marker-end="url(#arrow-open)"/>
+  <text x="838" y="468" fill="#94a3b8" font-size="7" text-anchor="end">驱动开发</text>
+
+  <!-- 4+5. Mask + component boxes -->
+  <!-- Application libs -->
+  <g>
+    <rect x="64" y="96" width="100" height="42" rx="6" fill="#0f172a"/>
+    <rect x="64" y="96" width="100" height="42" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="114" y="114" fill="white" font-size="8.5" font-weight="600" text-anchor="middle">Vue Router</text>
+    <text x="114" y="128" fill="#94a3b8" font-size="7.5" text-anchor="middle">路由</text>
+
+    <rect x="172" y="96" width="100" height="42" rx="6" fill="#0f172a"/>
+    <rect x="172" y="96" width="100" height="42" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="222" y="114" fill="white" font-size="8.5" font-weight="600" text-anchor="middle">Pinia</text>
+    <text x="222" y="128" fill="#94a3b8" font-size="7.5" text-anchor="middle">状态管理</text>
+
+    <rect x="280" y="96" width="100" height="42" rx="6" fill="#0f172a"/>
+    <rect x="280" y="96" width="100" height="42" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="330" y="114" fill="white" font-size="8.5" font-weight="600" text-anchor="middle">shadcn-vue</text>
+    <text x="330" y="128" fill="#94a3b8" font-size="7.5" text-anchor="middle">组件库</text>
+
+    <rect x="388" y="96" width="100" height="42" rx="6" fill="#0f172a"/>
+    <rect x="388" y="96" width="100" height="42" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="438" y="114" fill="white" font-size="8.5" font-weight="600" text-anchor="middle">Tailwind v4</text>
+    <text x="438" y="128" fill="#94a3b8" font-size="7.5" text-anchor="middle">样式</text>
+
+    <rect x="496" y="96" width="100" height="42" rx="6" fill="#0f172a"/>
+    <rect x="496" y="96" width="100" height="42" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="546" y="114" fill="white" font-size="8.5" font-weight="600" text-anchor="middle">VueUse</text>
+    <text x="546" y="128" fill="#94a3b8" font-size="7.5" text-anchor="middle">组合式工具</text>
+  </g>
+
+  <!-- Vue 3 SPA core -->
+  <rect x="250" y="156" width="160" height="46" rx="6" fill="#0f172a"/>
+  <rect x="250" y="156" width="160" height="46" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="330" y="176" fill="white" font-size="11" font-weight="600" text-anchor="middle">Vue 3 SPA</text>
+  <text x="330" y="192" fill="#94a3b8" font-size="8" text-anchor="middle">应用外壳 · Composition API</text>
+
+  <!-- Build & Language -->
+  <rect x="722" y="96" width="180" height="38" rx="6" fill="#0f172a"/>
+  <rect x="722" y="96" width="180" height="38" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="812" y="112" fill="white" font-size="10" font-weight="600" text-anchor="middle">TypeScript</text>
+  <text x="812" y="126" fill="#94a3b8" font-size="7.5" text-anchor="middle">类型系统</text>
+
+  <rect x="722" y="142" width="180" height="38" rx="6" fill="#0f172a"/>
+  <rect x="722" y="142" width="180" height="38" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="812" y="158" fill="white" font-size="10" font-weight="600" text-anchor="middle">Vite</text>
+  <text x="812" y="172" fill="#94a3b8" font-size="7.5" text-anchor="middle">构建 / 开发服务器</text>
+
+  <rect x="722" y="188" width="180" height="38" rx="6" fill="#0f172a"/>
+  <rect x="722" y="188" width="180" height="38" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="812" y="204" fill="white" font-size="10" font-weight="600" text-anchor="middle">pnpm</text>
+  <text x="812" y="218" fill="#94a3b8" font-size="7.5" text-anchor="middle">包管理</text>
+
+  <!-- Zod contract bar -->
+  <rect x="30" y="262" width="940" height="34" rx="6" fill="#0f172a"/>
+  <rect x="30" y="262" width="940" height="34" rx="6" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+  <text x="500" y="283" fill="white" font-size="11" font-weight="600" text-anchor="middle">Zod — 端到端类型契约 · Shared Schema / Runtime Validation</text>
+
+  <!-- Supabase services -->
+  <g>
+    <rect x="51" y="360" width="170" height="64" rx="6" fill="#0f172a"/>
+    <rect x="51" y="360" width="170" height="64" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="136" y="388" fill="white" font-size="11" font-weight="600" text-anchor="middle">PostgreSQL</text>
+    <text x="136" y="404" fill="#94a3b8" font-size="8" text-anchor="middle">关系型数据库 · RLS</text>
+
+    <rect x="233" y="360" width="170" height="64" rx="6" fill="#0f172a"/>
+    <rect x="233" y="360" width="170" height="64" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="318" y="388" fill="white" font-size="11" font-weight="600" text-anchor="middle">Auth</text>
+    <text x="318" y="404" fill="#94a3b8" font-size="8" text-anchor="middle">认证 / 用户体系</text>
+
+    <rect x="415" y="360" width="170" height="64" rx="6" fill="#0f172a"/>
+    <rect x="415" y="360" width="170" height="64" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="500" y="388" fill="white" font-size="11" font-weight="600" text-anchor="middle">Storage</text>
+    <text x="500" y="404" fill="#94a3b8" font-size="8" text-anchor="middle">文件存储</text>
+
+    <rect x="597" y="360" width="170" height="64" rx="6" fill="#0f172a"/>
+    <rect x="597" y="360" width="170" height="64" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="682" y="388" fill="white" font-size="11" font-weight="600" text-anchor="middle">Realtime</text>
+    <text x="682" y="404" fill="#94a3b8" font-size="8" text-anchor="middle">实时订阅 · WebSocket</text>
+
+    <rect x="779" y="360" width="170" height="64" rx="6" fill="#0f172a"/>
+    <rect x="779" y="360" width="170" height="64" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="864" y="388" fill="white" font-size="11" font-weight="600" text-anchor="middle">Edge Functions</text>
+    <text x="864" y="404" fill="#94a3b8" font-size="8" text-anchor="middle">边缘函数 · Deno</text>
+  </g>
+
+  <!-- Quality boxes -->
+  <g>
+    <rect x="58" y="508" width="160" height="40" rx="6" fill="#0f172a"/>
+    <rect x="58" y="508" width="160" height="40" rx="6" fill="rgba(59,130,246,0.3)" stroke="#60a5fa" stroke-width="1.2"/>
+    <text x="138" y="525" fill="white" font-size="9.5" font-weight="600" text-anchor="middle">Vitest</text>
+    <text x="138" y="539" fill="#94a3b8" font-size="7.5" text-anchor="middle">单元 / 组件测试</text>
+
+    <rect x="230" y="508" width="160" height="40" rx="6" fill="#0f172a"/>
+    <rect x="230" y="508" width="160" height="40" rx="6" fill="rgba(59,130,246,0.3)" stroke="#60a5fa" stroke-width="1.2"/>
+    <text x="310" y="525" fill="white" font-size="9.5" font-weight="600" text-anchor="middle">Type Check</text>
+    <text x="310" y="539" fill="#94a3b8" font-size="7.5" text-anchor="middle">静态类型检查</text>
+
+    <rect x="402" y="508" width="160" height="40" rx="6" fill="#0f172a"/>
+    <rect x="402" y="508" width="160" height="40" rx="6" fill="rgba(59,130,246,0.3)" stroke="#60a5fa" stroke-width="1.2"/>
+    <text x="482" y="525" fill="white" font-size="9.5" font-weight="600" text-anchor="middle">Migration Check</text>
+    <text x="482" y="539" fill="#94a3b8" font-size="7.5" text-anchor="middle">数据库迁移校验</text>
+
+    <rect x="58" y="560" width="300" height="40" rx="6" fill="#0f172a"/>
+    <rect x="58" y="560" width="300" height="40" rx="6" fill="rgba(59,130,246,0.3)" stroke="#60a5fa" stroke-width="1.2"/>
+    <text x="208" y="577" fill="white" font-size="9.5" font-weight="600" text-anchor="middle">Ego lite / BrowserSkill / Playwright</text>
+    <text x="208" y="591" fill="#94a3b8" font-size="7.5" text-anchor="middle">自动化测试工具链</text>
+
+    <rect x="370" y="560" width="192" height="40" rx="6" fill="#0f172a"/>
+    <rect x="370" y="560" width="192" height="40" rx="6" fill="rgba(59,130,246,0.3)" stroke="#60a5fa" stroke-width="1.2"/>
+    <text x="466" y="577" fill="white" font-size="9.5" font-weight="600" text-anchor="middle">Browser Test</text>
+    <text x="466" y="591" fill="#94a3b8" font-size="7.5" text-anchor="middle">端到端浏览器测试</text>
+  </g>
+
+  <!-- AI Engineering boxes -->
+  <g>
+    <rect x="672" y="508" width="240" height="34" rx="6" fill="#0f172a"/>
+    <rect x="672" y="508" width="240" height="34" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="792" y="522" fill="white" font-size="9" font-weight="600" text-anchor="middle">Codex / OMP / Pi / Herdr</text>
+    <text x="792" y="535" fill="#94a3b8" font-size="7.5" text-anchor="middle">AI 编程代理</text>
+
+    <rect x="672" y="550" width="240" height="34" rx="6" fill="#0f172a"/>
+    <rect x="672" y="550" width="240" height="34" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="792" y="564" fill="white" font-size="9" font-weight="600" text-anchor="middle">AGENTS.md</text>
+    <text x="792" y="577" fill="#94a3b8" font-size="7.5" text-anchor="middle">代理行为契约</text>
+
+    <rect x="672" y="586" width="240" height="34" rx="6" fill="#0f172a"/>
+    <rect x="672" y="586" width="240" height="34" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="792" y="600" fill="white" font-size="9" font-weight="600" text-anchor="middle">Skills</text>
+    <text x="792" y="613" fill="#94a3b8" font-size="7.5" text-anchor="middle">可复用技能包</text>
+  </g>
+
+  <!-- 7. Legend -->
+  <g font-size="8" fill="#94a3b8">
+    <rect x="30" y="664" width="12" height="12" rx="3" fill="rgba(8,51,68,0.4)" stroke="#22d3ee"/>
+    <text x="48" y="674">前端 Application</text>
+    <rect x="190" y="664" width="12" height="12" rx="3" fill="rgba(6,78,59,0.4)" stroke="#34d399"/>
+    <text x="208" y="674">后端 Supabase 服务</text>
+    <rect x="380" y="664" width="12" height="12" rx="3" fill="rgba(76,29,149,0.4)" stroke="#a78bfa"/>
+    <text x="398" y="674">数据库 PostgreSQL</text>
+    <rect x="570" y="664" width="12" height="12" rx="3" fill="rgba(251,146,60,0.3)" stroke="#fb923c"/>
+    <text x="588" y="674">契约层 Zod</text>
+    <rect x="30" y="690" width="12" height="12" rx="3" fill="rgba(30,41,59,0.5)" stroke="#94a3b8"/>
+    <text x="48" y="700">构建工具链</text>
+    <rect x="190" y="690" width="12" height="12" rx="3" fill="rgba(59,130,246,0.3)" stroke="#60a5fa"/>
+    <text x="208" y="700">质量保障</text>
+    <rect x="380" y="690" width="12" height="12" rx="3" fill="rgba(120,53,15,0.3)" stroke="#fbbf24"/>
+    <text x="398" y="700">AI Engineering</text>
+  </g>
+
+  <!-- 8. Title -->
+  <text x="30" y="34" fill="white" font-size="16" font-weight="700">全栈技术架构图</text>
+  <text x="30" y="52" fill="#94a3b8" font-size="9">Vue 3 + Supabase · Zod 类型契约 · AI 辅助工程</text>
+</svg>
