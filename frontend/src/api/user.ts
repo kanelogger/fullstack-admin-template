@@ -30,16 +30,23 @@ export type UserResult = {
   };
 };
 
+export type RefreshTokenData = {
+  /** `token` */
+  accessToken: string;
+  /** 用于调用刷新`accessToken`的接口时所需的`token` */
+  refreshToken: string;
+  /** `accessToken`的过期时间（ISO 8601） */
+  expires: string;
+};
+
 export type RefreshTokenResult = {
   success: boolean;
-  data: {
-    /** `token` */
-    accessToken: string;
-    /** 用于调用刷新`accessToken`的接口时所需的`token` */
-    refreshToken: string;
-    /** `accessToken`的过期时间（ISO 8601） */
-    expires: string;
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
   };
+  data?: RefreshTokenData;
 };
 
 /** 登录 */

@@ -17,6 +17,7 @@
     "sourceMap": true,
     "allowJs": false,
     "resolveJsonModule": true,
+    "baseUrl": ".",
     "lib": [
       "ESNext",
       "DOM"

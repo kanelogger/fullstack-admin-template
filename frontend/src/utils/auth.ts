@@ -31,6 +31,13 @@ export const TokenKey = "authorized-token";
  * */
 export const multipleTabsKey = "multiple-tabs";
 
+let authSessionRevision = 0;
+
+/** Detects logout or a new login while a Token refresh is still in flight. */
+export function getAuthSessionRevision() {
+  return authSessionRevision;
+}
+
 /** 获取`token` */
 export function getToken(): DataInfo<number> {
   // 此处与`TokenKey`相同，此写法解决初始化时`Cookies`中不存在`TokenKey`报错
@@ -46,6 +53,38 @@ export function getToken(): DataInfo<number> {
  * 将`avatar`、`username`、`nickname`、`roles`、`permissions`、`refreshToken`、`expires`这七条信息放在key值为`user-info`的localStorage里（利用`multipleTabsKey`当浏览器完全关闭后自动销毁）
  */
 export function setToken(data: DataInfo<string | Date | number>) {
+  authSessionRevision += 1;
+  persistToken(data);
+}
+
+/** Update credentials only if the session that requested refresh still owns them. */
+export function setRefreshedToken(
+  data: DataInfo<string | Date | number>,
+  expectedRevision: number,
+  expectedRefreshToken: string
+) {
+  const cookieToken = Cookies.get(TokenKey);
+  const cookieRefreshToken = cookieToken
+    ? (JSON.parse(cookieToken) as Pick<DataInfo<number>, "refreshToken">)
+        .refreshToken
+    : undefined;
+  const storedRefreshToken = getToken()?.refreshToken;
+  const hasActiveTabSession = Boolean(Cookies.get(multipleTabsKey));
+  if (
+    authSessionRevision !== expectedRevision ||
+    !hasActiveTabSession ||
+    storedRefreshToken !== expectedRefreshToken ||
+    (cookieToken && cookieRefreshToken !== expectedRefreshToken)
+  ) {
+    const error = new Error("Session changed during token refresh");
+    Object.assign(error, { code: "SESSION_CHANGED" });
+    throw error;
+  }
+
+  persistToken(data);
+}
+
+function persistToken(data: DataInfo<string | Date | number>) {
   let expires = 0;
   const { accessToken, refreshToken } = data;
   const { isRemembered, loginDay } = useUserStoreHook();
@@ -120,6 +159,7 @@ export function setToken(data: DataInfo<string | Date | number>) {
 
 /** 删除`token`以及key值为`user-info`的localStorage信息 */
 export function removeToken() {
+  authSessionRevision += 1;
   Cookies.remove(TokenKey);
   Cookies.remove(multipleTabsKey);
   storageLocal().removeItem(userKey);

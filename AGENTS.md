@@ -1,6 +1,6 @@
 # 项目
 
-全栈管理后台模板：Vue 3 + Element Plus 前端（基于 vue-pure-admin）+ Fastify + MySQL 后端，内置用户/角色/菜单/部门/字典/日志/消息/附件等基础模块，用于快速启动新的管理后台项目。最重要的质量目标：前后端类型检查通过，登录与核心页面真实可运行。
+全栈管理后台模板：Vue 3 + Vue Router + Pinia + shadcn-vue + Tailwind CSS v4 + VueUse 前端，Fastify + MySQL 后端，内置用户/角色/菜单/部门/字典/日志/消息/附件等基础模块，用于快速启动新的管理后台项目。前端 UI 正在分阶段迁移；当前应用壳和未迁移页面仍使用 Element Plus 及既有 PureAdmin 派生工具。最重要的质量目标：前后端类型检查通过，登录与核心页面真实可运行。
 
 ## 工具与验证
 

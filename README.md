@@ -1,6 +1,6 @@
 # Fullstack Admin Template
 
-全栈管理后台模板：Vue 3 + Element Plus 前端、Fastify + MySQL 后端，提供认证、动态路由、组织与权限、字典、配置、消息、附件和日志等基础模块。
+全栈管理后台模板：Vue 3、Vue Router、Pinia、shadcn-vue、Tailwind CSS v4、VueUse 前端，Fastify + MySQL 后端，提供认证、动态路由、组织与权限、字典、配置、消息、附件和日志等基础模块。前端页面按模块逐步从 Element Plus 迁移到 shadcn-vue；当前应用壳和未迁移页面仍使用 Element Plus 与既有 PureAdmin 派生工具。
 
 ## 快速开始
 

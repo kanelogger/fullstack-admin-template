@@ -3,7 +3,7 @@ schema_version: 2
 project:
   id: fullstack-admin-template
   name: fullstack-admin-template
-  summary: "Vue 3 + Element Plus 与 Fastify + MySQL 的全栈管理后台模板"
+  summary: "Vue 3 + shadcn-vue + Tailwind CSS v4 与 Fastify + MySQL 的全栈管理后台模板；应用壳和未迁移页面仍使用 Element Plus 与 PureAdmin 派生工具"
   in_scope: [frontend, backend, rules, specs, tasks, workflow, docs, .agents]
   out_of_scope: ["private-*/", "未授权的生产数据或外部系统"]
 

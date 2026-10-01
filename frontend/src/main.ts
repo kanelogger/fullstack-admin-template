@@ -1,7 +1,7 @@
 import App from "./App.vue";
 import router from "./router";
 import { setupStore } from "@/store";
-import { getPlatformConfig } from "./config";
+import { getConfig, getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
 // import { useEcharts } from "@/plugins/echarts";
 import { createApp, type Directive } from "vue";
@@ -11,12 +11,10 @@ import { injectResponsiveStorage } from "@/utils/responsive";
 import Table from "@pureadmin/table";
 // import PureDescriptions from "@pureadmin/descriptions";
 
-// 引入重置样式
-import "./style/reset.scss";
-// 导入公共样式
-import "./style/index.scss";
-// 一定要在main.ts中导入tailwind.css，防止vite每次hmr都会请求src/style/index.scss整体css文件导致热更新慢的问题
+// Tailwind 先声明样式层，基础重置随后进入 base 层，utility 类可以覆盖原生控件重置。
 import "./style/tailwind.css";
+import "./style/reset.scss";
+import "./style/index.scss";
 import "element-plus/dist/index.css";
 
 const app = createApp(App);
@@ -49,11 +47,23 @@ import "tippy.js/themes/light.css";
 import VueTippy from "vue-tippy";
 app.use(VueTippy);
 
-getPlatformConfig(app).then(async config => {
+getPlatformConfig(app).then(async () => {
+  const platformConfig = getConfig();
+  const configuredPrimary = platformConfig.EpThemeColor;
+  if (
+    typeof configuredPrimary === "string" &&
+    CSS.supports("color", configuredPrimary)
+  ) {
+    document.documentElement.style.setProperty(
+      "--app-primary",
+      configuredPrimary
+    );
+  }
+
   setupStore(app);
   app.use(router);
   await router.isReady();
-  injectResponsiveStorage(app, config);
+  injectResponsiveStorage(app, platformConfig);
   app.use(MotionPlugin).use(useElementPlus).use(Table);
   // .use(PureDescriptions)
   // .use(useEcharts);

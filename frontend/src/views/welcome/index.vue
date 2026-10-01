@@ -1,19 +1,77 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { message } from "@/utils/message";
+import { computed, onMounted, ref } from "vue";
 import {
   getDashboardOverview,
   type DashboardOverview,
   type OperationLogSummary
 } from "@/api/system";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Activity,
+  ListTodo,
+  MessageSquareText,
+  RefreshCw,
+  UsersRound
+} from "@lucide/vue";
 
 defineOptions({ name: "Welcome" });
 
-const loading = ref(false);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 const overview = ref<DashboardOverview | null>(null);
 
+const metrics = computed(() => [
+  {
+    label: "未读消息",
+    value: overview.value?.unreadMessageCount ?? 0,
+    icon: MessageSquareText,
+    hint: "需要查看的消息"
+  },
+  {
+    label: "我的待办",
+    value: overview.value?.todoCount ?? 0,
+    icon: ListTodo,
+    hint: "当前待处理事项"
+  },
+  {
+    label: "今日登录",
+    value: overview.value?.adminStats?.todayLoginCount ?? "-",
+    icon: UsersRound,
+    hint: "今日系统登录次数"
+  },
+  {
+    label: "今日异常",
+    value: overview.value?.adminStats?.apiErrorCount ?? "-",
+    icon: Activity,
+    hint: "今日接口异常数"
+  }
+]);
+
+const adminMetrics = computed(() => {
+  const stats = overview.value?.adminStats;
+  if (!stats) return [];
+  return [
+    { label: "用户数", value: stats.userCount },
+    { label: "角色数", value: stats.roleCount },
+    { label: "菜单数", value: stats.menuCount }
+  ];
+});
+
 function resolveError(error: any, fallback: string) {
-  return error?.response?.data?.error?.message ?? error?.error?.message ?? fallback;
+  return (
+    error?.response?.data?.error?.message ??
+    error?.error?.message ??
+    error?.message ??
+    fallback
+  );
 }
 
 function messageTypeText(type: string) {
@@ -30,11 +88,15 @@ function operationText(item: OperationLogSummary) {
 
 async function loadOverview() {
   loading.value = true;
+  loadError.value = null;
   try {
     const res = await getDashboardOverview();
+    if (!res.success || !res.data) {
+      throw new Error(res.error?.message ?? "首页数据不可用");
+    }
     overview.value = res.data;
   } catch (error) {
-    message(resolveError(error, "首页数据加载失败"), { type: "error" });
+    loadError.value = resolveError(error, "首页数据加载失败");
   } finally {
     loading.value = false;
   }
@@ -44,160 +106,107 @@ onMounted(loadOverview);
 </script>
 
 <template>
-  <div class="dashboard-page" v-loading="loading">
-    <div class="metric-grid">
-      <el-card shadow="never" class="metric-card">
-        <div class="metric-label">未读消息</div>
-        <div class="metric-value">{{ overview?.unreadMessageCount ?? 0 }}</div>
-      </el-card>
-      <el-card shadow="never" class="metric-card">
-        <div class="metric-label">我的待办</div>
-        <div class="metric-value">{{ overview?.todoCount ?? 0 }}</div>
-      </el-card>
-      <el-card shadow="never" class="metric-card">
-        <div class="metric-label">今日登录</div>
-        <div class="metric-value">{{ overview?.adminStats?.todayLoginCount ?? "-" }}</div>
-      </el-card>
-      <el-card shadow="never" class="metric-card">
-        <div class="metric-label">今日异常</div>
-        <div class="metric-value">{{ overview?.adminStats?.apiErrorCount ?? "-" }}</div>
-      </el-card>
-    </div>
+  <main class="space-y-6 p-4 md:p-6" :aria-busy="loading">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-sm font-medium text-primary">工作台</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-foreground">系统概览</h1>
+        <p class="mt-1 text-sm text-muted-foreground">查看近期消息与系统运行情况。</p>
+      </div>
+      <Button v-if="overview" variant="outline" size="sm" :disabled="loading" @click="loadOverview">
+        <RefreshCw class="size-4" :class="loading && 'animate-spin'" aria-hidden="true" />
+        刷新数据
+      </Button>
+    </header>
 
-    <div v-if="overview?.adminStats" class="admin-grid">
-      <el-card shadow="never" class="metric-card compact">
-        <div class="metric-label">用户数</div>
-        <div class="metric-value">{{ overview.adminStats.userCount }}</div>
-      </el-card>
-      <el-card shadow="never" class="metric-card compact">
-        <div class="metric-label">角色数</div>
-        <div class="metric-value">{{ overview.adminStats.roleCount }}</div>
-      </el-card>
-      <el-card shadow="never" class="metric-card compact">
-        <div class="metric-label">菜单数</div>
-        <div class="metric-value">{{ overview.adminStats.menuCount }}</div>
-      </el-card>
-    </div>
+    <section v-if="loading && !overview" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="正在加载概览">
+      <div v-for="item in 4" :key="item" class="h-32 animate-pulse rounded-xl border border-border bg-card" />
+    </section>
 
-    <div class="content-grid">
-      <el-card shadow="never" class="list-card">
-        <template #header>
-          <span>系统公告</span>
-        </template>
-        <el-empty
-          v-if="!overview?.announcements.length"
-          description="暂无公告"
-          :image-size="72"
-        />
-        <div
-          v-for="item in overview?.announcements ?? []"
-          :key="item.id"
-          class="list-item"
-        >
-          <div class="list-title">{{ item.title }}</div>
-          <div class="list-meta">
-            <span>{{ messageTypeText(item.messageType) }}</span>
-            <span>{{ item.sentAt }}</span>
-          </div>
-          <div class="list-desc">{{ item.summary }}</div>
-        </div>
-      </el-card>
+    <Card v-else-if="loadError && !overview" role="alert" class="border-destructive/40">
+      <CardHeader>
+        <CardTitle>首页数据加载失败</CardTitle>
+        <CardDescription>{{ loadError }}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" :disabled="loading" @click="loadOverview">重试</Button>
+      </CardContent>
+    </Card>
 
-      <el-card shadow="never" class="list-card">
-        <template #header>
-          <span>最近操作</span>
-        </template>
-        <el-empty
-          v-if="!overview?.recentOperations.length"
-          description="暂无操作记录"
-          :image-size="72"
-        />
-        <div
-          v-for="item in overview?.recentOperations ?? []"
-          :key="item.id"
-          class="list-item"
-        >
-          <div class="list-title">{{ operationText(item) }}</div>
-          <div class="list-meta">
-            <span>{{ item.operatorName ?? "系统" }}</span>
-            <span>{{ item.operatedAt }}</span>
-          </div>
-          <el-tag :type="item.operationResult === 1 ? 'success' : 'danger'" size="small">
-            {{ item.operationResult === 1 ? "成功" : "失败" }}
-          </el-tag>
-        </div>
-      </el-card>
+    <div v-if="overview" class="space-y-6">
+      <Card v-if="loadError" role="status" class="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+        <CardContent class="p-4 text-sm">
+          刷新失败：{{ loadError }}。当前显示上一次成功加载的数据。
+        </CardContent>
+      </Card>
+
+      <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="数据概览">
+        <Card v-for="metric in metrics" :key="metric.label" class="min-w-0">
+          <CardContent class="flex items-start justify-between gap-4 p-5">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-muted-foreground">{{ metric.label }}</p>
+              <p class="mt-3 text-3xl font-semibold tracking-tight text-foreground">{{ metric.value }}</p>
+              <p class="mt-1 text-xs text-muted-foreground">{{ metric.hint }}</p>
+            </div>
+            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <component :is="metric.icon" class="size-5" aria-hidden="true" />
+            </span>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section v-if="adminMetrics.length" class="grid gap-4 sm:grid-cols-3" aria-label="管理数据">
+        <Card v-for="metric in adminMetrics" :key="metric.label">
+          <CardContent class="flex items-center justify-between p-5">
+            <span class="text-sm text-muted-foreground">{{ metric.label }}</span>
+            <span class="text-xl font-semibold text-foreground">{{ metric.value }}</span>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section class="grid gap-4 xl:grid-cols-2">
+      <Card>
+        <CardHeader class="border-b border-border/70 pb-4">
+          <CardTitle>系统公告</CardTitle>
+          <CardDescription>最近发布的通知与公告</CardDescription>
+        </CardHeader>
+        <CardContent class="divide-y divide-border/70 py-1">
+          <p v-if="!overview?.announcements.length" class="py-8 text-center text-sm text-muted-foreground">
+            {{ loading ? "正在加载公告…" : "暂无公告" }}
+          </p>
+          <article v-for="item in overview?.announcements ?? []" :key="item.id" class="space-y-2 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 class="font-medium text-foreground">{{ item.title }}</h2>
+              <Badge variant="secondary">{{ messageTypeText(item.messageType) }}</Badge>
+            </div>
+            <p class="text-sm leading-6 text-muted-foreground">{{ item.summary }}</p>
+            <time class="block text-xs text-muted-foreground">{{ item.sentAt }}</time>
+          </article>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader class="border-b border-border/70 pb-4">
+          <CardTitle>最近操作</CardTitle>
+          <CardDescription>系统内近期操作记录</CardDescription>
+        </CardHeader>
+        <CardContent class="divide-y divide-border/70 py-1">
+          <p v-if="!overview?.recentOperations.length" class="py-8 text-center text-sm text-muted-foreground">
+            {{ loading ? "正在加载操作记录…" : "暂无操作记录" }}
+          </p>
+          <article v-for="item in overview?.recentOperations ?? []" :key="item.id" class="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div class="min-w-0 space-y-1">
+              <h2 class="truncate font-medium text-foreground">{{ operationText(item) }}</h2>
+              <p class="text-sm text-muted-foreground">{{ item.operatorName ?? "系统" }}</p>
+              <time class="block text-xs text-muted-foreground">{{ item.operatedAt }}</time>
+            </div>
+            <Badge :variant="item.operationResult === 1 ? 'default' : 'destructive'">
+              {{ item.operationResult === 1 ? "成功" : "失败" }}
+            </Badge>
+          </article>
+        </CardContent>
+      </Card>
+      </section>
     </div>
-  </div>
+  </main>
 </template>
-
-<style scoped>
-.dashboard-page {
-  padding: 16px;
-}
-
-.metric-grid,
-.admin-grid,
-.content-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.metric-grid {
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-}
-
-.admin-grid {
-  grid-template-columns: repeat(3, minmax(160px, 1fr));
-  margin-top: 16px;
-}
-
-.content-grid {
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
-  margin-top: 16px;
-}
-
-.metric-card,
-.list-card {
-  border-radius: 6px;
-}
-
-.metric-card.compact {
-  min-height: 92px;
-}
-
-.metric-label {
-  color: var(--el-text-color-secondary);
-}
-
-.metric-value {
-  margin-top: 8px;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.list-item {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.list-item:last-child {
-  border-bottom: 0;
-}
-
-.list-title {
-  font-weight: 600;
-}
-
-.list-meta {
-  display: flex;
-  gap: 12px;
-  margin: 6px 0;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.list-desc {
-  color: var(--el-text-color-regular);
-}
-</style>

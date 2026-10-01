@@ -10,11 +10,18 @@ import {
 import {
   type UserResult,
   type RefreshTokenResult,
+  type RefreshTokenData,
   getLogin,
   refreshTokenApi
 } from "@/api/user";
 import { useMultiTagsStoreHook } from "./multiTags";
-import { type DataInfo, setToken, removeToken, userKey } from "@/utils/auth";
+import {
+  type DataInfo,
+  setToken,
+  setRefreshedToken,
+  removeToken,
+  userKey
+} from "@/utils/auth";
 
 export const useUserStore = defineStore("pure-user", {
   state: (): userType => ({
@@ -84,22 +91,37 @@ export const useUserStore = defineStore("pure-user", {
       removeToken();
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();
-      router.push("/login");
+      if (router.currentRoute.value.path !== "/login") {
+        router.push("/login");
+      }
     },
     /** 刷新`token` */
-    async handRefreshToken(data) {
-      return new Promise<RefreshTokenResult>((resolve, reject) => {
-        refreshTokenApi(data)
-          .then(data => {
-            if (data) {
-              setToken(data.data);
-              resolve(data);
-            }
-          })
-          .catch(error => {
-            reject(error);
-          });
-      });
+    async handRefreshToken(
+      data: { refreshToken: string },
+      expectedSessionRevision: number
+    ): Promise<RefreshTokenData> {
+      const response: RefreshTokenResult = await refreshTokenApi(data);
+      if (
+        !response?.success ||
+        !response.data?.accessToken ||
+        !response.data.refreshToken ||
+        !response.data.expires
+      ) {
+        const error = new Error(
+          response?.error?.message ?? "Token refresh returned an invalid response"
+        );
+        Object.assign(error, {
+          code: response?.error?.code ?? "INVALID_REFRESH_RESPONSE"
+        });
+        throw error;
+      }
+
+      setRefreshedToken(
+        response.data,
+        expectedSessionRevision,
+        data.refreshToken
+      );
+      return response.data;
     }
   }
 });

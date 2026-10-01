@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import Motion from "./utils/motion";
 import { useRouter } from "vue-router";
 import { message } from "@/utils/message";
-import { loginRules } from "./utils/rule";
 import { ref, reactive, watch } from "vue";
-import { debounce } from "@pureadmin/utils";
 import { useNav } from "@/layout/hooks/useNav";
-import { useEventListener } from "@vueuse/core";
-import type { FormInstance } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user";
 import { initRouter, getTopMenu } from "@/router/utils";
-import { useRenderIcon } from "@/components/ReIcon/src/hooks";
-import PureLoginBg from "@/components/PureLoginBg/index.vue";
-import PureLoginIllustration from "@/components/PureLoginIllustration/index.vue";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  ShieldCheck,
+  UserRound
+} from "@lucide/vue";
 import Axios from "axios";
-
-import Lock from "~icons/ri/lock-fill";
-import User from "~icons/ri/user-3-fill";
 
 defineOptions({
   name: "Login"
@@ -25,7 +26,7 @@ defineOptions({
 const router = useRouter();
 const loading = ref(false);
 const disabled = ref(false);
-const ruleFormRef = ref<FormInstance>();
+const passwordVisible = ref(false);
 
 const userStore = useUserStoreHook();
 
@@ -129,166 +130,164 @@ function resolveNetworkError(error: any): string {
   return "网络异常，请稍后重试";
 }
 
-const onLogin = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
-  await formEl.validate(valid => {
-    if (valid) {
-      loading.value = true;
-      useUserStoreHook()
-        .loginByUsername({
-          username: ruleForm.username,
-          password: ruleForm.password
-        })
-        .then(res => {
-          if (res.success) {
-            // 获取后端路由
-            return initRouter().then(() => {
-              disabled.value = true;
-              router
-                .push(getTopMenu(true).path)
-                .then(() => {
-                  message("登录成功", { type: "success" });
-                })
-                .finally(() => (disabled.value = false));
-            });
-          } else {
-            // 后端返回业务错误（如账号不存在、密码错误）
-            message(resolveLoginError(res), { type: "error" });
-          }
-        })
-        .catch(err => {
-          // 网络/HTTP 异常
-          message(resolveNetworkError(err), { type: "error" });
-        })
-        .finally(() => (loading.value = false));
+async function onLogin() {
+  if (loading.value || disabled.value) return;
+
+  loading.value = true;
+  let loginSucceeded = false;
+  try {
+    const res = await userStore.loginByUsername({
+      username: ruleForm.username,
+      password: ruleForm.password
+    });
+
+    if (!res.success) {
+      message(resolveLoginError(res), { type: "error" });
+      return;
     }
-  });
-};
 
-const immediateDebounce = debounce(
-  () => onLogin(ruleFormRef.value),
-  1000,
-  true
-);
-
-useEventListener(document, "keydown", ({ code }) => {
-  if (
-    ["Enter", "NumpadEnter"].includes(code) &&
-    !disabled.value &&
-    !loading.value
-  )
-    immediateDebounce();
-});
+    loginSucceeded = true;
+    await initRouter();
+    disabled.value = true;
+    try {
+      await router.push(getTopMenu(true).path);
+      message("登录成功", { type: "success" });
+    } finally {
+      disabled.value = false;
+    }
+  } catch (error) {
+    if (loginSucceeded) {
+      userStore.logOut();
+      message("登录成功，但菜单权限加载失败，请检查服务后重试", {
+        type: "error"
+      });
+    } else {
+      message(resolveNetworkError(error), { type: "error" });
+    }
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
-  <div class="select-none">
-    <PureLoginBg />
-    <div class="login-container">
-      <div class="img">
-        <PureLoginIllustration />
+  <main class="grid min-h-screen bg-background text-foreground lg:grid-cols-2">
+    <section class="relative hidden overflow-hidden bg-slate-950 px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16">
+      <div class="absolute -right-36 -top-36 size-[32rem] rounded-full border border-white/10" />
+      <div class="absolute -right-20 -top-20 size-[24rem] rounded-full border border-white/10" />
+      <div class="absolute -bottom-40 -left-24 size-[30rem] rounded-full bg-blue-500/20 blur-3xl" />
+
+      <div class="relative flex items-center gap-3 text-sm font-semibold tracking-wide">
+        <span class="grid size-10 place-items-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-950/40">
+          <ShieldCheck class="size-5" aria-hidden="true" />
+        </span>
+        <span>ADMIN CONSOLE</span>
       </div>
-      <div class="login-box">
-        <div class="login-form">
-          <Motion>
-            <h2 class="outline-hidden">{{ title }}</h2>
-          </Motion>
 
-          <el-form
-            ref="ruleFormRef"
-            :model="ruleForm"
-            :rules="loginRules"
-            size="large"
-          >
-            <Motion :delay="100">
-              <el-form-item
-                :rules="[
-                  {
-                    required: true,
-                    message: '请输入账号',
-                    trigger: 'blur'
-                  }
-                ]"
-                prop="username"
+      <div class="relative max-w-xl pb-14">
+        <p class="mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">Workspace access</p>
+        <h2 class="text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
+          让管理工作，<br />回到清晰有序。
+        </h2>
+        <p class="mt-6 max-w-md text-base leading-7 text-slate-300">
+          安全访问组织、权限与运营数据，在一个工作台中掌握系统状态。
+        </p>
+      </div>
+
+      <p class="relative text-xs text-slate-400">{{ title }} · 管理后台</p>
+    </section>
+
+    <section class="flex min-h-screen items-center justify-center px-6 py-12 sm:px-10">
+      <div class="w-full max-w-sm">
+        <div class="mb-10 flex items-center gap-3 lg:hidden">
+          <span class="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+            <ShieldCheck class="size-5" aria-hidden="true" />
+          </span>
+          <span class="text-sm font-semibold tracking-wide">ADMIN CONSOLE</span>
+        </div>
+
+        <div class="mb-8">
+          <p class="mb-3 text-sm font-medium text-primary">欢迎回来</p>
+          <h1 class="text-3xl font-semibold tracking-tight">登录到工作台</h1>
+          <p class="mt-2 text-sm text-muted-foreground">输入账号和密码，继续管理你的系统。</p>
+        </div>
+
+        <form class="space-y-5" @submit.prevent="onLogin">
+          <div class="space-y-2">
+            <Label for="username">账号</Label>
+            <div class="relative">
+              <UserRound class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                id="username"
+                v-model="ruleForm.username"
+                class="pl-10"
+                autocomplete="username"
+                placeholder="请输入账号"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="password">密码</Label>
+            <div class="relative">
+              <LockKeyhole class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                id="password"
+                v-model="ruleForm.password"
+                class="pl-10 pr-11"
+                :type="passwordVisible ? 'text' : 'password'"
+                autocomplete="current-password"
+                placeholder="请输入密码"
+                minlength="6"
+                required
+              />
+              <button
+                type="button"
+                class="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
+                @click="passwordVisible = !passwordVisible"
               >
-                <el-input
-                  v-model="ruleForm.username"
-                  clearable
-                  placeholder="账号"
-                  :prefix-icon="useRenderIcon(User)"
-                />
-              </el-form-item>
-            </Motion>
+                <EyeOff v-if="passwordVisible" class="size-4" aria-hidden="true" />
+                <Eye v-else class="size-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
 
-            <Motion :delay="150">
-              <el-form-item prop="password">
-                <el-input
-                  v-model="ruleForm.password"
-                  clearable
-                  show-password
-                  placeholder="密码"
-                  :prefix-icon="useRenderIcon(Lock)"
-                />
-              </el-form-item>
-            </Motion>
+          <div class="flex min-h-9 items-center justify-between gap-4">
+            <label for="remember-login" class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                id="remember-login"
+                v-model="isRemembered"
+                type="checkbox"
+                class="size-4 rounded border-input accent-primary"
+              />
+              记住登录状态
+            </label>
+            <select
+              v-if="isRemembered"
+              v-model="loginDay"
+              aria-label="免登录时长"
+              class="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option v-for="item in loginDayOptions" :key="item.value" :value="item.value">
+                {{ item.label }}
+              </option>
+            </select>
+          </div>
 
-            <Motion :delay="200">
-              <div class="remember-row">
-                <el-checkbox v-model="isRemembered">
-                  记住登录状态
-                </el-checkbox>
-                <el-select
-                  v-if="isRemembered"
-                  v-model="loginDay"
-                  class="login-day-select"
-                  size="small"
-                >
-                  <el-option
-                    v-for="item in loginDayOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
-              </div>
-            </Motion>
+          <Button class="w-full" type="submit" :disabled="loading || disabled">
+            <LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" />
+            <span>{{ loading ? "正在登录" : "登录" }}</span>
+            <ArrowRight v-if="!loading" class="size-4" aria-hidden="true" />
+          </Button>
+        </form>
 
-            <Motion :delay="250">
-              <el-button
-                class="w-full mt-4!"
-                size="default"
-                type="primary"
-                :loading="loading"
-                :disabled="disabled"
-                @click="onLogin(ruleFormRef)"
-              >
-                登录
-              </el-button>
-            </Motion>
-          </el-form>
+        <div class="mt-8 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
+          <ShieldCheck class="size-4 shrink-0" aria-hidden="true" />
+          <span>你的登录信息将通过安全的后端接口验证。</span>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
-
-<style scoped>
-@import url("@/style/login.css");
-</style>
-
-<style lang="scss" scoped>
-:deep(.el-input-group__append, .el-input-group__prepend) {
-  padding: 0;
-}
-
-.remember-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.login-day-select {
-  width: 100px;
-}
-</style>

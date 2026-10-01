@@ -18,6 +18,8 @@
 
 ## 前端契约
 
+- 目标前端应用栈为 Vue 3、Vue Router、Pinia、shadcn-vue、Tailwind CSS v4、VueUse；构建使用 Vite 与 TypeScript。
+- shadcn-vue 组件源码由本仓库维护，配置在 `frontend/components.json`，主题与 Tailwind 入口在 `frontend/src/style/tailwind.css`。UI 按模块渐进迁移；当前应用壳和未迁移页面仍依赖 Element Plus 及既有 PureAdmin 派生工具。
 - 登录后从后端 `getAsyncRoutes` 拉取动态路由生成菜单；按钮级权限用 `v-perms` / `v-auth` 指令。
 - HTTP 统一封装在 `src/utils/http/index.ts`；业务代码不直接 import axios。
 - 环境变量：`VITE_API_BASE_URL`（默认 `/api`）、`VITE_PORT`、`VITE_ROUTER_HISTORY` 等，见各 `.env*.example`。
