@@ -6,7 +6,7 @@
 
 ## 本轮边界
 
-`docs/diagram/template.md` 允许 UI 渐进迁移并在过渡期保留 Element Plus，且阶段一保留 Fastify/MySQL 作为运行基线。因此本轮建立 shadcn-vue、Tailwind v4 的组件/主题基础，并迁移登录与首页；数据请求、认证、路由和动态权限行为保持现有实现。Supabase 迁移属于后续阶段。
+`docs/diagram/architecture.md` 允许 UI 渐进迁移并在过渡期保留 Element Plus，且阶段一保留 Fastify/MySQL 作为运行基线。因此本轮建立 shadcn-vue、Tailwind v4 的组件/主题基础，并迁移登录与首页；数据请求、认证、路由和动态权限行为保持现有实现。Supabase 迁移属于后续阶段。
 
 ## 验收与遗留
 
