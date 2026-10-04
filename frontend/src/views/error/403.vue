@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import PureStatusIllustration from "@/components/PureStatusIllustration/index.vue";
+import { Button } from "@/components/ui/button";
+import StatusIllustration from "@/components/StatusIllustration/index.vue";
 
 defineOptions({
   name: "403"
@@ -13,7 +14,7 @@ const router = useRouter();
   <div
     class="flex flex-col md:flex-row justify-center items-center min-h-full w-full p-4 md:p-0"
   >
-    <PureStatusIllustration :code="403" />
+    <StatusIllustration :code="403" />
     <div class="mt-8 md:ml-12 md:mt-0 text-center md:text-left">
       <p
         v-motion
@@ -49,9 +50,9 @@ const router = useRouter();
       >
         抱歉，你无权访问该页面
       </p>
-      <el-button
+      <Button
         v-motion
-        type="primary"
+        variant="default"
         class="block mx-auto md:inline-block md:mx-0"
         :initial="{
           opacity: 0,
@@ -67,7 +68,7 @@ const router = useRouter();
         @click="router.push('/')"
       >
         返回首页
-      </el-button>
+      </Button>
     </div>
   </div>
 </template>

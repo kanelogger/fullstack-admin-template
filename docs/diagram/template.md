@@ -217,7 +217,9 @@ Pinia 至少拆分为以下 Store：
 - 用户密码只能由 Supabase Auth 管理。
 - 业务用户资料与 Auth 用户身份分离保存。
 - 当前的 MD5 密码不能作为最终密码方案。
-- 为兼容现有账号，第一期可支持 `login_name` 或邮箱作为登录标识。
+- 登录只支持 `login_name` + 密码；邮箱只用于密码重置，不作为登录标识或另一种登录方式。
+- 不提供短信验证码、邮箱验证码/魔法链接登录、OAuth、SSO、Passkey 等其他登录方式。
+- Supabase Email Provider 底层仍包含 OTP 能力；本地 Auth 的全局及 email provider 公共注册均关闭。浏览器必须经 `login_name` + 密码 Edge Function 获取 Session，Edge Function 将其登记到服务端私有白名单；业务数据的 RLS 和兼容 API Token bridge 必须拒绝未登记或 JWT `amr` 不含 `password` 的 Session。邮件恢复 OTP 标记为 `amr=otp`，只有 Auth 密码哈希相对私有快照确实变化后，才能完成本人重置；它不能读取业务数据或换取应用 Token。
 - 用户名解析和管理员重置密码必须通过服务端受控逻辑完成，浏览器不得查询密码数据。
 - 旧账号迁移必须采用强制重置或一次性兼容迁移，迁移完成后移除旧密码校验逻辑。
 

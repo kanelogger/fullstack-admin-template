@@ -2,21 +2,26 @@
 import LayFrame from "../lay-frame/index.vue";
 import LayFooter from "../lay-footer/index.vue";
 import { getConfig } from "@/config";
-import { useGlobal } from "@pureadmin/utils";
-import PureIcon from "@/components/PureIcon/index.vue";
-import BackTopIcon from "~icons/ri/arrow-up-line";
-import { h, computed, Transition, defineComponent } from "vue";
+import { useScroll } from "@vueuse/core";
+import { Button } from "@/components/ui/button";
+import { h, computed, ref, Transition, defineComponent } from "vue";
 import { usePermissionStoreHook } from "@/store/modules/permission";
 
 const props = defineProps({
   fixedHeader: Boolean
 });
 
-const { $config } = useGlobal<GlobalPropertiesApi>();
-
 const isKeepAlive = computed(() => {
-  return $config?.KeepAlive;
+  return getConfig().KeepAlive;
 });
+
+const scrollRef = ref<HTMLElement | null>(null);
+const { y: scrollPosition } = useScroll(scrollRef);
+const showBackTop = computed(() => scrollPosition.value > 240);
+
+function scrollToTop() {
+  scrollRef.value?.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 const transitions = computed(() => {
   return route => {
@@ -29,10 +34,8 @@ const hideFooter = getConfig().HideFooter ?? false;
 const showModel = getConfig().ShowModel || "smart";
 
 const layout = computed(() => {
-  return $config?.Layout === "vertical";
+  return getConfig().Layout === "vertical";
 });
-
-const getMainWidth = "100%";
 
 const getSectionStyle = computed(() => {
   return [
@@ -73,7 +76,7 @@ const transitionMain = defineComponent({
     return h(
       Transition,
       {
-        name: enterTransition ? "pure-classes-transition" : transitionName,
+        name: enterTransition ? "layout-classes-transition" : transitionName,
         enterActiveClass: enterTransition
           ? `animate__animated ${enterTransition}`
           : undefined,
@@ -100,52 +103,46 @@ const transitionMain = defineComponent({
       <template #default="{ Component, route }">
         <LayFrame :currComp="Component" :currRoute="route">
           <template #default="{ Comp, fullPath, frameInfo }">
-            <el-scrollbar
-              v-if="fixedHeader"
-              :wrap-style="{
-                display: 'flex',
-                'flex-wrap': 'wrap',
-                'max-width': getMainWidth,
-                margin: '0 auto',
-                transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
-              }"
-              :view-style="{
-                display: 'flex',
-                flex: 'auto',
-                overflow: 'hidden',
-                'flex-direction': 'column'
-              }"
-            >
-              <el-backtop
-                title="回到顶部"
-                target=".app-main .el-scrollbar__wrap"
+            <template v-if="fixedHeader">
+              <div
+                ref="scrollRef"
+                class="app-scrollbar h-full w-full overflow-x-hidden overflow-y-auto"
               >
-                <PureIcon :icon="BackTopIcon" />
-              </el-backtop>
-              <div class="grow">
-                <transitionMain :route="route">
-                  <keep-alive
-                    v-if="isKeepAlive"
-                    :include="usePermissionStoreHook().cachePageList"
-                  >
-                    <component
-                      :is="Comp"
-                      :key="fullPath"
-                      :frameInfo="frameInfo"
-                      class="main-content"
-                    />
-                  </keep-alive>
-                  <component
-                    :is="Comp"
-                    v-else
-                    :key="fullPath"
-                    :frameInfo="frameInfo"
-                    class="main-content"
-                  />
-                </transitionMain>
+                <div class="mx-auto flex min-h-full w-full flex-col transition-all duration-300">
+                  <div class="grow">
+                    <transitionMain :route="route">
+                      <keep-alive
+                        v-if="isKeepAlive"
+                        :include="usePermissionStoreHook().cachePageList"
+                      >
+                        <component
+                          :is="Comp"
+                          :key="fullPath"
+                          :frameInfo="frameInfo"
+                          class="main-content"
+                        />
+                      </keep-alive>
+                      <component
+                        :is="Comp"
+                        v-else
+                        :key="fullPath"
+                        :frameInfo="frameInfo"
+                        class="main-content"
+                      />
+                    </transitionMain>
+                  </div>
+                  <LayFooter v-if="!hideFooter" />
+                </div>
               </div>
-              <LayFooter v-if="!hideFooter" />
-            </el-scrollbar>
+              <Button
+                v-if="showBackTop"
+                class="fixed bottom-6 right-6 z-40 size-10 rounded-full shadow-md"
+                size="icon"
+                variant="outline"
+                aria-label="回到顶部"
+                @click="scrollToTop"
+              >↑</Button>
+            </template>
             <div v-else class="grow">
               <transitionMain :route="route">
                 <keep-alive

@@ -2,6 +2,15 @@ const Layout = () => import("@/layout/index.vue");
 
 export default [
   {
+    path: "/reset-password",
+    name: "ResetPassword",
+    component: () => import("@/views/auth/reset-password.vue"),
+    meta: {
+      title: "重置密码",
+      showLink: false
+    }
+  },
+  {
     path: "/login",
     name: "Login",
     component: () => import("@/views/login/index.vue"),

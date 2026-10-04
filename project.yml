@@ -3,8 +3,8 @@ schema_version: 2
 project:
   id: fullstack-admin-template
   name: fullstack-admin-template
-  summary: "Vue 3 + shadcn-vue + Tailwind CSS v4 与 Fastify + MySQL 的全栈管理后台模板；应用壳和未迁移页面仍使用 Element Plus 与 PureAdmin 派生工具"
-  in_scope: [frontend, backend, rules, specs, tasks, workflow, docs, .agents]
+  summary: "Vue 3 + shadcn-vue + Tailwind CSS v4 与 Fastify + MySQL 的全栈管理后台模板；少数旧页面和共享组件仍使用 Element Plus 与 PureAdmin 派生工具"
+  in_scope: [frontend, backend, supabase, rules, specs, tasks, workflow, docs, .agents]
   out_of_scope: ["private-*/", "未授权的生产数据或外部系统"]
 
 repositories:
@@ -28,12 +28,19 @@ environment:
     node: {source: "frontend/package.json#engines.node"}
     pnpm: {source: "frontend/package.json#engines.pnpm"}
     backend_package_manager: npm
+    volta: {source: ["frontend/package.json#volta", "backend/package.json#volta"]}
+    pyenv: {source: ".python-version"}
+    conda: {source: "environment.ml.yml"}
+    registry_manager: yrm
+    local_docker_runtime: orbstack
+    supabase_cli: {source: "frontend/package.json#devDependencies.supabase"}
     mysql: {source: "backend/db/schema.sql", requirement: "8.0+"}
   probe_guide: docs/agent-environment/capabilities.md
   local_probe_results: .agents/state/environment.json
+  toolchain_guide: docs/agent-environment/local-toolchain.md
 
 # command 只包装包清单中的脚本；实现以 command_ref 为准。
-# 当前没有锁文件；正常安装会生成锁文件和 node_modules，需按改动范围审查。
+# 前端 lockfile 已入库；后端暂不锁 npm 依赖。安装生成的 node_modules 不入库。
 commands:
   install:
     frontend:
@@ -83,10 +90,123 @@ commands:
       command_ref: "backend/package.json#scripts.build"
       requires: [backend-dependencies]
       side_effects: [backend/dist]
-  test: not-applicable
+  test:
+    frontend_unit:
+      command: "pnpm test:unit"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.test:unit"
+      requires: [frontend-dependencies]
+    backend_message_mapping:
+      command: "npm run test:migration:messages"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:messages"
+      requires: [backend-dependencies]
+    backend_account_mapping:
+      command: "npm run test:migration:accounts"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:accounts"
+      requires: [backend-dependencies]
+    backend_menu_mapping:
+      command: "npm run test:migration:menus"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:menus"
+      requires: [backend-dependencies]
+    backend_organization_mapping:
+      command: "npm run test:migration:organization"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:organization"
+      requires: [backend-dependencies]
+    backend_configuration_mapping:
+      command: "npm run test:migration:dictionary-configuration"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:dictionary-configuration"
+      requires: [backend-dependencies]
+    backend_attachment_mapping:
+      command: "npm run test:migration:attachments"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:attachments"
+      requires: [backend-dependencies]
+    backend_audit_log_mapping:
+      command: "npm run test:migration:audit-logs"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.test:migration:audit-logs"
+      requires: [backend-dependencies]
+    frontend_e2e:
+      command: "pnpm test:e2e"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.test:e2e"
+      requires: [frontend-dependencies, browser-binary]
+      side_effects: [frontend-dev-server]
+    frontend_auth_e2e:
+      command: "pnpm test:e2e:auth"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.test:e2e:auth"
+      requires: [frontend-dependencies, browser-binary, local-supabase, local-mailpit, dedicated-synthetic-mysql-test-config]
+      side_effects: [frontend-dev-server, temporary-synthetic-superadmin-password, temporary-auth-sessions, temporary-mailpit-message]
+    supabase_database:
+      command: "pnpm run test:db"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.test:db"
+      requires: [frontend-dependencies, local-supabase, local-mailpit]
+      side_effects: [temporary-auth-test-users, temporary-profile-role-message-fixtures, temporary-mailpit-messages, temporary-edge-function-process]
+  data_migration:
+    legacy_organization:
+      command: "npm run migrate:organization"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.migrate:organization"
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, local-supabase-department-post-inserts-only-with---apply-local]
+    legacy_auth_accounts:
+      command: "node scripts/migrate-auth-accounts.mjs"
+      cwd: backend
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone, organization-import-before-profile-backfill, verified-email-ownership-or-test-fixture-only-confirmation]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, local-auth-user-creation-only-with-explicit-test-or-email-confirmation-flags, local-mailpit-password-reset-emails]
+    legacy_messages:
+      command: "npm run migrate:messages"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.migrate:messages"
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone, imported-business-profiles]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, local-supabase-message-inserts-only-with---apply-local]
+    legacy_dictionary_configuration:
+      command: "npm run migrate:dictionary-configuration"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.migrate:dictionary-configuration"
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone, imported-business-profiles]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, local-supabase-dictionary-config-inserts-only-with---apply-local]
+    legacy_attachments:
+      command: "npm run migrate:attachments"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.migrate:attachments"
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone, imported-business-profiles, local-legacy-upload-files]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, local-private-storage-uploads-and-metadata-inserts-only-with---apply-local]
+    legacy_audit_logs:
+      command: "npm run migrate:audit-logs"
+      cwd: backend
+      command_ref: "backend/package.json#scripts.migrate:audit-logs"
+      requires: [backend-dependencies, backend-env, local-supabase, confirmed-local-mysql-source, explicit-mysql-timezone, imported-business-profiles]
+      side_effects: [read-only-mysql-transaction, dry-run-by-default, redacts-sensitive-fields, local-audit-log-inserts-only-with---apply-local]
+  supabase:
+    local_start:
+      command: "pnpm run supabase:start"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.supabase:start"
+      requires: [frontend-dependencies, orbstack-docker-runtime]
+      side_effects: [docker-containers, local-database-volume, local-service-ports]
+    local_stop:
+      command: "pnpm run supabase:stop"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.supabase:stop"
+      requires: [orbstack-docker-runtime]
+      side_effects: [stop-local-supabase-containers]
+    local_reset:
+      command: "pnpm run supabase:db:reset"
+      cwd: frontend
+      command_ref: "frontend/package.json#scripts.supabase:db:reset"
+      requires: [orbstack-docker-runtime, disposable-local-database, human-approval]
+      side_effects: [drop-and-recreate-local-database]
   lint: not-applicable
-  e2e: not-applicable
-  browser_test: not-applicable
+  e2e: login-shell-message-user-role-menu-organization-dictionary-configuration-smoke
+  browser_test: playwright
   execution_guide: docs/agent-environment/commands.md
   validation_policy: rules/testing.md
 
@@ -122,8 +242,8 @@ permissions:
 
 freshness:
   scope: "仓库静态配置；本机状态每次使用前探测"
-  evidence: [frontend/package.json, backend/package.json, backend/db/schema.sql, .gitignore]
-  verified_at: "2026-09-29"
+  evidence: [frontend/package.json, frontend/pnpm-lock.yaml, backend/package.json, backend/db/schema.sql, backend/db/seed.sql, backend/db/preflight-auth-accounts.sql, backend/db/preflight-messages.sql, backend/db/preflight-organization.sql, backend/db/preflight-dictionary-configuration.sql, backend/scripts/migrate-auth-accounts.mjs, backend/scripts/migrate-messages-to-supabase.mjs, backend/scripts/migrate-organization-to-supabase.mjs, backend/scripts/migrate-dictionary-configuration-to-supabase.mjs, .python-version, environment.ml.yml, supabase/config.toml, supabase/migrations/, supabase/tests/, .gitignore]
+  verified_at: "2026-10-02"
   owner: 项目维护者
   status: verified-static
   refresh_triggers: [toolchain-change, dependency-change, workflow-change, permission-change, service-configuration-change]

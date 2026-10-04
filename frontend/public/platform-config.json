@@ -15,7 +15,7 @@
   "HideFooter": false,
   "Stretch": false,
   "SidebarStatus": true,
-  "EpThemeColor": "#409EFF",
+  "PrimaryColor": "#2563eb",
   "ShowLogo": false,
   "ShowModel": "smart",
   "MenuArrowIconNoTransition": false,

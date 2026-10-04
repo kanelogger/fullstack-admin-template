@@ -9,15 +9,16 @@ export {
   formatFlatteningRoutes
 } from "@/router/utils";
 export {
-  isUrl,
+  cloneDeep,
+  debounce,
+  deviceDetection,
+  getKeyList,
+  isBoolean,
   isEqual,
   isNumber,
-  debounce,
-  isBoolean,
-  getKeyList,
-  storageLocal,
-  deviceDetection
-} from "@pureadmin/utils";
+  isUrl,
+  storageLocal
+} from "@/utils/shared";
 export type {
   appType,
   userType,

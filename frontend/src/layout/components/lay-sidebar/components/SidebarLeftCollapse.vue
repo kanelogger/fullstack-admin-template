@@ -1,69 +1,24 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useGlobal } from "@pureadmin/utils";
-import { useNav } from "@/layout/hooks/useNav";
+import { Button } from "@/components/ui/button";
+import { PanelLeftClose, PanelLeftOpen } from "@lucide/vue";
 
-import MenuFold from "~icons/ri/menu-fold-fill";
-
-interface Props {
-  isActive?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  isActive: false
-});
-
-const { tooltipEffect } = useNav();
-
-const iconClass = computed(() => {
-  return [
-    "ml-4",
-    "mb-1",
-    "w-[16px]",
-    "h-[16px]",
-    "inline-block!",
-    "align-middle",
-    "cursor-pointer",
-    "duration-[100ms]"
-  ];
-});
-
-const { $storage } = useGlobal<GlobalPropertiesApi>();
-const themeColor = computed(() => $storage.layout?.themeColor);
-
-const emit = defineEmits<{
-  (e: "toggleClick"): void;
-}>();
-
-const toggleClick = () => {
-  emit("toggleClick");
-};
+defineProps<{ isActive?: boolean }>();
+const emit = defineEmits<{ (event: "toggleClick"): void }>();
 </script>
 
 <template>
-  <div class="left-collapse">
-    <IconifyIconOffline
-      v-tippy="{
-        content: isActive ? '点击折叠' : '点击展开',
-        theme: tooltipEffect,
-        hideOnClick: 'toggle',
-        placement: 'right'
-      }"
-      :icon="MenuFold"
-      :class="[iconClass, themeColor === 'light' ? '' : 'text-primary']"
-      :style="{ transform: isActive ? 'none' : 'rotateY(180deg)' }"
-      @click="toggleClick"
-    />
+  <div class="mt-auto border-t border-border p-2">
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      class="w-full justify-start text-foreground hover:bg-accent"
+      :aria-label="isActive ? '折叠侧边栏' : '展开侧边栏'"
+      @click="emit('toggleClick')"
+    >
+      <PanelLeftClose v-if="isActive" class="mr-2 size-4" aria-hidden="true" />
+      <PanelLeftOpen v-else class="mr-2 size-4" aria-hidden="true" />
+      <span>收起导航</span>
+    </Button>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.left-collapse {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 40px;
-  line-height: 40px;
-  box-shadow: 0 0 6px -3px var(--el-color-primary);
-}
-</style>

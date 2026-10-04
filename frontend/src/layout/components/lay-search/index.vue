@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { useBoolean } from "../../hooks/useBoolean";
+import { ref } from "vue";
+import { Button } from "@/components/ui/button";
+import { Search } from "@lucide/vue";
 import SearchModal from "./components/SearchModal.vue";
 
-const { bool: show, toggle } = useBoolean();
-function handleSearch() {
-  toggle();
-}
+const show = ref(false);
 </script>
 
 <template>
   <div>
-    <div
-      class="search-container w-[40px] h-[48px] flex-c cursor-pointer navbar-bg-hover"
-      @click="handleSearch"
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      class="search-container navbar-bg-hover"
+      aria-label="搜索菜单"
+      title="搜索菜单"
+      @click="show = true"
     >
-      <IconifyIconOffline icon="ri/search-line" />
-    </div>
+      <Search class="size-4" aria-hidden="true" />
+    </Button>
     <SearchModal v-model:value="show" />
   </div>
 </template>

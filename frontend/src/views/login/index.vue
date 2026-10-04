@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { message } from "@/utils/message";
-import { ref, reactive, watch } from "vue";
-import { useNav } from "@/layout/hooks/useNav";
+import { ref, reactive } from "vue";
+import { getConfig } from "@/config";
 import { useUserStoreHook } from "@/store/modules/user";
+import { requestPasswordReset } from "@/features/auth/auth.service";
 import { initRouter, getTopMenu } from "@/router/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,6 @@ import {
   ShieldCheck,
   UserRound
 } from "@lucide/vue";
-import Axios from "axios";
 
 defineOptions({
   name: "Login"
@@ -25,33 +25,18 @@ defineOptions({
 
 const router = useRouter();
 const loading = ref(false);
+const resetLoading = ref(false);
 const disabled = ref(false);
 const passwordVisible = ref(false);
 
 const userStore = useUserStoreHook();
 
-const { title } = useNav();
-
-/** 免登录天数选项 */
-const loginDayOptions = [
-  { label: "7 天", value: 7 },
-  { label: "14 天", value: 14 },
-  { label: "30 天", value: 30 }
-];
+const title = getConfig().Title;
 
 const ruleForm = reactive({
-  username: "superadmin",
-  password: "123456"
+  username: "",
+  password: ""
 });
-
-/** 记住登录状态 */
-const isRemembered = ref(userStore.isRemembered);
-/** 免登录天数 */
-const loginDay = ref(userStore.loginDay);
-
-// 同步 store
-watch(isRemembered, val => userStore.SET_ISREMEMBERED(val));
-watch(loginDay, val => userStore.SET_LOGINDAY(val));
 
 /** 根据后端返回的错误码/信息，映射为对用户友好的提示 */
 function resolveLoginError(res: any): string {
@@ -61,7 +46,7 @@ function resolveLoginError(res: any): string {
 
   const codeMsgMap: Record<number | string, string> = {
     BAD_REQUEST: "请求参数有误，请检查输入",
-    INVALID_CREDENTIALS: "账号或密码错误",
+    INVALID_CREDENTIALS: "账号或密码错误；如账号需要强制重置，请使用忘记密码申请邮件链接",
     USER_DISABLED: "账号已被禁用，请联系管理员",
     UNAUTHORIZED: "登录已过期，请重新登录",
     INTERNAL_ERROR: "服务器异常，请稍后重试",
@@ -88,17 +73,39 @@ function resolveLoginError(res: any): string {
       return "账号已被禁用，请联系管理员";
     if (/锁定|locked/i.test(msg))
       return "账号已被锁定，请稍后再试";
-    if (/验证码|captcha|验证失败/i.test(msg))
-      return "验证码错误，请重新输入";
     return msg;
   }
 
   return "登录失败，请稍后重试";
 }
 
+async function onRequestPasswordReset() {
+  const loginName = ruleForm.username.trim();
+  if (!loginName || resetLoading.value) {
+    message("请先输入登录账号", { type: "warning" });
+    return;
+  }
+
+  resetLoading.value = true;
+  try {
+    const result = await requestPasswordReset({ loginName });
+    if (result.success === false) {
+      message(result.error.message, { type: "error" });
+      return;
+    }
+    message(result.data.message, { type: "success" });
+  } catch (error) {
+    message(resolveNetworkError(error), { type: "error" });
+  } finally {
+    resetLoading.value = false;
+  }
+}
+
 /** 提取网络/HTTP 错误信息 */
 function resolveNetworkError(error: any): string {
-  if (Axios.isCancel(error)) return "请求已取消";
+  if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
+    return "请求已取消";
+  }
 
   const status = error?.response?.status;
   const apiError = error?.response?.data?.error;
@@ -150,7 +157,9 @@ async function onLogin() {
     await initRouter();
     disabled.value = true;
     try {
-      await router.push(getTopMenu(true).path);
+      const landingMenu = getTopMenu(true);
+      if (!landingMenu?.path) throw new Error("当前账号没有可访问菜单");
+      await router.push(landingMenu.path);
       message("登录成功", { type: "success" });
     } finally {
       disabled.value = false;
@@ -255,25 +264,14 @@ async function onLogin() {
           </div>
 
           <div class="flex min-h-9 items-center justify-between gap-4">
-            <label for="remember-login" class="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-              <input
-                id="remember-login"
-                v-model="isRemembered"
-                type="checkbox"
-                class="size-4 rounded border-input accent-primary"
-              />
-              记住登录状态
-            </label>
-            <select
-              v-if="isRemembered"
-              v-model="loginDay"
-              aria-label="免登录时长"
-              class="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            <button
+              class="shrink-0 text-sm text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              type="button"
+              :disabled="loading || resetLoading"
+              @click="onRequestPasswordReset"
             >
-              <option v-for="item in loginDayOptions" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
+              {{ resetLoading ? "正在发送重置邮件" : "忘记密码？" }}
+            </button>
           </div>
 
           <Button class="w-full" type="submit" :disabled="loading || disabled">
@@ -285,7 +283,7 @@ async function onLogin() {
 
         <div class="mt-8 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
           <ShieldCheck class="size-4 shrink-0" aria-hidden="true" />
-          <span>你的登录信息将通过安全的后端接口验证。</span>
+          <span>使用账号和密码登录，邮箱仅用于密码重置。</span>
         </div>
       </div>
     </section>

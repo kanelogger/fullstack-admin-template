@@ -3,7 +3,6 @@ import {
   type multiType,
   type positionType,
   store,
-  isUrl,
   isEqual,
   isNumber,
   isBoolean,
@@ -15,7 +14,7 @@ import {
 import { usePermissionStoreHook } from "./permission";
 import type { RouteConfigs } from "@/layout/types";
 
-export const useMultiTagsStore = defineStore("pure-multiTags", {
+export const useMultiTagsStore = defineStore("multi-tags", {
   state: () => ({
     // 存储标签页信息（路由信息）
     multiTags: getConfig().MultiTagsCache
@@ -59,7 +58,7 @@ export const useMultiTagsStore = defineStore("pure-multiTags", {
             // 不添加到标签页
             if (tagVal?.meta?.hiddenTag) return;
             // 如果是外链无需添加信息到标签页
-            if (isUrl(tagVal?.name)) return;
+            if (typeof tagVal?.name === "string" && /^https?:\/\//i.test(tagVal.name)) return;
             // 如果title为空拒绝添加空信息到标签页
             if (tagVal?.meta?.title.length === 0) return;
             // showLink:false 不添加到标签页

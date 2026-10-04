@@ -9,7 +9,12 @@ export interface JwtPayload {
   type: "access" | "refresh";
 }
 
-export const WHITELIST = ["/login", "/refresh-token", "/captcha"];
+export const WHITELIST = [
+  "/login",
+  "/refresh-token",
+  "/captcha",
+  "/session/legacy-token"
+];
 
 export function signAccessToken(payload: Omit<JwtPayload, "type">): string {
   return jwt.sign(

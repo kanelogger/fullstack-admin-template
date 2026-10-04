@@ -1,132 +1,33 @@
 <script setup lang="ts">
-import { useNav } from "@/layout/hooks/useNav";
-import LaySearch from "../lay-search/index.vue";
-import LayNotice from "../lay-notice/index.vue";
-import LayNavMix from "../lay-sidebar/NavMix.vue";
-import PureAvatar from "@/components/PureAvatar/index.vue";
-import LaySidebarFullScreen from "../lay-sidebar/components/SidebarFullScreen.vue";
-import LaySidebarBreadCrumb from "../lay-sidebar/components/SidebarBreadCrumb.vue";
-import LaySidebarTopCollapse from "../lay-sidebar/components/SidebarTopCollapse.vue";
+import { computed } from "vue";
+import { useAppStoreHook } from "@/store/modules/app";
+import SidebarHeaderActions from "../lay-sidebar/components/SidebarHeaderActions.vue";
+import SidebarBreadCrumb from "../lay-sidebar/components/SidebarBreadCrumb.vue";
+import SidebarTopCollapse from "../lay-sidebar/components/SidebarTopCollapse.vue";
+import NavMix from "../lay-sidebar/NavMix.vue";
 
-import LogoutCircleRLine from "~icons/ri/logout-circle-r-line";
+const appStore = useAppStoreHook();
+const layout = computed(() => appStore.layout);
+const isMobile = computed(() => appStore.device === "mobile");
+const sidebarOpened = computed(() => appStore.sidebar.opened);
 
-const {
-  layout,
-  device,
-  logout,
-  pureApp,
-  username,
-  userAvatar,
-  avatarsStyle,
-  toggleSideBar
-} = useNav();
+function toggleSidebar() {
+  void appStore.toggleSideBar();
+}
 </script>
 
 <template>
-  <div class="navbar bg-[#fff] shadow-xs shadow-[rgba(0,21,41,0.08)]">
-    <LaySidebarTopCollapse
-      v-if="device === 'mobile'"
-      class="hamburger-container"
-      :is-active="pureApp.sidebar.opened"
-      @toggleClick="toggleSideBar"
+  <header class="navbar flex h-12 min-w-0 items-center gap-3 border-b border-border bg-background px-2 text-foreground shadow-sm">
+    <SidebarTopCollapse
+      v-if="isMobile"
+      :is-active="sidebarOpened"
+      @toggle-click="toggleSidebar"
     />
-
-    <LaySidebarBreadCrumb
-      v-if="layout !== 'mix' && device !== 'mobile'"
-      class="breadcrumb-container"
+    <SidebarBreadCrumb
+      v-if="layout !== 'mix' && !isMobile"
+      class="min-w-0 flex-1 pl-2"
     />
-
-    <LayNavMix v-if="layout === 'mix'" />
-
-    <div v-if="layout === 'vertical'" class="vertical-header-right">
-      <!-- 菜单搜索 -->
-      <LaySearch id="header-search" />
-      <!-- 全屏 -->
-      <LaySidebarFullScreen id="full-screen" />
-      <!-- 消息通知 -->
-      <LayNotice id="header-notice" />
-      <!-- 退出登录 -->
-      <el-dropdown trigger="click">
-        <span class="el-dropdown-link navbar-bg-hover select-none">
-          <PureAvatar
-            :src="userAvatar"
-            :username="username"
-            :size="22"
-            :style="avatarsStyle"
-          />
-          <p v-if="username" class="dark:text-white">{{ username }}</p>
-        </span>
-        <template #dropdown>
-          <el-dropdown-menu class="logout">
-            <el-dropdown-item @click="logout">
-              <IconifyIconOffline
-                :icon="LogoutCircleRLine"
-                style="margin: 5px"
-              />
-              退出系统
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-  </div>
+    <NavMix v-if="layout === 'mix'" class="min-w-0 flex-1" />
+    <SidebarHeaderActions v-if="layout === 'vertical'" class="ml-auto" />
+  </header>
 </template>
-
-<style lang="scss" scoped>
-.navbar {
-  width: 100%;
-  height: 48px;
-  overflow: hidden;
-
-  .hamburger-container {
-    float: left;
-    height: 100%;
-    line-height: 48px;
-    cursor: pointer;
-  }
-
-  .vertical-header-right {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    min-width: 280px;
-    height: 48px;
-    color: #000000d9;
-
-    .el-dropdown-link {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      height: 48px;
-      padding: 10px;
-      color: #000000d9;
-      cursor: pointer;
-
-      p {
-        font-size: 14px;
-      }
-
-      img {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-      }
-    }
-  }
-
-  .breadcrumb-container {
-    float: left;
-    margin-left: 16px;
-  }
-}
-
-.logout {
-  width: 120px;
-
-  ::v-deep(.el-dropdown-menu__item) {
-    display: inline-flex;
-    flex-wrap: wrap;
-    min-width: 100%;
-  }
-}
-</style>

@@ -1,48 +1,41 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
-import Axios from "axios";
-import { ElMessageBox, type UploadFile } from "element-plus";
-import { message } from "@/utils/message";
-import { getToken, formatToken } from "@/utils/auth";
+import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AttachmentListRequestSchema, type Attachment } from "@/contracts";
 import {
   deleteAttachment,
+  downloadAttachment,
   getAttachments,
-  uploadAttachment,
-  type AttachmentItem,
-  type AttachmentQuery
-} from "@/api/system";
+  uploadAttachment
+} from "@/features/attachments/attachments.service";
+import { useUserStore } from "@/store/modules/user";
 
 defineOptions({ name: "OperationAttachment" });
 
+const PAGE_SIZE = 10;
+const userStore = useUserStore();
+const permissions = computed(() => new Set(userStore.permissions));
+const canUpload = computed(() => permissions.value.has("files.attachments.upload"));
+const canDelete = computed(() => permissions.value.has("files.attachments.delete"));
 const loading = ref(false);
 const uploading = ref(false);
-const previewVisible = ref(false);
+const rows = ref<Attachment[]>([]);
+const total = ref(0);
+const page = ref(1);
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
+const pageError = ref("");
+const actionMessage = ref("");
+const selectedFile = ref<HTMLInputElement | null>(null);
 const previewUrl = ref("");
-const rows = ref<AttachmentItem[]>([]);
+const previewName = ref("");
+const filters = reactive({ originalName: "", businessModule: "", referenceStatus: "" });
+const uploadForm = reactive({ businessModule: "", businessRecordId: "" });
 
-const query = reactive<AttachmentQuery>({
-  originalName: "",
-  businessModule: "",
-  referenceStatus: "",
-  page: 1,
-  pageSize: 10
-});
-
-const uploadForm = reactive({
-  businessModule: "",
-  businessRecordId: ""
-});
-
-const pagination = reactive({ totalItems: 0 });
-
-const apiBase = computed(() => (import.meta.env.VITE_API_BASE_URL as string) || "");
-
-function resolveError(error: any, fallback: string) {
-  return error?.response?.data?.error?.message ?? error?.error?.message ?? fallback;
-}
-
-function asAttachment(row: unknown): AttachmentItem {
-  return row as AttachmentItem;
+function errorText(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function formatSize(size: number) {
@@ -51,230 +44,258 @@ function formatSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function authHeaders() {
-  const token = getToken();
-  return token?.accessToken
-    ? { Authorization: formatToken(token.accessToken) }
-    : {};
+function revokePreview() {
+  if (!previewUrl.value) return;
+  URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = "";
+  previewName.value = "";
 }
 
 async function loadRows() {
   loading.value = true;
+  pageError.value = "";
   try {
-    const res = await getAttachments(query);
-    rows.value = res.data.items;
-    pagination.totalItems = res.data.pagination.totalItems;
+    const request = AttachmentListRequestSchema.parse({
+      originalName: filters.originalName.trim() || undefined,
+      businessModule: filters.businessModule.trim() || undefined,
+      referenceStatus:
+        filters.referenceStatus === "" ? undefined : Number(filters.referenceStatus),
+      page: page.value,
+      pageSize: PAGE_SIZE
+    });
+    const result = await getAttachments(request);
+    rows.value = result.items;
+    total.value = result.total;
   } catch (error) {
-    message(resolveError(error, "附件列表加载失败"), { type: "error" });
+    rows.value = [];
+    total.value = 0;
+    pageError.value = errorText(error, "附件列表加载失败");
   } finally {
     loading.value = false;
   }
 }
 
-function handleSearch() {
-  query.page = 1;
-  loadRows();
+async function search() {
+  page.value = 1;
+  await loadRows();
 }
 
-async function handleUpload(file: UploadFile) {
-  if (!file.raw) return;
+async function chooseFile() {
+  selectedFile.value?.click();
+}
+
+async function uploadSelectedFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
   uploading.value = true;
+  actionMessage.value = "";
   try {
-    const data = new FormData();
-    data.append("file", file.raw);
-    if (uploadForm.businessModule) {
-      data.append("businessModule", uploadForm.businessModule);
-    }
-    if (uploadForm.businessRecordId) {
-      data.append("businessRecordId", uploadForm.businessRecordId);
-    }
-    await uploadAttachment(data);
-    message("上传成功", { type: "success" });
-    loadRows();
+    const businessModule = uploadForm.businessModule.trim() || null;
+    const businessRecordId = uploadForm.businessRecordId.trim() || null;
+    await uploadAttachment(file, { businessModule, businessRecordId });
+    actionMessage.value = `已上传 ${file.name}`;
+    input.value = "";
+    await loadRows();
   } catch (error) {
-    message(resolveError(error, "上传失败"), { type: "error" });
+    actionMessage.value = errorText(error, "附件上传失败");
   } finally {
     uploading.value = false;
   }
 }
 
-async function downloadBlob(row: AttachmentItem, mode: "download" | "preview") {
-  const url = `${apiBase.value}/attachments/${row.id}/${mode}`;
-  const res = await Axios.get(url, {
-    responseType: "blob",
-    headers: authHeaders()
-  });
-  return res.data as Blob;
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-async function handleDownload(row: AttachmentItem) {
+async function download(row: Attachment) {
+  actionMessage.value = "";
   try {
-    const blob = await downloadBlob(row, "download");
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = row.originalName;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    const result = await downloadAttachment(row.id);
+    saveBlob(result.blob, result.attachment.originalName);
   } catch (error) {
-    message(resolveError(error, "下载失败"), { type: "error" });
+    actionMessage.value = errorText(error, "附件下载失败");
   }
 }
 
-async function handlePreview(row: AttachmentItem) {
+async function preview(row: Attachment) {
+  if (!row.mimeType.toLowerCase().startsWith("image/")) return;
+  actionMessage.value = "";
   try {
-    const blob = await downloadBlob(row, "preview");
-    previewUrl.value = window.URL.createObjectURL(blob);
-    previewVisible.value = true;
+    const result = await downloadAttachment(row.id);
+    revokePreview();
+    previewName.value = result.attachment.originalName;
+    previewUrl.value = URL.createObjectURL(result.blob);
   } catch (error) {
-    message(resolveError(error, "预览失败"), { type: "error" });
+    actionMessage.value = errorText(error, "附件预览失败");
   }
 }
 
-async function handleDelete(row: AttachmentItem) {
+async function remove(row: Attachment) {
+  if (!window.confirm(`确认删除附件“${row.originalName}”？`)) return;
+  actionMessage.value = "";
   try {
-    await ElMessageBox.confirm(`确认删除附件 ${row.originalName}？`, "删除确认", {
-      type: "warning",
-      confirmButtonText: "删除",
-      cancelButtonText: "取消"
-    });
     await deleteAttachment(row.id);
-    message("删除成功", { type: "success" });
-    loadRows();
-  } catch (error: any) {
-    if (error === "cancel" || error === "close") return;
-    message(resolveError(error, "删除失败"), { type: "error" });
+    actionMessage.value = `已删除 ${row.originalName}`;
+    await loadRows();
+  } catch (error) {
+    actionMessage.value = errorText(error, "附件删除失败");
   }
+}
+
+async function changePage(nextPage: number) {
+  if (nextPage < 1 || nextPage > pageCount.value) return;
+  page.value = nextPage;
+  await loadRows();
 }
 
 onMounted(loadRows);
+onUnmounted(revokePreview);
 </script>
 
 <template>
-  <div class="attachment-page">
-    <el-card shadow="never" class="upload-panel">
-      <el-form :model="uploadForm" inline label-width="84px">
-        <el-form-item label="业务模块">
-          <el-input v-model="uploadForm.businessModule" clearable placeholder="可选" />
-        </el-form-item>
-        <el-form-item label="业务记录">
-          <el-input v-model="uploadForm.businessRecordId" clearable placeholder="可选 ID" />
-        </el-form-item>
-        <el-form-item>
-          <el-upload
-            :auto-upload="false"
-            :show-file-list="false"
-            :on-change="handleUpload"
-          >
-            <el-button type="primary" :loading="uploading">上传附件</el-button>
-          </el-upload>
-        </el-form-item>
-      </el-form>
-    </el-card>
+  <main class="space-y-5 p-4 md:p-6">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">附件管理</h1>
+      <p class="mt-1 text-sm text-muted-foreground">私有存储中的附件仅向有权限的账号开放。</p>
+    </div>
 
-    <el-card shadow="never" class="search-panel">
-      <el-form :model="query" inline label-width="84px">
-        <el-form-item label="文件名">
-          <el-input v-model="query.originalName" clearable placeholder="文件名" />
-        </el-form-item>
-        <el-form-item label="业务模块">
-          <el-input v-model="query.businessModule" clearable placeholder="业务模块" />
-        </el-form-item>
-        <el-form-item label="引用状态">
-          <el-select v-model="query.referenceStatus" clearable placeholder="全部">
-            <el-option label="未引用" :value="0" />
-            <el-option label="已引用" :value="1" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <Card v-if="canUpload">
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">上传附件</CardTitle>
+      </CardHeader>
+      <CardContent class="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <div class="space-y-2">
+          <Label for="attachment-business-module">业务模块</Label>
+          <Input id="attachment-business-module" v-model="uploadForm.businessModule" maxlength="64" placeholder="可选" />
+        </div>
+        <div class="space-y-2">
+          <Label for="attachment-business-record">业务记录 ID</Label>
+          <Input id="attachment-business-record" v-model="uploadForm.businessRecordId" inputmode="numeric" placeholder="可选十进制 ID" />
+        </div>
+        <div class="flex items-center gap-3">
+          <input
+            ref="selectedFile"
+            class="sr-only"
+            type="file"
+            aria-label="选择附件"
+            @change="uploadSelectedFile"
+          />
+          <Button type="button" :disabled="uploading" @click="chooseFile">
+            {{ uploading ? "正在上传…" : "选择文件并上传" }}
+          </Button>
+          <span class="text-xs text-muted-foreground">最大 20 MiB</span>
+        </div>
+      </CardContent>
+    </Card>
 
-    <el-card shadow="never" class="table-panel">
-      <el-table v-loading="loading" :data="rows" row-key="id">
-        <el-table-column prop="originalName" label="文件名" min-width="220" />
-        <el-table-column prop="mimeType" label="MIME" min-width="160" />
-        <el-table-column label="大小" width="110">
-          <template #default="{ row }">
-            {{ formatSize(row.fileSize) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="businessModule" label="业务模块" min-width="130" />
-        <el-table-column prop="businessRecordId" label="业务记录" width="100" />
-        <el-table-column label="引用" width="80">
-          <template #default="{ row }">
-            <el-tag :type="row.referenceStatus === 1 ? 'success' : 'info'">
-              {{ row.referenceStatus === 1 ? "已引用" : "未引用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="uploadedAt" label="上传时间" min-width="170" />
-        <el-table-column label="操作" fixed="right" width="180">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :disabled="!row.mimeType.startsWith('image/')"
-              @click="handlePreview(asAttachment(row))"
+    <Card>
+      <CardHeader class="pb-3">
+        <CardTitle class="text-base">附件列表</CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <form class="grid gap-3 sm:grid-cols-[1fr_1fr_180px_auto] sm:items-end" @submit.prevent="search">
+          <div class="space-y-2">
+            <Label for="attachment-search-name">文件名</Label>
+            <Input id="attachment-search-name" v-model="filters.originalName" maxlength="255" placeholder="搜索文件名" />
+          </div>
+          <div class="space-y-2">
+            <Label for="attachment-search-module">业务模块</Label>
+            <Input id="attachment-search-module" v-model="filters.businessModule" maxlength="64" placeholder="全部模块" />
+          </div>
+          <div class="space-y-2">
+            <Label for="attachment-search-reference">引用状态</Label>
+            <select
+              id="attachment-search-reference"
+              v-model="filters.referenceStatus"
+              class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              预览
-            </el-button>
-            <el-button link type="primary" @click="handleDownload(asAttachment(row))">
-              下载
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(asAttachment(row))">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="query.page"
-          v-model:page-size="query.pageSize"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.totalItems"
-          @size-change="loadRows"
-          @current-change="loadRows"
-        />
+              <option value="">全部</option>
+              <option value="0">未引用</option>
+              <option value="1">已引用</option>
+            </select>
+          </div>
+          <Button type="submit" variant="outline">查询</Button>
+        </form>
+
+        <p v-if="actionMessage" role="status" class="text-sm text-muted-foreground">{{ actionMessage }}</p>
+        <div v-if="pageError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <p>{{ pageError }}</p>
+          <Button class="mt-3" size="sm" variant="outline" @click="loadRows">重试</Button>
+        </div>
+
+        <div class="overflow-x-auto rounded-md border border-border">
+          <table class="w-full min-w-[850px] border-collapse text-left text-sm">
+            <thead class="bg-muted/60 text-muted-foreground">
+              <tr>
+                <th scope="col" class="px-4 py-3 font-medium">文件名</th>
+                <th scope="col" class="px-4 py-3 font-medium">MIME</th>
+                <th scope="col" class="px-4 py-3 font-medium">大小</th>
+                <th scope="col" class="px-4 py-3 font-medium">业务</th>
+                <th scope="col" class="px-4 py-3 font-medium">引用</th>
+                <th scope="col" class="px-4 py-3 font-medium">上传时间</th>
+                <th scope="col" class="px-4 py-3 text-right font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading">
+                <td colspan="7" class="px-4 py-10 text-center text-muted-foreground">正在加载附件…</td>
+              </tr>
+              <tr v-else-if="!pageError && rows.length === 0">
+                <td colspan="7" class="px-4 py-10 text-center text-muted-foreground">暂无附件</td>
+              </tr>
+              <tr v-for="row in rows" :key="row.id" class="border-t border-border">
+                <td class="max-w-64 truncate px-4 py-3 font-medium" :title="row.originalName">{{ row.originalName }}</td>
+                <td class="px-4 py-3 text-muted-foreground">{{ row.mimeType }}</td>
+                <td class="whitespace-nowrap px-4 py-3">{{ formatSize(row.fileSize) }}</td>
+                <td class="px-4 py-3">{{ row.businessModule ?? "—" }}<span v-if="row.businessRecordId"> / {{ row.businessRecordId }}</span></td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2 py-1 text-xs" :class="row.referenceStatus === 1 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'">
+                    {{ row.referenceStatus === 1 ? "已引用" : "未引用" }}
+                  </span>
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-muted-foreground">{{ new Date(row.uploadedAt).toLocaleString() }}</td>
+                <td class="whitespace-nowrap px-4 py-3 text-right">
+                  <Button v-if="row.mimeType.toLowerCase().startsWith('image/')" size="sm" variant="ghost" @click="preview(row)">预览</Button>
+                  <Button size="sm" variant="ghost" @click="download(row)">下载</Button>
+                  <Button v-if="canDelete" size="sm" variant="ghost" class="text-destructive hover:text-destructive" @click="remove(row)">删除</Button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>共 {{ total }} 条</span>
+          <div class="flex items-center gap-2">
+            <Button variant="outline" size="sm" :disabled="page <= 1 || loading" @click="changePage(page - 1)">上一页</Button>
+            <span>{{ page }} / {{ pageCount }}</span>
+            <Button variant="outline" size="sm" :disabled="page >= pageCount || loading" @click="changePage(page + 1)">下一页</Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <div
+      v-if="previewUrl"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`预览 ${previewName}`"
+      @click.self="revokePreview"
+    >
+      <div class="relative max-h-[90vh] max-w-[90vw] rounded-lg bg-background p-3 shadow-xl">
+        <div class="mb-2 flex items-center justify-between gap-4">
+          <p class="max-w-[70vw] truncate text-sm font-medium">{{ previewName }}</p>
+          <Button size="sm" variant="outline" @click="revokePreview">关闭</Button>
+        </div>
+        <img class="max-h-[78vh] max-w-[85vw] object-contain" :src="previewUrl" :alt="previewName" />
       </div>
-    </el-card>
-
-    <el-dialog v-model="previewVisible" title="图片预览" width="720px">
-      <img class="preview-image" :src="previewUrl" alt="附件预览" />
-    </el-dialog>
-  </div>
+    </div>
+  </main>
 </template>
-
-<style scoped>
-.attachment-page {
-  padding: 16px;
-}
-
-.upload-panel,
-.search-panel,
-.table-panel {
-  border-radius: 6px;
-}
-
-.search-panel,
-.table-panel {
-  margin-top: 16px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-
-.preview-image {
-  display: block;
-  max-width: 100%;
-  max-height: 70vh;
-  margin: 0 auto;
-}
-</style>

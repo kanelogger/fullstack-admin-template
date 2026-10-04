@@ -14,22 +14,15 @@ import {
   cloneDeep,
   isAllEmpty,
   intersection,
-  storageLocal,
   isIncludeAllChildren
-} from "@pureadmin/utils";
-import { getConfig } from "@/config";
+} from "@/utils/shared";
 import { buildHierarchyTree } from "@/utils/tree";
-import { userKey, type DataInfo } from "@/utils/auth";
+import { getCachedUserInfo } from "@/utils/user-info";
 import { type menuType, routerArrays } from "@/layout/types";
 import { useMultiTagsStoreHook } from "@/store/modules/multiTags";
 import { usePermissionStoreHook } from "@/store/modules/permission";
-const IFrame = () => import("@/layout/frame.vue");
-const SprintPlaceholder = () => import("@/views/system/placeholder.vue");
-// https://cn.vitejs.dev/guide/features.html#glob-import
-const modulesRoutes = import.meta.glob("/src/views/**/*.{vue,tsx}");
-
-// 动态路由
-import { getAsyncRoutes } from "@/api/routes";
+import { getCurrentNavigation } from "@/features/menus/menus.service";
+import { buildNavigationRoutes } from "@/features/menus/navigation-routes";
 
 function handRank(routeInfo: any) {
   const { name, path, parentId, meta } = routeInfo;
@@ -85,10 +78,13 @@ function isOneOfArray(a: Array<string>, b: Array<string>) {
 
 /** 从localStorage里取出当前登录用户的角色roles，过滤无权限的菜单 */
 function filterNoPermissionTree(data: RouteComponent[]) {
-  const currentRoles =
-    storageLocal().getItem<DataInfo<number>>(userKey)?.roles ?? [];
-  const newTree = cloneDeep(data).filter((v: any) =>
-    isOneOfArray(v.meta?.roles, currentRoles)
+  const currentUser = getCachedUserInfo();
+  const currentRoles = currentUser?.roles ?? [];
+  const currentPermissions = currentUser?.permissions ?? [];
+  const newTree = cloneDeep(data).filter((route: any) =>
+    isOneOfArray(route.meta?.roles, currentRoles) &&
+    (!route.meta?.auths?.length ||
+      isIncludeAllChildren(route.meta.auths, currentPermissions))
   );
   newTree.forEach(
     (v: any) => v.children && (v.children = filterNoPermissionTree(v.children))
@@ -158,35 +154,16 @@ function addPathMatch() {
 
 /** 处理动态路由（后端返回的路由） */
 function handleAsyncRoutes(routeList) {
-  if (routeList.length === 0) {
-    usePermissionStoreHook().handleWholeMenus(routeList);
-  } else {
-    formatFlatteningRoutes(addAsyncRoutes(routeList)).map(
-      (v: RouteRecordRaw) => {
-        // 防止重复添加路由
-        if (
-          router.options.routes[0].children.findIndex(
-            value => value.path === v.path
-          ) !== -1
-        ) {
-          return;
-        } else {
-          // 切记将路由push到routes后还需要使用addRoute，这样路由才能正常跳转
-          router.options.routes[0].children.push(v);
-          // 最终路由进行升序
-          ascending(router.options.routes[0].children);
-          if (!router.hasRoute(v?.name)) router.addRoute(v);
-          const flattenRouters: any = router
-            .getRoutes()
-            .find(n => n.path === "/");
-          // 保持router.options.routes[0].children与path为"/"的children一致，防止数据不一致导致异常
-          flattenRouters.children = router.options.routes[0].children;
-          router.addRoute(flattenRouters);
-        }
-      }
-    );
-    usePermissionStoreHook().handleWholeMenus(routeList);
-  }
+  const routes = addAsyncRoutes(routeList ?? []);
+  const homeRoute = router.options.routes.find(route => route.name === "Home");
+  if (!homeRoute) throw new Error("The application layout route is missing");
+
+  homeRoute.children = routes as RouteRecordRaw[];
+  homeRoute.redirect = routes[0]?.path;
+  if (router.hasRoute("Home")) router.removeRoute("Home");
+  router.addRoute(homeRoute);
+  usePermissionStoreHook().handleWholeMenus(routes);
+
   if (!useMultiTagsStoreHook().getMultiTagsCache) {
     useMultiTagsStoreHook().handleTags("equal", [
       ...routerArrays,
@@ -200,20 +177,8 @@ function handleAsyncRoutes(routeList) {
 
 /** 初始化动态路由；请求或路由处理失败时将拒绝 Promise，由调用方恢复状态。 */
 async function initRouter(): Promise<Router> {
-  const cacheEnabled = Boolean(getConfig()?.CachingAsyncRoutes);
-  const cacheKey = "async-routes";
-
-  if (cacheEnabled) {
-    const asyncRouteList = storageLocal().getItem<RouteConfigsTable[]>(cacheKey);
-    if (asyncRouteList?.length) {
-      handleAsyncRoutes(asyncRouteList);
-      return router;
-    }
-  }
-
-  const { data } = await getAsyncRoutes();
-  handleAsyncRoutes(cloneDeep(data));
-  if (cacheEnabled) storageLocal().setItem(cacheKey, data);
+  const entries = await getCurrentNavigation();
+  handleAsyncRoutes(buildNavigationRoutes(entries));
   return router;
 }
 
@@ -296,31 +261,14 @@ function handleAliveRoute({ name }: ToRouteType, mode?: string) {
   }
 }
 
-/** 过滤后端传来的动态路由 重新生成规范路由 */
+/** Mark the RLS-filtered RouteKey routes as dynamic navigation routes. */
 function addAsyncRoutes(arrRoutes: Array<RouteRecordRaw>) {
   if (!arrRoutes || !arrRoutes.length) return;
-  const modulesRoutesKeys = Object.keys(modulesRoutes);
-  arrRoutes.forEach((v: RouteRecordRaw) => {
-    // 将backstage属性加入meta，标识此路由为后端返回路由
-    v.meta.backstage = true;
-    // 父级的redirect属性取值：如果子级存在且父级的redirect属性不存在，默认取第一个子级的path；如果子级存在且父级的redirect属性存在，取存在的redirect属性，会覆盖默认值
-    if (v?.children && v.children.length && !v.redirect)
-      v.redirect = v.children[0].path;
-    // 父级的name属性取值：如果子级存在且父级的name属性不存在，默认取第一个子级的name；如果子级存在且父级的name属性存在，取存在的name属性，会覆盖默认值（注意：测试中发现父级的name不能和子级name重复，如果重复会造成重定向无效（跳转404），所以这里给父级的name起名的时候后面会自动加上`Parent`，避免重复）
-    if (v?.children && v.children.length && !v.name)
-      v.name = (v.children[0].name as string) + "Parent";
-    if (v.meta?.frameSrc) {
-      v.component = IFrame;
-    } else {
-      // 对后端传component组件路径和不传做兼容（如果后端传component组件路径，那么path可以随便写，如果不传，component组件路径会跟path保持一致）
-      const index = v?.component
-        ? modulesRoutesKeys.findIndex(ev => ev.includes(v.component as any))
-        : modulesRoutesKeys.findIndex(ev => ev.includes(v.path));
-      v.component =
-        index >= 0 ? modulesRoutes[modulesRoutesKeys[index]] : SprintPlaceholder;
-    }
-    if (v?.children && v.children.length) {
-      addAsyncRoutes(v.children);
+  arrRoutes.forEach((route: RouteRecordRaw) => {
+    route.meta = { ...route.meta, backstage: true };
+    if (route.children?.length && !route.redirect) {
+      route.redirect = route.children[0].path;
+      addAsyncRoutes(route.children);
     }
   });
   return arrRoutes;
@@ -367,23 +315,19 @@ function hasAuth(value: string | Array<string>): boolean {
 }
 
 function handleTopMenu(route) {
-  if (route?.children && route.children.length > 1) {
-    if (route.redirect) {
-      return route.children.filter(cur => cur.path === route.redirect)[0];
-    } else {
-      return route.children[0];
-    }
+  if (route?.children?.length && !route.meta?.showParent) {
+    return route.children.find(cur => cur.path === route.redirect) ?? route.children[0];
   } else {
     return route;
   }
 }
 
 /** 获取所有菜单中的第一个菜单（顶级菜单）*/
-function getTopMenu(tag = false): menuType {
-  const topMenu = handleTopMenu(
-    usePermissionStoreHook().wholeMenus[0]?.children[0]
-  );
-  tag && useMultiTagsStoreHook().handleTags("push", topMenu);
+function getTopMenu(tag = false): menuType | undefined {
+  const firstMenu = usePermissionStoreHook().wholeMenus[0];
+  if (!firstMenu) return undefined;
+  const topMenu = firstMenu?.children?.length ? handleTopMenu(firstMenu) : firstMenu;
+  if (tag && topMenu) useMultiTagsStoreHook().handleTags("push", topMenu);
   return topMenu;
 }
 

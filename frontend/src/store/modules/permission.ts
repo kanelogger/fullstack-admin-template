@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { cloneDeep } from "@/utils/shared";
 import {
   type cacheType,
   store,
@@ -11,7 +12,7 @@ import {
 } from "../utils";
 import { useMultiTagsStoreHook } from "./multiTags";
 
-export const usePermissionStore = defineStore("pure-permission", {
+export const usePermissionStore = defineStore("permission", {
   state: () => ({
     // 静态路由生成的菜单
     constantMenus,
@@ -29,7 +30,7 @@ export const usePermissionStore = defineStore("pure-permission", {
         filterTree(ascending(this.constantMenus.concat(routes)))
       );
       this.flatteningRoutes = formatFlatteningRoutes(
-        this.constantMenus.concat(routes) as any
+        cloneDeep(this.constantMenus.concat(routes)) as any
       );
     },
     /** 监听缓存页面是否存在于标签页，不存在则删除 */

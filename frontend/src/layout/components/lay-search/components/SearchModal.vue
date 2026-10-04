@@ -1,334 +1,344 @@
 <script setup lang="ts">
-import { match } from "pinyin-pro";
-import { getConfig } from "@/config";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import SearchResult from "./SearchResult.vue";
-import SearchFooter from "./SearchFooter.vue";
-import { useNav } from "@/layout/hooks/useNav";
-import SearchHistory from "./SearchHistory.vue";
-import type { optionsItem, dragItem } from "../types";
-import { ref, computed, shallowRef, watch } from "vue";
-import { useDebounceFn, onKeyStroke } from "@vueuse/core";
+import { match } from "pinyin-pro";
+import Sortable from "sortablejs";
+import { useEventListener } from "@vueuse/core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { getConfig } from "@/config";
+import { initRouter } from "@/router/utils";
 import { usePermissionStoreHook } from "@/store/modules/permission";
-import { cloneDeep, isAllEmpty, storageLocal } from "@pureadmin/utils";
-import SearchIcon from "~icons/ri/search-line";
+import { Star, X } from "@lucide/vue";
+import SearchFooter from "./SearchFooter.vue";
 
-interface Props {
-  /** 弹窗显隐 */
-  value: boolean;
-}
+type MenuOption = {
+  path: string;
+  name?: string;
+  type?: "history" | "collect";
+  meta?: { title?: string; icon?: string };
+};
 
-interface Emits {
-  (e: "update:value", val: boolean): void;
-}
-
-const { device } = useNav();
-const emit = defineEmits<Emits>();
-const props = withDefaults(defineProps<Props>(), {});
-
+const props = defineProps<{ value: boolean }>();
+const emit = defineEmits<{ (event: "update:value", value: boolean): void }>();
 const router = useRouter();
-
-const HISTORY_TYPE = "history";
-const COLLECT_TYPE = "collect";
-const LOCALEHISTORYKEY = "menu-search-history";
-const LOCALECOLLECTKEY = "menu-search-collect";
-
+const permissionStore = usePermissionStoreHook();
+const dialog = ref<HTMLDialogElement | null>(null);
+const favoritesList = ref<HTMLElement | null>(null);
 const keyword = ref("");
-const resultRef = ref();
-const historyRef = ref();
-const scrollbarRef = ref();
-const activePath = ref("");
-const historyPath = ref("");
-const resultOptions = shallowRef([]);
-const historyOptions = shallowRef([]);
-const handleSearch = useDebounceFn(search, 300);
-const historyNum = getConfig().MenuSearchHistory;
-const inputRef = ref<HTMLInputElement | null>(null);
+const selectedIndex = ref(0);
+const history = ref<MenuOption[]>([]);
+const favorites = ref<MenuOption[]>([]);
+const menuLoading = ref(false);
+const menuError = ref("");
+let sortable: Sortable | undefined;
 
-/** 菜单树形结构 */
-const menusData = computed(() => {
-  return cloneDeep(usePermissionStoreHook().wholeMenus);
+const historyKey = "menu-search-history";
+const favoritesKey = "menu-search-collect";
+const historyLimit = Number(getConfig().MenuSearchHistory ?? 6);
+
+const menuOptions = computed<MenuOption[]>(() => {
+  const result: MenuOption[] = [];
+  const visit = (items: any[]) => {
+    for (const item of items) {
+      if (item.meta?.title && item.meta?.showLink !== false) {
+        result.push({
+          path: String(item.path ?? ""),
+          name: item.name,
+          meta: { title: String(item.meta.title), icon: item.meta.icon }
+        });
+      }
+      if (item.children?.length) visit(item.children);
+    }
+  };
+  visit(permissionStore.wholeMenus);
+  return result.filter(item => item.path);
 });
 
-const show = computed({
-  get() {
-    return props.value;
-  },
-  set(val: boolean) {
-    emit("update:value", val);
-  }
+const searchResults = computed(() => {
+  const term = keyword.value.trim().toLocaleLowerCase();
+  if (!term) return [];
+  return menuOptions.value.filter(item => {
+    const title = item.meta?.title?.toLocaleLowerCase() ?? "";
+    return title.includes(term) || Boolean(match(title, term)?.length);
+  });
+});
+
+const visibleOptions = computed<MenuOption[]>(() => {
+  if (keyword.value.trim()) return searchResults.value;
+  return [...history.value, ...favorites.value];
 });
 
 watch(
   () => props.value,
-  newValue => {
-    if (newValue) getHistory();
+  async open => {
+    if (open) {
+      loadSavedItems();
+      await nextTick();
+      if (dialog.value && !dialog.value.open) dialog.value.showModal();
+      dialog.value?.querySelector<HTMLInputElement>("input")?.focus();
+    } else if (dialog.value?.open) {
+      dialog.value.close();
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => favorites.value.map(item => item.path).join("|"),
+  async () => {
+    await nextTick();
+    sortable?.destroy();
+    sortable = undefined;
+    if (favoritesList.value && favorites.value.length > 1) {
+      sortable = Sortable.create(favoritesList.value, {
+        animation: 140,
+        draggable: "[data-favorite-path]",
+        onEnd: ({ oldIndex, newIndex }) => {
+          if (oldIndex == null || newIndex == null || oldIndex === newIndex) return;
+          const reordered = [...favorites.value];
+          const [item] = reordered.splice(oldIndex, 1);
+          if (item) reordered.splice(newIndex, 0, item);
+          favorites.value = reordered;
+          persistItems(favoritesKey, favorites.value);
+        }
+      });
+    }
   }
 );
 
-const showSearchResult = computed(() => {
-  return keyword.value && resultOptions.value.length > 0;
-});
-
-const showSearchHistory = computed(() => {
-  return !keyword.value && historyOptions.value.length > 0;
-});
-
-const showEmpty = computed(() => {
-  return (
-    (!keyword.value && historyOptions.value.length === 0) ||
-    (keyword.value && resultOptions.value.length === 0)
-  );
-});
-
-function getStorageItem(key) {
-  return storageLocal().getItem<optionsItem[]>(key) || [];
-}
-
-function setStorageItem(key, value) {
-  storageLocal().setItem(key, value);
-}
-
-/** 将菜单树形结构扁平化为一维数组，用于菜单查询 */
-function flatTree(arr) {
-  const res = [];
-  function deep(arr) {
-    arr.forEach(item => {
-      res.push(item);
-      item.children && deep(item.children);
-    });
+useEventListener(dialog, "keydown", (event: KeyboardEvent) => {
+  if (!props.value) return;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (visibleOptions.value.length === 0) return;
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    selectedIndex.value =
+      (selectedIndex.value + direction + visibleOptions.value.length) %
+      visibleOptions.value.length;
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    const selected = visibleOptions.value[selectedIndex.value];
+    if (selected) openOption(selected);
+  } else if (event.key === "Escape") {
+    close();
   }
-  deep(arr);
-  return res;
-}
+});
 
-/** 查询 */
-function search() {
-  const flatMenusData = flatTree(menusData.value);
-  resultOptions.value = flatMenusData.filter(menu =>
-    keyword.value
-      ? menu.meta?.title
-          .toLocaleLowerCase()
-          .includes(keyword.value.toLocaleLowerCase().trim()) ||
-        !isAllEmpty(
-          match(
-            menu.meta?.title.toLocaleLowerCase(),
-            keyword.value.toLocaleLowerCase().trim()
-          )
+useEventListener(dialog, "click", (event: MouseEvent) => {
+  if (!props.value || event.target !== dialog.value || !dialog.value) return;
+  const rect = dialog.value.getBoundingClientRect();
+  if (
+    event.clientX < rect.left ||
+    event.clientX > rect.right ||
+    event.clientY < rect.top ||
+    event.clientY > rect.bottom
+  ) {
+    close();
+  }
+});
+
+function readSavedItems(key: string): MenuOption[] {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (item): item is MenuOption =>
+            typeof item?.path === "string" &&
+            typeof item?.meta?.title === "string"
         )
-      : false
-  );
-  activePath.value =
-    resultOptions.value?.length > 0 ? resultOptions.value[0].path : "";
-}
-
-function handleClose() {
-  show.value = false;
-  /** 延时处理防止用户看到某些操作 */
-  setTimeout(() => {
-    resultOptions.value = [];
-    historyPath.value = "";
-    keyword.value = "";
-  }, 200);
-}
-
-function scrollTo(index) {
-  const ref = resultOptions.value.length ? resultRef.value : historyRef.value;
-  const scrollTop = ref.handleScroll(index);
-  scrollbarRef.value.setScrollTop(scrollTop);
-}
-
-/** 获取当前选项和路径 */
-function getCurrentOptionsAndPath() {
-  const isResultOptions = resultOptions.value.length > 0;
-  const options = isResultOptions ? resultOptions.value : historyOptions.value;
-  const currentPath = isResultOptions ? activePath.value : historyPath.value;
-  return { options, currentPath, isResultOptions };
-}
-
-/** 更新路径并滚动到指定项 */
-function updatePathAndScroll(newIndex, isResultOptions) {
-  if (isResultOptions) {
-    activePath.value = resultOptions.value[newIndex].path;
-  } else {
-    historyPath.value = historyOptions.value[newIndex].path;
-  }
-  scrollTo(newIndex);
-}
-
-/** key up */
-function handleUp() {
-  const { options, currentPath, isResultOptions } = getCurrentOptionsAndPath();
-  if (options.length === 0) return;
-  const index = options.findIndex(item => item.path === currentPath);
-  const prevIndex = (index - 1 + options.length) % options.length;
-  updatePathAndScroll(prevIndex, isResultOptions);
-}
-
-/** key down */
-function handleDown() {
-  const { options, currentPath, isResultOptions } = getCurrentOptionsAndPath();
-  if (options.length === 0) return;
-  const index = options.findIndex(item => item.path === currentPath);
-  const nextIndex = (index + 1) % options.length;
-  updatePathAndScroll(nextIndex, isResultOptions);
-}
-
-/** key enter */
-function handleEnter() {
-  const { options, currentPath, isResultOptions } = getCurrentOptionsAndPath();
-  if (options.length === 0 || currentPath === "") return;
-  const index = options.findIndex(item => item.path === currentPath);
-  if (index === -1) return;
-  if (isResultOptions) {
-    saveHistory();
-  } else {
-    updateHistory();
-  }
-  router.push(options[index].path);
-  handleClose();
-}
-
-/** 删除历史记录 */
-function handleDelete(item) {
-  const key = item.type === HISTORY_TYPE ? LOCALEHISTORYKEY : LOCALECOLLECTKEY;
-  let list = getStorageItem(key);
-  list = list.filter(listItem => listItem.path !== item.path);
-  setStorageItem(key, list);
-  getHistory();
-}
-
-/** 收藏历史记录 */
-function handleCollect(item) {
-  let searchHistoryList = getStorageItem(LOCALEHISTORYKEY);
-  let searchCollectList = getStorageItem(LOCALECOLLECTKEY);
-  searchHistoryList = searchHistoryList.filter(
-    historyItem => historyItem.path !== item.path
-  );
-  setStorageItem(LOCALEHISTORYKEY, searchHistoryList);
-  if (!searchCollectList.some(collectItem => collectItem.path === item.path)) {
-    searchCollectList.unshift({ ...item, type: COLLECT_TYPE });
-    setStorageItem(LOCALECOLLECTKEY, searchCollectList);
-  }
-  getHistory();
-}
-
-/** 存储搜索记录 */
-function saveHistory() {
-  const { path, meta } = resultOptions.value.find(
-    item => item.path === activePath.value
-  );
-  const searchHistoryList = getStorageItem(LOCALEHISTORYKEY);
-  const searchCollectList = getStorageItem(LOCALECOLLECTKEY);
-  const isCollected = searchCollectList.some(item => item.path === path);
-  const existingIndex = searchHistoryList.findIndex(item => item.path === path);
-  if (!isCollected) {
-    if (existingIndex !== -1) searchHistoryList.splice(existingIndex, 1);
-    if (searchHistoryList.length >= historyNum) searchHistoryList.pop();
-    searchHistoryList.unshift({ path, meta, type: HISTORY_TYPE });
-    storageLocal().setItem(LOCALEHISTORYKEY, searchHistoryList);
+      : [];
+  } catch {
+    return [];
   }
 }
 
-/** 更新存储的搜索记录 */
-function updateHistory() {
-  let searchHistoryList = getStorageItem(LOCALEHISTORYKEY);
-  const historyIndex = searchHistoryList.findIndex(
-    item => item.path === historyPath.value
-  );
-  if (historyIndex !== -1) {
-    const [historyItem] = searchHistoryList.splice(historyIndex, 1);
-    searchHistoryList.unshift(historyItem);
-    setStorageItem(LOCALEHISTORYKEY, searchHistoryList);
+function persistItems(key: string, items: MenuOption[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    // Search still works if browser storage is unavailable.
   }
 }
 
-/** 获取本地历史记录 */
-function getHistory() {
-  const searchHistoryList = getStorageItem(LOCALEHISTORYKEY);
-  const searchCollectList = getStorageItem(LOCALECOLLECTKEY);
-  historyOptions.value = [...searchHistoryList, ...searchCollectList];
-  historyPath.value = historyOptions.value[0]?.path;
+function loadSavedItems() {
+  history.value = readSavedItems(historyKey);
+  favorites.value = readSavedItems(favoritesKey);
+  selectedIndex.value = 0;
 }
 
-/** 拖拽改变收藏顺序 */
-function handleDrag(item: dragItem) {
-  const searchCollectList = getStorageItem(LOCALECOLLECTKEY);
-  const [reorderedItem] = searchCollectList.splice(item.oldIndex, 1);
-  searchCollectList.splice(item.newIndex, 0, reorderedItem);
-  storageLocal().setItem(LOCALECOLLECTKEY, searchCollectList);
-  historyOptions.value = [
-    ...getStorageItem(LOCALEHISTORYKEY),
-    ...getStorageItem(LOCALECOLLECTKEY)
+function close() {
+  emit("update:value", false);
+  keyword.value = "";
+  selectedIndex.value = 0;
+}
+
+function addHistory(item: MenuOption) {
+  if (favorites.value.some(favorite => favorite.path === item.path)) return;
+  history.value = [
+    { path: item.path, name: item.name, meta: item.meta, type: "history" as const },
+    ...history.value.filter(entry => entry.path !== item.path)
+  ].slice(0, historyLimit);
+  persistItems(historyKey, history.value);
+}
+
+function openOption(item: MenuOption) {
+  if (keyword.value.trim() || !item.type) addHistory(item);
+  else if (item.type === "history") {
+    history.value = [item, ...history.value.filter(entry => entry.path !== item.path)];
+    persistItems(historyKey, history.value);
+  }
+  close();
+  void router.push(item.path);
+}
+
+function collect(item: MenuOption) {
+  history.value = history.value.filter(entry => entry.path !== item.path);
+  favorites.value = [
+    { ...item, type: "collect" },
+    ...favorites.value.filter(entry => entry.path !== item.path)
   ];
-  historyPath.value = reorderedItem.path;
+  persistItems(historyKey, history.value);
+  persistItems(favoritesKey, favorites.value);
 }
 
-onKeyStroke("Enter", handleEnter);
-onKeyStroke("ArrowUp", handleUp);
-onKeyStroke("ArrowDown", handleDown);
+function removeItem(item: MenuOption) {
+  if (item.type === "collect") {
+    favorites.value = favorites.value.filter(entry => entry.path !== item.path);
+    persistItems(favoritesKey, favorites.value);
+  } else {
+    history.value = history.value.filter(entry => entry.path !== item.path);
+    persistItems(historyKey, history.value);
+  }
+}
+
+async function retryMenus() {
+  menuLoading.value = true;
+  menuError.value = "";
+  try {
+    await initRouter();
+    if (!permissionStore.wholeMenus.length) {
+      menuError.value = "账号没有已授权的可搜索菜单。";
+    }
+  } catch (error) {
+    menuError.value = error instanceof Error ? error.message : "菜单加载失败。";
+  } finally {
+    menuLoading.value = false;
+  }
+}
+
+function handleInput() {
+  selectedIndex.value = 0;
+}
+
+onBeforeUnmount(() => sortable?.destroy());
 </script>
 
 <template>
-  <el-dialog
-    v-model="show"
-    top="5vh"
-    class="pure-search-dialog"
-    :show-close="false"
-    :width="device === 'mobile' ? '80vw' : '40vw'"
-    :before-close="handleClose"
-    :style="{
-      borderRadius: '6px'
-    }"
-    append-to-body
-    @opened="inputRef.focus()"
-    @closed="inputRef.blur()"
+  <dialog
+    ref="dialog"
+    class="w-[min(42rem,92vw)] max-w-none rounded-xl border border-border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/50"
+    aria-label="搜索菜单"
+    @cancel.prevent="close"
+    @close="emit('update:value', false)"
   >
-    <el-input
-      ref="inputRef"
-      v-model="keyword"
-      size="large"
-      clearable
-      placeholder="搜索菜单（支持拼音搜索）"
-      @input="handleSearch"
-    >
-      <template #prefix>
-        <IconifyIconOffline
-          :icon="SearchIcon"
-          class="text-primary w-[24px] h-[24px]"
-        />
-      </template>
-    </el-input>
-    <div class="search-content">
-      <el-scrollbar ref="scrollbarRef" max-height="calc(90vh - 140px)">
-        <el-empty v-if="showEmpty" description="暂无搜索结果" />
-        <SearchHistory
-          v-if="showSearchHistory"
-          ref="historyRef"
-          v-model:value="historyPath"
-          :options="historyOptions"
-          @click="handleEnter"
-          @delete="handleDelete"
-          @collect="handleCollect"
-          @drag="handleDrag"
-        />
-        <SearchResult
-          v-if="showSearchResult"
-          ref="resultRef"
-          v-model:value="activePath"
-          :options="resultOptions"
-          @click="handleEnter"
-        />
-      </el-scrollbar>
+    <div class="flex items-center gap-3 border-b border-border p-4">
+      <span aria-hidden="true" class="text-muted-foreground">⌕</span>
+      <Input
+        ref="input"
+        v-model="keyword"
+        type="search"
+        class="h-11 border-0 px-0 shadow-none focus-visible:ring-0"
+        placeholder="搜索菜单（支持拼音）"
+        aria-label="搜索菜单"
+        @input="handleInput"
+      />
+      <kbd class="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">ESC</kbd>
     </div>
-    <template #footer>
-      <SearchFooter :total="resultOptions.length" />
-    </template>
-  </el-dialog>
-</template>
 
-<style lang="scss" scoped>
-.search-content {
-  margin-top: 12px;
-}
-</style>
+    <div class="max-h-[min(62vh,34rem)] overflow-y-auto p-4">
+      <div v-if="menuLoading" role="status" class="space-y-3">
+        <div class="h-11 animate-pulse rounded-md bg-muted" />
+        <p class="text-sm text-muted-foreground">正在加载菜单…</p>
+      </div>
+      <div v-else-if="menuError" role="alert" class="space-y-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+        <p class="text-sm text-destructive">{{ menuError }}</p>
+        <Button type="button" size="sm" variant="outline" @click="retryMenus">重试</Button>
+      </div>
+      <div v-else-if="menuOptions.length === 0" role="status" class="space-y-3 rounded-md border border-border p-4 text-sm text-muted-foreground">
+        <p>菜单尚未加载或当前账号没有可用菜单。</p>
+        <Button type="button" size="sm" variant="outline" @click="retryMenus">重新加载菜单</Button>
+      </div>
+      <div v-else-if="keyword.trim() && searchResults.length === 0" role="status" class="py-10 text-center text-sm text-muted-foreground">
+        没有匹配的菜单，试试菜单名称或拼音。
+      </div>
+      <div v-else-if="!keyword.trim() && visibleOptions.length === 0" role="status" class="py-10 text-center text-sm text-muted-foreground">
+        暂无搜索历史或收藏；输入关键词查找菜单。
+      </div>
+      <template v-else>
+        <section v-if="keyword.trim()" aria-label="搜索结果">
+          <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">搜索结果</h2>
+          <ul class="space-y-1">
+            <li v-for="(item, index) in searchResults" :key="item.path">
+              <button
+                type="button"
+                class="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                :class="selectedIndex === index ? 'bg-accent text-accent-foreground' : ''"
+                @mouseenter="selectedIndex = index"
+                @click="openOption(item)"
+              >
+                <span class="min-w-0 flex-1 truncate">{{ item.meta?.title }}</span>
+                <kbd class="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">↵</kbd>
+              </button>
+            </li>
+          </ul>
+        </section>
+        <section v-else-if="history.length" aria-label="搜索历史">
+          <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">搜索历史</h2>
+          <ul class="space-y-1">
+            <li v-for="(item, index) in history" :key="item.path">
+              <div
+                class="flex min-h-11 items-center gap-1 rounded-md pr-1 text-sm transition-colors hover:bg-accent"
+                :class="selectedIndex === index ? 'bg-accent text-accent-foreground' : ''"
+                @mouseenter="selectedIndex = index"
+              >
+                <button type="button" class="min-w-0 flex-1 truncate px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openOption(item)">
+                  {{ item.meta?.title }}
+                </button>
+                <Button type="button" variant="ghost" size="icon" class="size-8" aria-label="收藏菜单" @click="collect(item)">
+                  <Star class="size-4" aria-hidden="true" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" class="size-8" aria-label="删除搜索记录" @click="removeItem(item)">
+                  <X class="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </li>
+          </ul>
+        </section>
+        <section v-if="!keyword.trim() && favorites.length" aria-label="收藏菜单" class="mt-5">
+          <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">收藏</h2>
+          <ul ref="favoritesList" class="space-y-1">
+            <li v-for="(item, index) in favorites" :key="item.path" :data-favorite-path="item.path">
+              <div
+                class="flex min-h-11 items-center gap-1 rounded-md pr-1 text-sm transition-colors hover:bg-accent"
+                :class="selectedIndex === history.length + index ? 'bg-accent text-accent-foreground' : ''"
+                @mouseenter="selectedIndex = history.length + index"
+              >
+                <button type="button" class="min-w-0 flex-1 truncate px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openOption(item)">
+                  {{ item.meta?.title }}
+                </button>
+                <Button type="button" variant="ghost" size="icon" class="size-8" aria-label="取消收藏" @click="removeItem(item)">
+                  <X class="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </template>
+    </div>
+    <footer class="border-t border-border px-4 py-3">
+      <SearchFooter :total="keyword.trim() ? searchResults.length : visibleOptions.length" />
+    </footer>
+  </dialog>
+</template>

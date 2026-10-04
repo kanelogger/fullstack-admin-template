@@ -1,10 +1,15 @@
 # Agent 能力探测
 
-适用范围：当前检出工作区。静态来源核实于 2026-09-29，负责人：项目维护者。工具链、依赖、Agent 宿主或权限变化时刷新；本机探测结果写入 `.agents/state/environment.json`，不提交。
+适用范围：当前检出工作区。静态来源核实于 2026-10-01，负责人：项目维护者。工具链、依赖、Agent 宿主或权限变化时刷新；本机探测结果写入 `.agents/state/environment.json`，不提交。
 
 | 能力 | 来源与安全探测 | 可用条件 |
 | --- | --- | --- |
 | Node / 包管理器 | `node --version`、`pnpm --version`、`npm --version`；约束见前后端包清单 | 版本符合配置；仅查版本不证明依赖、构建或服务可用 |
+| Volta | `volta --version`、`volta which node`、`volta which pnpm`、`volta which npm` | 只能证明对应二进制可见；项目版本以最近的 `package.json#volta` 为准 |
+| yrm registry 工具 | `yrm --version`、`yrm current` | registry 切换会改用户配置；不要把本机 registry 或 URL 当成仓库事实 |
+| pyenv / Conda | `pyenv --version`、`pyenv version`、`conda --version`、`conda env list` | 当前解释器和 conda 环境名可探测；不据此推断 CUDA/MPS 或框架可用 |
+| OrbStack / Docker | `orb status`、`docker info` | OrbStack 状态与 Docker API 可达性分别记录；CLI 存在不证明容器 runtime 健康 |
+| Supabase CLI / Local 栈 | 在 `frontend/` 执行 `./node_modules/.bin/supabase --version`、`supabase status`；运行状态检查时屏蔽本地 key 输出 | CLI 版本、config 解析、容器健康、数据库 lint 和 migration 测试分别验证；CLI 可执行不代表 Local 栈健康 |
 | Git / 工作区 | `git --version`、`git rev-parse --show-toplevel` | 确认当前检出根；提交规则见 `rules/git.md` |
 | 前后端依赖 | 在对应目录运行 `pnpm list --depth 0` / `npm ls --depth=0`，随后执行相关脚本 | `node_modules` 存在不代表安装完整；脚本必须真实成功 |
 | MySQL 客户端 | `mysql --version` | 客户端存在不代表服务健康；连接检查见 [服务说明](services.md) |

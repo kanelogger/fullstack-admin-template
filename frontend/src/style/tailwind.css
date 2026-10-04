@@ -50,9 +50,9 @@
 }
 
 @theme {
-  --color-bg_color: var(--el-bg-color);
-  --color-text_color_primary: var(--el-text-color-primary);
-  --color-text_color_regular: var(--el-text-color-regular);
+  --color-bg_color: var(--background);
+  --color-text_color_primary: var(--foreground);
+  --color-text_color_regular: var(--muted-foreground);
 }
 
 @theme inline {

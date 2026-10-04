@@ -1,6 +1,4 @@
-import { pool } from "../db/mysql";
 import { AppError } from "../utils/errors";
-import { verifyPassword } from "../utils/password";
 import {
   signAccessToken,
   signRefreshToken,
@@ -8,30 +6,7 @@ import {
   type JwtPayload,
 } from "../utils/jwt";
 import config from "../config";
-import {
-  findUserByLoginName,
-  getUserRoles,
-  updateLastLoginAt,
-  type UserRow,
-} from "./users";
-import Logger from "../loaders/logger";
-
-export interface LoginInput {
-  username: string;
-  password: string;
-}
-
-export interface LoginResult {
-  userId: number;
-  username: string;
-  nickname: string;
-  avatar: string | null;
-  roles: string[];
-  permissions: string[];
-  accessToken: string;
-  refreshToken: string;
-  expires: string;
-}
+import { getUserById } from "./users";
 
 export interface TokenResult {
   accessToken: string;
@@ -39,35 +14,24 @@ export interface TokenResult {
   expires: string;
 }
 
-/**
- * 执行登录校验
- * 失败时抛出 AppError，成功时返回 Token 结果
- */
-export async function login(
-  input: LoginInput,
-  clientInfo: { ip?: string; userAgent?: string }
-): Promise<LoginResult> {
-  const user = await findUserByLoginName(input.username);
+function hasPasswordAuthenticationMethod(accessToken: string): boolean {
+  const encodedPayload = accessToken.split(".")[1];
+  if (!encodedPayload) return false;
 
-  if (!user) {
-    await recordLoginLog(null, input.username, 0, "账号不存在", clientInfo);
-    throw new AppError("INVALID_CREDENTIALS", "用户名或密码错误");
+  try {
+    const claims = JSON.parse(
+      Buffer.from(encodedPayload, "base64url").toString("utf8")
+    ) as { amr?: unknown };
+    return Array.isArray(claims.amr) && claims.amr.some(
+      method =>
+        method !== null &&
+        typeof method === "object" &&
+        "method" in method &&
+        method.method === "password"
+    );
+  } catch {
+    return false;
   }
-
-  if (user.status === 0) {
-    await recordLoginLog(user.id, input.username, 0, "账号已停用", clientInfo);
-    throw new AppError("USER_DISABLED", "账号已停用，请联系管理员");
-  }
-
-  if (!verifyPassword(input.password, user.password_hash)) {
-    await recordLoginLog(user.id, input.username, 0, "密码错误", clientInfo);
-    throw new AppError("INVALID_CREDENTIALS", "用户名或密码错误");
-  }
-
-  await updateLastLoginAt(user.id);
-  await recordLoginLog(user.id, input.username, 1, undefined, clientInfo);
-
-  return buildLoginResult(user);
 }
 
 export async function refreshAccessToken(
@@ -87,21 +51,86 @@ export async function refreshAccessToken(
   return buildTokenResult(payload.userId, payload.username);
 }
 
-async function buildLoginResult(user: UserRow): Promise<LoginResult> {
-  const roles = await getUserRoles(user.id);
-  const tokenResult = buildTokenResult(user.id, user.login_name);
+/** Verify a Supabase session, resolve its own BIGINT profile ID, then issue a
+ * short-lived JWT so unmigrated Fastify modules can keep serving the user. */
+export async function exchangeSupabaseSession(
+  accessToken: string
+): Promise<TokenResult> {
+  if (!config.supabaseUrl || !config.supabasePublishableKey) {
+    throw new AppError("INTERNAL_ERROR", "Supabase 会话桥接尚未配置");
+  }
 
-  return {
-    userId: user.id,
-    username: user.login_name,
-    nickname: user.display_name,
-    avatar: user.avatar_url,
-    roles: roles.map((r) => r.roleCode),
-    permissions: [],
-    accessToken: tokenResult.accessToken,
-    refreshToken: tokenResult.refreshToken,
-    expires: tokenResult.expires,
-  };
+  let authResponse: Response;
+  try {
+    authResponse = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: config.supabasePublishableKey,
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+  } catch {
+    throw new AppError("INTERNAL_ERROR", "Supabase 身份服务暂不可用");
+  }
+
+  if (authResponse.status === 401 || authResponse.status === 403) {
+    throw new AppError("UNAUTHORIZED", "Supabase 会话无效或已过期");
+  }
+  if (!authResponse.ok) {
+    throw new AppError("INTERNAL_ERROR", "Supabase 身份校验失败");
+  }
+
+  const authUser = await authResponse.json() as { id?: unknown };
+  if (typeof authUser.id !== "string") {
+    throw new AppError("UNAUTHORIZED", "Supabase 会话无效");
+  }
+  // The Auth endpoint has other session methods (for example email OTP). The
+  // user endpoint above verifies the JWT signature; accept only password AMR
+  // before issuing a legacy token to old Fastify modules.
+  if (!hasPasswordAuthenticationMethod(accessToken)) {
+    throw new AppError("UNAUTHORIZED", "仅支持账号密码登录创建的会话");
+  }
+
+  let profileResponse: Response;
+  try {
+    profileResponse = await fetch(
+      `${config.supabaseUrl}/rest/v1/rpc/current_business_user_id`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.supabasePublishableKey,
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+  } catch {
+    throw new AppError("INTERNAL_ERROR", "Supabase 用户映射服务暂不可用");
+  }
+
+  if (profileResponse.status === 401 || profileResponse.status === 403) {
+    throw new AppError("UNAUTHORIZED", "Supabase 会话无效或已过期");
+  }
+  if (!profileResponse.ok) {
+    throw new AppError("INTERNAL_ERROR", "Supabase 用户映射失败");
+  }
+
+  const businessUserId = await profileResponse.json() as unknown;
+  if (typeof businessUserId !== "string" || !/^[1-9]\d*$/.test(businessUserId)) {
+    throw new AppError("UNAUTHORIZED", "该 Supabase 账号尚未映射到业务用户");
+  }
+
+  const userId = Number(businessUserId);
+  if (!Number.isSafeInteger(userId)) {
+    throw new AppError("CONFLICT", "该业务用户 ID 暂不受旧模块兼容接口支持");
+  }
+
+  const user = await getUserById(userId);
+  if (!user || user.status !== 1) {
+    throw new AppError("USER_DISABLED", "业务账号不存在或已停用");
+  }
+
+  return buildTokenResult(user.id, user.login_name);
 }
 
 function buildTokenResult(userId: number, username: string): TokenResult {
@@ -115,30 +144,4 @@ function buildTokenResult(userId: number, username: string): TokenResult {
   ).toISOString();
 
   return { accessToken, refreshToken, expires };
-}
-
-async function recordLoginLog(
-  userId: number | null,
-  loginName: string,
-  loginResult: 0 | 1,
-  failureReason?: string,
-  clientInfo: { ip?: string; userAgent?: string } = {}
-): Promise<void> {
-  try {
-    await pool.execute(
-      `INSERT INTO login_logs
-       (user_id, login_name, login_ip, user_agent, login_result, failure_reason, logged_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        userId,
-        loginName,
-        clientInfo.ip ?? null,
-        clientInfo.userAgent ?? null,
-        loginResult,
-        failureReason ?? null,
-      ]
-    );
-  } catch (err) {
-    Logger.error("记录登录日志失败: %o", err);
-  }
 }

@@ -84,7 +84,7 @@ INSERT INTO `menus` (`id`, `menu_code`, `menu_name`, `parent_id`, `icon`, `sort_
 -- 7. 角色菜单授权
 --    SUPER_ADMIN 拥有全部启用菜单
 --    OPERATOR 拥有首页、运营管理、个人中心
---    COMMON_USER 拥有首页、个人中心
+--    COMMON_USER 拥有首页、消息中心、个人中心
 -- ---------------------------------------------------------
 INSERT INTO `role_menus` (`role_id`, `menu_id`)
 SELECT 1, id FROM `menus` WHERE `deleted` = 0;
@@ -98,6 +98,8 @@ INSERT INTO `role_menus` (`role_id`, `menu_id`) VALUES
 (2, 18),
 (2, 19),
 (3, 1),
+(3, 10),
+(3, 11),
 (3, 17),
 (3, 18),
 (3, 19);

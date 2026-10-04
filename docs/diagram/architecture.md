@@ -82,3 +82,5 @@ AI Engineering
 ## 三条关键链路
 
 **调用链（主链路）**：Vue 3 SPA → Zod 校验/类型收口 → Supabase 各服务。读写同路；提交侧载荷先过运行时校验，非法数据进不了后端。契约层的改动波及面最大——Schema、前端调用点、后端实现必须同步。
+
+**认证链路**：应用登录入口只提供 `login_name` + 密码。迁移期账号由 Edge Function 映射到 Supabase Auth 已验证邮箱并验证密码，再将 Auth Session 登记到私有白名单；浏览器不得直接调用 Auth 密码登录。RLS 与 Fastify 旧 Token bridge 同时要求 JWT `amr=password` 和已登记的 Session。邮箱只用于密码重置；本地 Auth 全局及 email provider 公共注册均关闭。应用不提供短信、邮箱验证码/魔法链接登录、OAuth、SSO 或 Passkey。底层 recovery OTP 保留用于密码重置，但不能访问业务资料或换取旧 JWT；服务端私有表保存重置请求前的 Auth 密码哈希快照，只有哈希确实变化后，才可清除强制重置标记；完成后立即退出。

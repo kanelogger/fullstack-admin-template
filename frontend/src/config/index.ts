@@ -1,4 +1,3 @@
-import axios from "axios";
 import type { App } from "vue";
 
 let config: object = {};
@@ -29,11 +28,12 @@ const getConfig = (key?: string): PlatformConfigs => {
 /** 获取项目动态全局配置 */
 export const getPlatformConfig = async (app: App): Promise<undefined> => {
   app.config.globalProperties.$config = getConfig();
-  return axios({
-    method: "get",
-    url: `${VITE_PUBLIC_PATH}platform-config.json`
-  })
-    .then(({ data: config }) => {
+  return fetch(`${VITE_PUBLIC_PATH}platform-config.json`)
+    .then(async response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then(config => {
       let $config = app.config.globalProperties.$config;
       // 自动注入系统配置
       if (app && $config && typeof config === "object") {

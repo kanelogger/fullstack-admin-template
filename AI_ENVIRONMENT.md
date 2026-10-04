@@ -9,6 +9,7 @@
 | 确认工具、Skill、Connector 和权限 | [能力探测](docs/agent-environment/capabilities.md) |
 | 从子目录启动、worktree、并发状态、网络或文件访问 | [网络与文件系统](docs/agent-environment/network-filesystem.md) |
 | CI、发布和环境差异 | [环境对齐](docs/agent-environment/ci-parity.md) |
+| 安装或切换本机工具链 | [本机开发工具链](docs/agent-environment/local-toolchain.md) |
 | 恢复目标、验收条件和阻塞 | [任务记录](tasks/README.md)、[工作流](workflow/README.md) |
 | 创建、重构或审计 Agent 规则 | [agents-maintenance](.agents/skills/agents-maintenance/SKILL.md) |
 
@@ -25,4 +26,4 @@
 
 未知写 `unknown`，不适用写 `not-applicable`。运行态记录至少包含 `scope`、`owner`、`observed`、`evidence`、`verified_at`、`refresh_when`、`status`；无有效探测时不能从旧会话继承 `healthy`。
 
-当前没有测试/E2E、CI、部署、MCP 或 Hook 入口。这些是尚未配置的能力；新增时同步登记来源、权限、副作用和验证方式。
+当前有 Vitest 契约测试、登录页 Playwright 冒烟和 Supabase pgTAP 基础测试；真实认证与业务路径、CI、部署、MCP 和 Hook 仍未配置。新增时同步登记来源、权限、副作用和验证方式。

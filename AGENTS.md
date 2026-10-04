@@ -1,6 +1,6 @@
 # 项目
 
-全栈管理后台模板：Vue 3 + Vue Router + Pinia + shadcn-vue + Tailwind CSS v4 + VueUse 前端，Fastify + MySQL 后端，内置用户/角色/菜单/部门/字典/日志/消息/附件等基础模块，用于快速启动新的管理后台项目。前端 UI 正在分阶段迁移；当前应用壳和未迁移页面仍使用 Element Plus 及既有 PureAdmin 派生工具。最重要的质量目标：前后端类型检查通过，登录与核心页面真实可运行。
+全栈管理后台模板：Vue 3 + Vue Router + Pinia + shadcn-vue + Tailwind CSS v4 + VueUse 前端，Fastify + MySQL 后端，内置用户/角色/菜单/部门/字典/日志/消息/附件等基础模块，用于快速启动新的管理后台项目。前端 UI 正在分阶段迁移；侧栏、顶栏、面包屑、多标签、搜索、通知及已迁移页面使用 shadcn-vue，剩余旧页面仍使用 Element Plus 与既有 PureAdmin 派生工具。最重要的质量目标：前后端类型检查通过，登录与核心页面真实可运行。
 
 ## 工具与验证
 
@@ -8,7 +8,7 @@
 - 启动前端：`cd frontend && pnpm install && pnpm dev`（端口 8848，`/api` 由 Vite 代理到 `http://localhost:3000`）。
 - 启动后端：`cd backend && npm install && npm run dev`（端口 3000；需先准备 MySQL，执行 `backend/db/schema.sql` 和 `backend/db/seed.sql`，并按 `backend/.env.example` 创建 `.env`）。
 - 类型检查：前端 `cd frontend && pnpm typecheck`；后端 `cd backend && npm run typecheck`。
-- 测试：项目暂无自动化测试和 E2E。行为变更的验证分层与报告要求见 `rules/testing.md`；新增关键用户路径时优先为其建立 E2E。
+- 测试：前端已有 Vitest 契约测试；Playwright 覆盖账号密码登录入口、应用壳、消息、用户/角色/菜单、组织、字典/配置、附件、三类审计日志、仪表盘及动态导航（业务页面使用隔离 mock）；Supabase Local pgTAP/test:db 检查 Auth/RLS、审计写入、dashboard 权限、私有附件 Storage、消息 Realtime 与导入幂等。真实慢刷新竞态与剩余浏览器验收仍待完成，见 `rules/testing.md`。
 
 ## 仓库级约束
 
@@ -20,7 +20,7 @@
 
 ## 稳定领域概念
 
-- `动态路由`：菜单和路由由后端按角色下发（`backend/src/routes/async-routes.ts`、`menu-management`），前端登录后拉取生成路由；按钮级权限用前端 `v-perms` / `v-auth` 指令。改权限链路时前后端必须一起改。
+- `动态路由`：已迁移的应用导航从 Supabase `current_navigation()` 读取 RLS 过滤的菜单，前端只按固定 RouteKey registry 注册页面；Fastify `async-routes` 保留给尚未迁移的旧客户端。按钮级权限用前端 `v-perms` / `v-auth` 指令。改权限链路时同步更新 Supabase RLS/RPC 与前端守卫。
 
 ## 状态恢复
 

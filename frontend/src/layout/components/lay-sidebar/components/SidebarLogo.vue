@@ -1,72 +1,23 @@
 <script setup lang="ts">
+import { getConfig } from "@/config";
 import { getTopMenu } from "@/router/utils";
-import { useNav } from "@/layout/hooks/useNav";
 
-defineProps({
-  collapse: Boolean
-});
-
-const { title, getLogo } = useNav();
+defineProps<{ collapse?: boolean }>();
+const title = getConfig().Title || "Admin";
+const homePath = getTopMenu()?.path ?? "/welcome";
 </script>
 
 <template>
-  <div class="sidebar-logo-container" :class="{ collapses: collapse }">
-    <transition name="sidebarLogoFade">
-      <router-link
-        v-if="collapse"
-        key="collapse"
-        :title="title"
-        class="sidebar-logo-link"
-        :to="getTopMenu()?.path ?? '/'"
-      >
-        <img :src="getLogo()" alt="logo" />
-        <span class="sidebar-title">{{ title }}</span>
-      </router-link>
-      <router-link
-        v-else
-        key="expand"
-        :title="title"
-        class="sidebar-logo-link"
-        :to="getTopMenu()?.path ?? '/'"
-      >
-        <img :src="getLogo()" alt="logo" />
-        <span class="sidebar-title">{{ title }}</span>
-      </router-link>
-    </transition>
+  <div class="sidebar-logo-container flex h-12 shrink-0 items-center overflow-hidden border-b border-border px-3">
+    <RouterLink
+      :to="homePath"
+      :title="title"
+      class="flex min-w-0 items-center gap-3 font-semibold text-foreground"
+    >
+      <span class="grid size-8 shrink-0 place-items-center rounded-md bg-primary text-sm text-primary-foreground" aria-hidden="true">
+        {{ title.slice(0, 1).toUpperCase() }}
+      </span>
+      <span v-if="!collapse" class="truncate">{{ title }}</span>
+    </RouterLink>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.sidebar-logo-container {
-  position: relative;
-  width: 100%;
-  height: 48px;
-  overflow: hidden;
-
-  .sidebar-logo-link {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    height: 100%;
-    padding-left: 10px;
-
-    img {
-      display: inline-block;
-      height: 32px;
-    }
-
-    .sidebar-title {
-      display: inline-block;
-      height: 32px;
-      margin: 2px 0 0 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: 18px;
-      font-weight: 600;
-      line-height: 32px;
-      color: var(--pure-theme-sub-menu-active-text);
-      white-space: nowrap;
-    }
-  }
-}
-</style>

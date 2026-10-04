@@ -2,41 +2,33 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { createMathExpr } from "svg-captcha";
 import { AppError } from "../utils/errors";
 import { sendSuccess } from "../utils/response";
-import { login, refreshAccessToken } from "../services/auth";
+import { exchangeSupabaseSession, refreshAccessToken } from "../services/auth";
 import { getUserProfile } from "../services/users";
 import { getMenuRoutesByUserId } from "../services/menus";
-
-interface LoginBody {
-  username: string;
-  password: string;
-  rememberMe?: boolean;
-}
 
 interface RefreshBody {
   refreshToken?: string;
 }
 
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
+  // Password verification now lives in the Supabase Edge Function. Retain the
+  // path temporarily so old clients receive an explicit migration response.
+  app.post("/login", async (_request: FastifyRequest, _reply: FastifyReply) => {
+    throw new AppError("FORBIDDEN", "账号密码登录已迁移至 Supabase Auth");
+  });
+
   app.post(
-    "/login",
-    async (
-      request: FastifyRequest<{ Body: LoginBody }>,
-      reply: FastifyReply
-    ) => {
-      const { username, password } = request.body || {};
-      if (!username || !password) {
-        throw new AppError("BAD_REQUEST", "用户名和密码不能为空");
+    "/session/legacy-token",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const authorization = request.headers.authorization ?? "";
+      if (!authorization.startsWith("Bearer ")) {
+        throw new AppError("UNAUTHORIZED", "缺少 Supabase 访问令牌");
       }
 
-      const result = await login(
-        { username, password },
-        {
-          ip: request.ip,
-          userAgent: request.headers["user-agent"],
-        }
+      const tokens = await exchangeSupabaseSession(
+        authorization.slice("Bearer ".length)
       );
-
-      return reply.send(sendSuccess(result));
+      return reply.send(sendSuccess(tokens));
     }
   );
 

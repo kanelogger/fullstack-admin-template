@@ -8,7 +8,7 @@ import {
   responsiveStorageNameSpace
 } from "../utils";
 
-export const useAppStore = defineStore("pure-app", {
+export const useAppStore = defineStore("app", {
   state: (): appType => ({
     sidebar: {
       opened:

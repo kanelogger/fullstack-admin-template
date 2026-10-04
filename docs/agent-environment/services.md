@@ -1,5 +1,15 @@
 # 环境服务
 
+## Supabase Local
+
+- 前置条件：macOS OrbStack 正在运行，`docker info` 能连接 Docker API；前端已执行 `pnpm install`。
+- 启动：在 `frontend/` 执行 `pnpm run supabase:start`。
+- 查看状态：`pnpm run supabase:status`。本地 Studio 默认 `http://127.0.0.1:54323`，Mailpit 默认 `http://127.0.0.1:54324`。
+- 停止：`pnpm run supabase:stop`，数据库卷保留。
+- 重建：`pnpm run supabase:db:reset` 会清空本项目本地数据库并重放 migrations/seed；确认目标是 disposable local stack 后才执行。
+
+OrbStack 或 Docker CLI 未就绪时，该栈不可用；不能把 CLI 已安装写成服务健康。
+
 服务配置以代码和 `.env.example` 为事实源。启动前检查已有实例，测试创建的数据库、文件和进程必须按验证记录清理。
 
 ## 前端 Vite

@@ -34,8 +34,11 @@ export type userType = {
   avatar?: string;
   username?: string;
   nickname?: string;
+  userId?: string;
+  authUserId?: string;
   roles?: Array<string>;
   permissions?: Array<string>;
-  isRemembered?: boolean;
-  loginDay?: number;
+  isAuthenticated?: boolean;
+  authReady?: boolean;
+  mustResetPassword?: boolean;
 };

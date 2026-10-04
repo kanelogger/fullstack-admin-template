@@ -1,34 +1,15 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { isUrl } from "@pureadmin/utils";
-import { menuType } from "@/layout/types";
+import type { menuType } from "@/layout/types";
 
-const props = defineProps<{
-  to: menuType;
-}>();
-
-const isExternalLink = computed(() => isUrl(props.to.name));
-const getLinkProps = (item: menuType) => {
-  if (isExternalLink.value) {
-    return {
-      href: item.name,
-      target: "_blank",
-      rel: "noopener"
-    };
-  }
-  return {
-    to: {
-      path: item.path
-    }
-  };
-};
+const props = defineProps<{ to: menuType }>();
+const href = computed(() => {
+  const value = props.to.name ?? props.to.path ?? "";
+  return /^https?:\/\//i.test(value) ? value : "";
+});
 </script>
 
 <template>
-  <component
-    :is="isExternalLink ? 'a' : 'router-link'"
-    v-bind="getLinkProps(to)"
-  >
-    <slot />
-  </component>
+  <a v-if="href" :href="href" target="_blank" rel="noopener noreferrer"><slot /></a>
+  <RouterLink v-else :to="to.redirect || to.path || '/'"><slot /></RouterLink>
 </template>

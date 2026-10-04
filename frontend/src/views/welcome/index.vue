@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import {
-  getDashboardOverview,
-  type DashboardOverview,
-  type OperationLogSummary
-} from "@/api/system";
+import type { DashboardOperation, DashboardOverview } from "@/contracts";
+import { getDashboardOverview } from "@/features/dashboard/dashboard.service";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -62,7 +59,7 @@ const adminMetrics = computed(() => {
     { label: "用户数", value: stats.userCount },
     { label: "角色数", value: stats.roleCount },
     { label: "菜单数", value: stats.menuCount }
-  ];
+  ].filter(metric => metric.value !== null);
 });
 
 function resolveError(error: any, fallback: string) {
@@ -82,7 +79,7 @@ function messageTypeText(type: string) {
   return map[type] ?? type;
 }
 
-function operationText(item: OperationLogSummary) {
+function operationText(item: DashboardOperation) {
   return `${item.moduleCode} / ${item.operationType}`;
 }
 
@@ -90,11 +87,7 @@ async function loadOverview() {
   loading.value = true;
   loadError.value = null;
   try {
-    const res = await getDashboardOverview();
-    if (!res.success || !res.data) {
-      throw new Error(res.error?.message ?? "首页数据不可用");
-    }
-    overview.value = res.data;
+    overview.value = await getDashboardOverview();
   } catch (error) {
     loadError.value = resolveError(error, "首页数据加载失败");
   } finally {

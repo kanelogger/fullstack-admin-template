@@ -1,59 +1,12 @@
 <script setup lang="ts">
-import { useNav } from "@/layout/hooks/useNav";
-import ArrowUpLine from "~icons/ri/arrow-up-line";
-import ArrowDownLine from "~icons/ri/arrow-down-line";
-
-withDefaults(defineProps<{ total?: number }>(), {
-  total: 0
-});
-
-const { device } = useNav();
+defineProps<{ total?: number }>();
 </script>
 
 <template>
-  <div class="search-footer text-[#333] dark:text-white">
-    <span class="search-footer-item">
-      <kbd class="icon">↵</kbd>
-      确认
-    </span>
-    <span class="search-footer-item">
-      <IconifyIconOffline :icon="ArrowUpLine" class="icon" />
-      <IconifyIconOffline :icon="ArrowDownLine" class="icon" />
-      切换
-    </span>
-    <span class="search-footer-item">
-      <kbd class="icon">ESC</kbd>
-      关闭
-    </span>
-    <p v-if="device !== 'mobile' && total > 0" class="search-footer-total">
-      {{ `共 ${total} 项` }}
-    </p>
+  <div class="flex items-center gap-3 text-xs text-muted-foreground">
+    <span><kbd class="rounded border border-border px-1">↵</kbd> 确认</span>
+    <span><kbd class="rounded border border-border px-1">↑</kbd> <kbd class="rounded border border-border px-1">↓</kbd> 切换</span>
+    <span><kbd class="rounded border border-border px-1">ESC</kbd> 关闭</span>
+    <span v-if="total" class="ml-auto">共 {{ total }} 项</span>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.search-footer {
-  display: flex;
-
-  .search-footer-item {
-    display: flex;
-    align-items: center;
-    margin-right: 14px;
-  }
-
-  .icon {
-    padding: 2px;
-    margin-right: 3px;
-    font-size: 20px;
-    box-shadow:
-      inset 0 -2px #cdcde6,
-      inset 0 0 1px 1px #fff,
-      0 1px 2px 1px #1e235a66;
-  }
-
-  .search-footer-total {
-    position: absolute;
-    right: 20px;
-  }
-}
-</style>

@@ -16,7 +16,7 @@ import {
   isBoolean,
   toggleClass,
   hasClass
-} from "@pureadmin/utils";
+} from "@/utils/shared";
 
 import CloseAllTags from "~icons/ri/subtract-line";
 import CloseOtherTags from "~icons/ri/text-spacing";

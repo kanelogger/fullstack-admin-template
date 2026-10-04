@@ -1,123 +1,181 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useNav } from "@/layout/hooks/useNav";
+import { Button } from "@/components/ui/button";
 import { getConfig } from "@/config";
-import { isAllEmpty } from "@pureadmin/utils";
-import { findRouteByPath, getParentPaths } from "@/router/utils";
+import { initRouter } from "@/router/utils";
+import { emitter } from "@/utils/mitt";
+import { useAppStoreHook } from "@/store/modules/app";
 import { usePermissionStoreHook } from "@/store/modules/permission";
-import { ref, computed, watch, onMounted } from "vue";
-import LaySidebarLogo from "../lay-sidebar/components/SidebarLogo.vue";
-import LaySidebarItem from "../lay-sidebar/components/SidebarItem.vue";
-import LaySidebarLeftCollapse from "../lay-sidebar/components/SidebarLeftCollapse.vue";
-import LaySidebarCenterCollapse from "../lay-sidebar/components/SidebarCenterCollapse.vue";
+import SidebarItem from "./components/SidebarItem.vue";
+import SidebarLogo from "./components/SidebarLogo.vue";
+import SidebarLeftCollapse from "./components/SidebarLeftCollapse.vue";
+import SidebarCenterCollapse from "./components/SidebarCenterCollapse.vue";
 
 const route = useRoute();
-const isShow = ref(false);
-const showLogo = ref(getConfig().ShowLogo ?? true);
+const appStore = useAppStoreHook();
+const permissionStore = usePermissionStoreHook();
+const menuError = ref("");
+const loadState = ref<"loading" | "ready" | "empty" | "error">("loading");
+const isHovered = ref(false);
+let emptyTimer: ReturnType<typeof setTimeout> | undefined;
 
-const {
-  device,
-  pureApp,
-  isCollapse,
-  tooltipEffect,
-  menuSelect,
-  toggleSideBar
-} = useNav();
-
-const subMenuData = ref([]);
-
+const collapsed = computed(() => !appStore.sidebar.opened);
+const isMobile = computed(() => appStore.device === "mobile");
+const showLogo = getConfig().ShowLogo ?? true;
+const activePath = computed(() => String(route.meta.activePath ?? route.path));
 const menuData = computed(() => {
-  return pureApp.layout === "mix" && device.value !== "mobile"
-    ? subMenuData.value
-    : usePermissionStoreHook().wholeMenus;
+  if (appStore.layout !== "mix" || isMobile.value) return permissionStore.wholeMenus;
+  const parentPaths = getParentPath(activePath.value, permissionStore.wholeMenus);
+  const parent = findByPath(parentPaths[0] ?? activePath.value, permissionStore.wholeMenus);
+  return parent?.children ?? permissionStore.wholeMenus;
 });
 
-const loading = computed(() =>
-  pureApp.layout === "mix" ? false : menuData.value.length === 0 ? true : false
+watch(
+  () => permissionStore.wholeMenus,
+  menus => {
+    if (emptyTimer) clearTimeout(emptyTimer);
+    menuError.value = "";
+    if (menus.length) {
+      loadState.value = "ready";
+      return;
+    }
+    loadState.value = "loading";
+    emptyTimer = setTimeout(() => {
+      loadState.value = "empty";
+    }, 700);
+  },
+  { immediate: true }
 );
-
-const defaultActive = computed(() =>
-  !isAllEmpty(route.meta?.activePath) ? route.meta.activePath : route.path
-);
-
-function getSubMenuData() {
-  let path = "";
-  path = defaultActive.value;
-  subMenuData.value = [];
-  // path的上级路由组成的数组
-  const parentPathArr = getParentPaths(
-    path,
-    usePermissionStoreHook().wholeMenus
-  );
-  // 当前路由的父级路由信息
-  const parenetRoute = findRouteByPath(
-    parentPathArr[0] || path,
-    usePermissionStoreHook().wholeMenus
-  );
-  if (!parenetRoute?.children) return;
-  subMenuData.value = parenetRoute?.children;
-}
 
 watch(
-  () => [route.path, usePermissionStoreHook().wholeMenus],
+  () => [route.path, permissionStore.wholeMenus],
   () => {
-    if (route.path.includes("/redirect")) return;
-    getSubMenuData();
-    menuSelect(route.path);
+    if (!route.path.includes("/redirect")) {
+      emitter.emit("changLayoutRoute", route.path);
+    }
   }
 );
 
-onMounted(() => {
-  getSubMenuData();
+async function retryMenus() {
+  loadState.value = "loading";
+  menuError.value = "";
+  try {
+    await initRouter();
+    loadState.value = permissionStore.wholeMenus.length ? "ready" : "empty";
+    if (!permissionStore.wholeMenus.length) {
+      menuError.value = "服务器没有返回可用菜单，请检查当前账号的菜单授权。";
+      loadState.value = "error";
+    }
+  } catch (error) {
+    menuError.value = error instanceof Error ? error.message : "菜单加载失败，请重试。";
+    loadState.value = "error";
+  }
+}
+
+function toggleSidebar() {
+  void appStore.toggleSideBar();
+}
+
+function getParentPath(path: string, menus: any[], parents: string[] = []): string[] {
+  for (const menu of menus) {
+    const fullPath = resolvePath("", menu.path ?? "");
+    if (fullPath === path || path.startsWith(`${fullPath}/`)) {
+      const descendants = menu.children?.length
+        ? getParentPath(path, menu.children, [...parents, fullPath])
+        : [];
+      return descendants.length ? descendants : [...parents, fullPath];
+    }
+  }
+  return parents;
+}
+
+function findByPath(path: string, menus: any[]): any | undefined {
+  for (const menu of menus) {
+    if (resolvePath("", menu.path ?? "") === path) return menu;
+    const nested = menu.children?.length ? findByPath(path, menu.children) : undefined;
+    if (nested) return nested;
+  }
+}
+
+function resolvePath(base: string, path: string): string {
+  if (path.startsWith("/")) return path;
+  return `${base.replace(/\/$/, "")}/${path}`.replace(/\/+/g, "/") || "/";
+}
+
+onBeforeUnmount(() => {
+  if (emptyTimer) clearTimeout(emptyTimer);
 });
 </script>
 
 <template>
-  <div
-    v-loading="loading"
-    :class="['sidebar-container', showLogo ? 'has-logo' : 'no-logo']"
-    @mouseenter.prevent="isShow = true"
-    @mouseleave.prevent="isShow = false"
+  <aside
+    :class="[
+      'sidebar-container flex flex-col bg-background text-foreground',
+      showLogo ? 'has-logo' : 'no-logo',
+      collapsed ? 'sidebar-collapsed' : '',
+      isMobile ? 'mobile' : 'pc'
+    ]"
+    aria-label="主导航"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
   >
-    <LaySidebarLogo v-if="showLogo" :collapse="isCollapse" />
-    <el-scrollbar
-      wrap-class="scrollbar-wrapper"
-      :class="[device === 'mobile' ? 'mobile' : 'pc']"
-    >
-      <el-menu
-        unique-opened
-        mode="vertical"
-        popper-class="pure-scrollbar"
-        class="outer-most select-none"
-        :collapse="isCollapse"
-        :collapse-transition="false"
-        :popper-effect="tooltipEffect"
-        :default-active="defaultActive"
-      >
-        <LaySidebarItem
-          v-for="routes in menuData"
-          :key="routes.path"
-          :item="routes"
-          :base-path="routes.path"
-          class="outer-most select-none"
+    <SidebarLogo v-if="showLogo" :collapse="collapsed" />
+    <div class="sidebar-menu-scroll min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <ul v-if="loadState === 'ready'" class="space-y-1 p-0">
+        <SidebarItem
+          v-for="item in menuData"
+          :key="item.path"
+          :item="item"
+          :base-path="''"
+          :collapsed="collapsed"
         />
-      </el-menu>
-    </el-scrollbar>
-    <LaySidebarCenterCollapse
-      v-if="device !== 'mobile' && (isShow || isCollapse)"
-      :is-active="pureApp.sidebar.opened"
-      @toggleClick="toggleSideBar"
+      </ul>
+      <div v-else-if="loadState === 'loading'" class="space-y-3 p-3" role="status" aria-label="正在加载菜单">
+        <div v-for="index in 5" :key="index" class="h-9 animate-pulse rounded-md bg-muted/70" />
+      </div>
+      <div v-else-if="loadState === 'empty'" class="space-y-2 p-3 text-sm text-muted-foreground" role="status">
+        <p>当前账号没有可用菜单。</p>
+        <Button size="sm" variant="outline" class="w-full" @click="retryMenus">重新加载</Button>
+      </div>
+      <div v-else class="space-y-2 p-3 text-sm" role="alert">
+        <p class="text-destructive">{{ menuError }}</p>
+        <Button size="sm" variant="outline" class="w-full" @click="retryMenus">重试菜单加载</Button>
+      </div>
+    </div>
+    <SidebarCenterCollapse
+      v-if="!isMobile && (isHovered || collapsed)"
+      :is-active="appStore.sidebar.opened"
+      @toggle-click="toggleSidebar"
     />
-    <LaySidebarLeftCollapse
-      v-if="device !== 'mobile'"
-      :is-active="pureApp.sidebar.opened"
-      @toggleClick="toggleSideBar"
+    <SidebarLeftCollapse
+      v-if="!isMobile"
+      :is-active="appStore.sidebar.opened"
+      @toggle-click="toggleSidebar"
     />
-  </div>
+  </aside>
 </template>
 
 <style scoped>
-:deep(.el-loading-mask) {
-  opacity: 0.45;
+.sidebar-container {
+  box-sizing: border-box;
+  width: 210px !important;
+  font-size: 0.875rem;
+}
+
+.sidebar-container.sidebar-collapsed {
+  width: 54px !important;
+}
+
+.sidebar-container.has-logo .sidebar-menu-scroll {
+  height: calc(100% - 92px);
+}
+
+.sidebar-container.no-logo .sidebar-menu-scroll {
+  height: calc(100% - 44px);
+}
+
+.sidebar-container.mobile {
+  width: min(280px, 82vw) !important;
 }
 </style>

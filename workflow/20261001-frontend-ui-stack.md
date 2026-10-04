@@ -2,7 +2,7 @@
 
 ## 目标与证据
 
-用户指定的 Application 栈包含 Vue 3、Vue Router、Pinia、shadcn-vue、Tailwind CSS v4、VueUse。当前 `frontend/package.json` 已包含除 shadcn-vue 以外的框架与工具；Vite 已通过 `@tailwindcss/vite` 使用 Tailwind v4。当前页面和应用壳仍大量使用 Element Plus。
+用户指定的 Application 栈包含 Vue 3、Vue Router、Pinia、shadcn-vue、Tailwind CSS v4、VueUse。此记录形成时，`frontend/package.json` 已包含除 shadcn-vue 以外的框架与工具；Vite 已通过 `@tailwindcss/vite` 使用 Tailwind v4，旧页面和应用壳仍大量使用 Element Plus。后续渐进迁移进度以 `tasks/20261001-supabase-architecture-migration.md` 为准；目前应用壳与多个业务切片已完成迁移。
 
 ## 本轮边界
 

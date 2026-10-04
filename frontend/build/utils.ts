@@ -2,7 +2,6 @@ import dayjs from "dayjs";
 import { readdir, stat } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { sum, formatBytes } from "@pureadmin/utils";
 import {
   name,
   version,
@@ -54,9 +53,7 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
     VITE_PORT: 8848,
     VITE_PUBLIC_PATH: "",
     VITE_ROUTER_HISTORY: "",
-    VITE_HIDE_HOME: "false",
     VITE_COMPRESSION: "none",
-    VITE_API_BASE_URL: ""
   };
 
   for (const envName of Object.keys(envConf)) {
@@ -79,6 +76,18 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
 
 const fileListTotal: number[] = [];
 
+function totalBytes(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
+  const units = ["Bytes", "KB", "MB", "GB", "TB"];
+  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** unit;
+  return `${unit === 0 ? value : value.toFixed(2)} ${units[unit]}`;
+}
+
 /** 获取指定文件夹中所有文件的总大小 */
 const getPackageSize = options => {
   const { folder = "dist", callback, format = true } = options;
@@ -87,7 +96,7 @@ const getPackageSize = options => {
     let count = 0;
     const checkEnd = () => {
       ++count == files.length &&
-        callback(format ? formatBytes(sum(fileListTotal)) : sum(fileListTotal));
+        callback(format ? formatBytes(totalBytes(fileListTotal)) : totalBytes(fileListTotal));
     };
     files.forEach((item: string) => {
       stat(`${folder}/${item}`, async (err, stats) => {
@@ -103,7 +112,7 @@ const getPackageSize = options => {
         }
       });
     });
-    files.length === 0 && callback(0);
+      files.length === 0 && callback(format ? "0 Bytes" : 0);
   });
 };
 

@@ -1,70 +1,93 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
-import { ElMessageBox, type FormInstance, type FormRules } from "element-plus";
-import { message } from "@/utils/message";
+import { computed, onMounted, reactive, ref } from "vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { SystemConfig } from "@/contracts/system-config";
 import {
-  createSystemConfig,
-  deleteSystemConfig,
-  getSystemConfigs,
-  updateSystemConfig,
-  updateSystemConfigStatus,
-  type SystemConfigItem,
-  type SystemConfigPayload,
-  type SystemConfigQuery
-} from "@/api/system";
+  listSystemConfigurations,
+  saveSystemConfiguration,
+  softDeleteSystemConfiguration
+} from "@/features/configuration/configuration.service";
+import { useUserStoreHook } from "@/store/modules/user";
 
 defineOptions({ name: "SystemConfig" });
 
+type StatusFilter = "all" | "0" | "1";
+type EditorMode = "create" | "edit";
+
+const userStore = useUserStoreHook();
+const permissionSet = computed(() => new Set(userStore.permissions));
+const canUpdate = computed(() => permissionSet.value.has("configuration.system.update"));
+
+const rows = ref<SystemConfig[]>([]);
 const loading = ref(false);
 const saving = ref(false);
-const dialogVisible = ref(false);
-const dialogMode = ref<"create" | "edit">("create");
-const formRef = ref<FormInstance>();
-const rows = ref<SystemConfigItem[]>([]);
+const loadError = ref("");
+const actionError = ref("");
+const editorOpen = ref(false);
+const editorMode = ref<EditorMode>("create");
+const editingConfig = ref<SystemConfig | null>(null);
+const page = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+const codeFilter = ref("");
+const nameFilter = ref("");
+const statusFilter = ref<StatusFilter>("all");
 
-const valueTypeOptions = [
-  { label: "字符串", value: "STRING" },
-  { label: "数字", value: "NUMBER" },
-  { label: "布尔", value: "BOOLEAN" },
-  { label: "JSON", value: "JSON" }
-];
+const valueTypes = [
+  { value: "STRING", label: "字符串" },
+  { value: "NUMBER", label: "数字" },
+  { value: "BOOLEAN", label: "布尔" },
+  { value: "JSON", label: "JSON" }
+] as const;
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
 
-const query = reactive<SystemConfigQuery>({
-  configCode: "",
-  configName: "",
-  status: "",
-  page: 1,
-  pageSize: 10
-});
-
-const pagination = reactive({ totalItems: 0 });
-
-const form = reactive<SystemConfigPayload & { id?: number }>({
+const form = reactive({
   configCode: "",
   configName: "",
   configValue: "",
   valueType: "STRING",
-  status: 1,
+  status: 1 as 0 | 1,
   description: ""
 });
 
-const rules: FormRules = {
-  configCode: [{ required: true, message: "请输入配置编码", trigger: "blur" }],
-  configName: [{ required: true, message: "请输入配置名称", trigger: "blur" }],
-  configValue: [{ required: true, message: "请输入配置值", trigger: "blur" }]
-};
-
-function resolveError(error: any, fallback: string) {
-  return error?.response?.data?.error?.message ?? error?.error?.message ?? fallback;
+function errorText(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function asConfig(row: unknown): SystemConfigItem {
-  return row as SystemConfigItem;
+async function loadConfigurations() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const result = await listSystemConfigurations({
+      configCode: codeFilter.value.trim() || undefined,
+      configName: nameFilter.value.trim() || undefined,
+      status: statusFilter.value === "all" ? undefined : Number(statusFilter.value),
+      page: page.value,
+      pageSize: pageSize.value
+    });
+    rows.value = result.items;
+    total.value = result.total;
+    page.value = Math.min(page.value, pageCount.value);
+  } catch (error) {
+    rows.value = [];
+    total.value = 0;
+    loadError.value = errorText(error, "配置列表读取失败。");
+  } finally {
+    loading.value = false;
+  }
 }
 
-function resetForm() {
+async function search() {
+  page.value = 1;
+  await loadConfigurations();
+}
+
+function clearForm() {
   Object.assign(form, {
-    id: undefined,
     configCode: "",
     configName: "",
     configValue: "",
@@ -74,228 +97,135 @@ function resetForm() {
   });
 }
 
-async function loadRows() {
-  loading.value = true;
-  try {
-    const res = await getSystemConfigs(query);
-    rows.value = res.data.items;
-    pagination.totalItems = res.data.pagination.totalItems;
-  } catch (error) {
-    message(resolveError(error, "配置列表加载失败"), { type: "error" });
-  } finally {
-    loading.value = false;
-  }
-}
-
-function handleSearch() {
-  query.page = 1;
-  loadRows();
-}
-
 function openCreate() {
-  dialogMode.value = "create";
-  resetForm();
-  dialogVisible.value = true;
+  editorMode.value = "create";
+  editingConfig.value = null;
+  clearForm();
+  actionError.value = "";
+  editorOpen.value = true;
 }
 
-function openEdit(row: SystemConfigItem) {
-  dialogMode.value = "edit";
+function openEdit(config: SystemConfig) {
+  editorMode.value = "edit";
+  editingConfig.value = config;
   Object.assign(form, {
-    id: row.id,
-    configCode: row.configCode,
-    configName: row.configName,
-    configValue: row.configValue,
-    valueType: row.valueType,
-    status: row.status,
-    description: row.description ?? ""
+    configCode: config.configCode,
+    configName: config.configName,
+    configValue: config.configValue,
+    valueType: config.valueType,
+    status: config.status,
+    description: config.description ?? ""
   });
-  dialogVisible.value = true;
+  actionError.value = "";
+  editorOpen.value = true;
 }
 
-async function submitForm() {
-  if (!formRef.value) return;
-  await formRef.value.validate(async valid => {
-    if (!valid) return;
-    saving.value = true;
-    try {
-      const payload = {
-        configCode: form.configCode,
-        configName: form.configName,
-        configValue: form.configValue,
-        valueType: form.valueType,
-        status: form.status,
-        description: form.description
-      };
-      if (dialogMode.value === "create") await createSystemConfig(payload);
-      else if (form.id) await updateSystemConfig(form.id, payload);
-      message("保存成功", { type: "success" });
-      dialogVisible.value = false;
-      loadRows();
-    } catch (error) {
-      message(resolveError(error, "保存失败"), { type: "error" });
-    } finally {
-      saving.value = false;
-    }
-  });
-}
-
-async function handleStatusChange(row: SystemConfigItem) {
-  const nextStatus = row.status === 1 ? 0 : 1;
+async function saveConfig() {
+  if (saving.value) return;
+  saving.value = true;
+  actionError.value = "";
   try {
-    await updateSystemConfigStatus(row.id, nextStatus);
-    message(nextStatus === 1 ? "已启用" : "已停用", { type: "success" });
-    loadRows();
-  } catch (error) {
-    message(resolveError(error, "状态更新失败"), { type: "error" });
-  }
-}
-
-async function handleDelete(row: SystemConfigItem) {
-  try {
-    await ElMessageBox.confirm(`确认删除配置 ${row.configName}？`, "删除确认", {
-      type: "warning",
-      confirmButtonText: "删除",
-      cancelButtonText: "取消"
+    await saveSystemConfiguration({
+      ...(editingConfig.value ? { id: editingConfig.value.id } : {}),
+      configCode: form.configCode,
+      configName: form.configName,
+      configValue: form.configValue,
+      valueType: form.valueType,
+      status: form.status,
+      description: form.description.trim() || null
     });
-    await deleteSystemConfig(row.id);
-    message("删除成功", { type: "success" });
-    loadRows();
-  } catch (error: any) {
-    if (error === "cancel" || error === "close") return;
-    message(resolveError(error, "删除失败"), { type: "error" });
+    if (editorMode.value === "create") page.value = 1;
+    editorOpen.value = false;
+    await loadConfigurations();
+  } catch (error) {
+    actionError.value = errorText(error, "配置保存失败。");
+  } finally {
+    saving.value = false;
   }
 }
 
-onMounted(loadRows);
+async function toggleStatus(config: SystemConfig) {
+  actionError.value = "";
+  try {
+    await saveSystemConfiguration({
+      id: config.id,
+      configCode: config.configCode,
+      configName: config.configName,
+      configValue: config.configValue,
+      valueType: config.valueType,
+      status: config.status === 1 ? 0 : 1,
+      description: config.description
+    });
+    await loadConfigurations();
+  } catch (error) {
+    actionError.value = errorText(error, "配置状态更新失败。");
+  }
+}
+
+async function removeConfig(config: SystemConfig) {
+  if (!window.confirm(`确认删除配置“${config.configName}”？`)) return;
+  actionError.value = "";
+  try {
+    await softDeleteSystemConfiguration(config.id);
+    await loadConfigurations();
+  } catch (error) {
+    actionError.value = errorText(error, "配置删除失败。");
+  }
+}
+
+onMounted(loadConfigurations);
 </script>
 
 <template>
-  <div class="system-config-page">
-    <el-card shadow="never" class="search-panel">
-      <el-form :model="query" inline label-width="72px">
-        <el-form-item label="配置编码">
-          <el-input v-model="query.configCode" clearable placeholder="配置编码" />
-        </el-form-item>
-        <el-form-item label="配置名称">
-          <el-input v-model="query.configName" clearable placeholder="配置名称" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" clearable placeholder="全部状态">
-            <el-option label="启用" :value="1" />
-            <el-option label="停用" :value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="openCreate">新增配置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+  <main class="space-y-4 p-4" data-testid="system-configuration">
+    <Card>
+      <CardHeader class="flex flex-wrap items-center justify-between gap-3">
+        <CardTitle>系统配置</CardTitle>
+        <Button v-if="canUpdate" data-testid="create-system-config" @click="openCreate">新增配置</Button>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_160px_auto]" @submit.prevent="search">
+          <div class="space-y-1.5"><Label for="config-code-filter">配置编码</Label><Input id="config-code-filter" v-model="codeFilter" placeholder="按编码筛选" /></div>
+          <div class="space-y-1.5"><Label for="config-name-filter">配置名称</Label><Input id="config-name-filter" v-model="nameFilter" placeholder="按名称筛选" /></div>
+          <div class="space-y-1.5"><Label for="config-status-filter">状态</Label><select id="config-status-filter" v-model="statusFilter" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="all">全部</option><option value="1">启用</option><option value="0">停用</option></select></div>
+          <div class="flex items-end"><Button type="submit" variant="outline">筛选</Button></div>
+        </form>
+        <p v-if="actionError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{{ actionError }}</p>
+        <p v-if="loadError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{{ loadError }}</p>
+        <div v-if="loading" role="status" class="py-8 text-center text-sm text-muted-foreground">正在加载配置…</div>
+        <div v-else-if="loadError" class="py-5 text-center"><Button variant="outline" @click="loadConfigurations">重试</Button></div>
+        <div v-else-if="!rows.length" class="py-8 text-center text-sm text-muted-foreground">暂无系统配置</div>
+        <div v-else class="overflow-x-auto rounded-md border">
+          <table class="w-full min-w-[1000px] text-left text-sm">
+            <thead class="bg-muted/50 text-muted-foreground"><tr><th class="px-3 py-2 font-medium">配置编码</th><th class="px-3 py-2 font-medium">配置名称</th><th class="px-3 py-2 font-medium">配置值</th><th class="px-3 py-2 font-medium">类型</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">说明</th><th class="px-3 py-2 font-medium">操作</th></tr></thead>
+            <tbody><tr v-for="config in rows" :key="config.id" class="border-t">
+              <td class="px-3 py-3 font-mono text-xs">{{ config.configCode }}</td>
+              <td class="px-3 py-3 font-medium">{{ config.configName }}</td>
+              <td class="max-w-sm px-3 py-3"><span class="block max-w-[22rem] truncate font-mono text-xs" :title="config.configValue">{{ config.configValue }}</span></td>
+              <td class="px-3 py-3">{{ config.valueType }}</td>
+              <td class="px-3 py-3"><Badge :variant="config.status === 1 ? 'default' : 'secondary'">{{ config.status === 1 ? "启用" : "停用" }}</Badge></td>
+              <td class="px-3 py-3">{{ config.description || "—" }}</td>
+              <td class="px-3 py-3"><div v-if="canUpdate" class="flex gap-1"><Button size="sm" variant="outline" @click="openEdit(config)">编辑</Button><Button size="sm" variant="ghost" @click="toggleStatus(config)">{{ config.status === 1 ? "停用" : "启用" }}</Button><Button size="sm" variant="ghost" class="text-destructive" @click="removeConfig(config)">删除</Button></div><span v-else class="text-xs text-muted-foreground">只读</span></td>
+            </tr></tbody>
+          </table>
+        </div>
+        <div v-if="total > pageSize" class="flex items-center justify-end gap-3 text-sm"><span class="text-muted-foreground">共 {{ total }} 条</span><Button size="sm" variant="outline" :disabled="page <= 1" @click="page--; loadConfigurations()">上一页</Button><span>第 {{ page }} / {{ pageCount }} 页</span><Button size="sm" variant="outline" :disabled="page >= pageCount" @click="page++; loadConfigurations()">下一页</Button><select v-model.number="pageSize" aria-label="每页配置数" class="h-8 rounded-md border bg-background px-2" @change="page = 1; loadConfigurations()"><option :value="10">10 条</option><option :value="20">20 条</option><option :value="50">50 条</option></select></div>
+      </CardContent>
+    </Card>
 
-    <el-card shadow="never" class="table-panel">
-      <el-table v-loading="loading" :data="rows" row-key="id">
-        <el-table-column prop="configCode" label="配置编码" min-width="180" />
-        <el-table-column prop="configName" label="配置名称" min-width="160" />
-        <el-table-column prop="configValue" label="配置值" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="valueType" label="值类型" width="100" />
-        <el-table-column prop="description" label="说明" min-width="180" />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">
-              {{ row.status === 1 ? "启用" : "停用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" fixed="right" width="180">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(asConfig(row))">
-              编辑
-            </el-button>
-            <el-button link type="primary" @click="handleStatusChange(asConfig(row))">
-              {{ row.status === 1 ? "停用" : "启用" }}
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(asConfig(row))">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="query.page"
-          v-model:page-size="query.pageSize"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.totalItems"
-          @size-change="loadRows"
-          @current-change="loadRows"
-        />
-      </div>
-    </el-card>
-
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogMode === 'create' ? '新增配置' : '编辑配置'"
-      width="620px"
-    >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
-        <el-form-item label="配置编码" prop="configCode">
-          <el-input v-model="form.configCode" />
-        </el-form-item>
-        <el-form-item label="配置名称" prop="configName">
-          <el-input v-model="form.configName" />
-        </el-form-item>
-        <el-form-item label="值类型">
-          <el-select v-model="form.valueType">
-            <el-option
-              v-for="item in valueTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="配置值" prop="configValue">
-          <el-input v-model="form.configValue" type="textarea" :rows="4" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
-            <el-radio-button :value="1">启用</el-radio-button>
-            <el-radio-button :value="0">停用</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="说明">
-          <el-input v-model="form.description" type="textarea" :rows="3" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitForm">
-          保存
-        </el-button>
-      </template>
-    </el-dialog>
-  </div>
+    <div v-if="editorOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="editorOpen = false">
+      <section role="dialog" aria-modal="true" aria-labelledby="config-editor-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background p-5 shadow-lg"><h2 id="config-editor-title" class="text-lg font-semibold">{{ editorMode === "create" ? "新增配置" : "编辑配置" }}</h2>
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" @submit.prevent="saveConfig">
+          <div class="space-y-1.5"><Label for="config-code">配置编码</Label><Input id="config-code" v-model="form.configCode" required maxlength="64" /></div>
+          <div class="space-y-1.5"><Label for="config-name">配置名称</Label><Input id="config-name" v-model="form.configName" required maxlength="128" /></div>
+          <div class="space-y-1.5"><Label for="config-value-type">值类型</Label><select id="config-value-type" v-model="form.valueType" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option v-for="type in valueTypes" :key="type.value" :value="type.value">{{ type.label }}</option></select></div>
+          <div class="space-y-1.5"><Label for="config-status">状态</Label><select id="config-status" v-model.number="form.status" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option :value="1">启用</option><option :value="0">停用</option></select></div>
+          <div class="space-y-1.5 sm:col-span-2"><Label for="config-value">配置值</Label><textarea id="config-value" v-model="form.configValue" required rows="4" class="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm" /><p class="text-xs text-muted-foreground">此页面维护旧业务系统配置值；部署密钥、服务凭据应留在本机或服务端密钥配置中。</p></div>
+          <div class="space-y-1.5 sm:col-span-2"><Label for="config-description">说明</Label><textarea id="config-description" v-model="form.description" rows="2" maxlength="255" class="w-full rounded-md border bg-background px-3 py-2 text-sm" /></div>
+          <p v-if="actionError" role="alert" class="text-sm text-destructive sm:col-span-2">{{ actionError }}</p>
+          <div class="flex justify-end gap-2 sm:col-span-2"><Button type="button" variant="outline" @click="editorOpen = false">取消</Button><Button type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存" }}</Button></div>
+        </form>
+      </section>
+    </div>
+  </main>
 </template>
-
-<style scoped>
-.system-config-page {
-  padding: 16px;
-}
-
-.search-panel,
-.table-panel {
-  border-radius: 6px;
-}
-
-.table-panel {
-  margin-top: 16px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-</style>

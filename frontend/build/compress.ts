@@ -1,5 +1,4 @@
 import type { Plugin } from "vite";
-import { isArray } from "@pureadmin/utils";
 import compressPlugin from "vite-plugin-compression";
 
 export const configCompressPlugin = (
@@ -36,7 +35,7 @@ export const configCompressPlugin = (
   codeList.forEach(item => {
     if (compress.includes(item.k)) {
       if (compress.includes("clear")) {
-        if (isArray(item.v)) {
+        if (Array.isArray(item.v)) {
           item.v.forEach(vItem => {
             plugins.push(
               compressPlugin(Object.assign(vItem, { deleteOriginFile: true }))
@@ -48,7 +47,7 @@ export const configCompressPlugin = (
           );
         }
       } else {
-        if (isArray(item.v)) {
+        if (Array.isArray(item.v)) {
           item.v.forEach(vItem => {
             plugins.push(compressPlugin(vItem));
           });

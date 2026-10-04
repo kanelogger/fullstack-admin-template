@@ -1,20 +1,11 @@
 <script setup lang="ts">
-import { toRaw } from "vue";
+import { computed } from "vue";
 import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 
-defineProps({
-  extraIcon: {
-    type: String,
-    default: ""
-  }
-});
+const props = defineProps<{ extraIcon?: string }>();
+const icon = computed(() => props.extraIcon ? useRenderIcon(props.extraIcon) : undefined);
 </script>
 
 <template>
-  <div v-if="extraIcon" class="flex justify-center items-center">
-    <component
-      :is="useRenderIcon(toRaw(extraIcon))"
-      class="w-[30px] h-[30px]"
-    />
-  </div>
+  <component v-if="icon" :is="icon" class="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 </template>

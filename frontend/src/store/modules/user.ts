@@ -1,127 +1,159 @@
 import { defineStore } from "pinia";
-import {
-  type userType,
-  store,
-  router,
-  resetRouter,
-  routerArrays,
-  storageLocal
-} from "../utils";
-import {
-  type UserResult,
-  type RefreshTokenResult,
-  type RefreshTokenData,
-  getLogin,
-  refreshTokenApi
-} from "@/api/user";
+import { store, router, resetRouter, routerArrays } from "../utils";
+import { invalidateAuthOperations, isCurrentAuthOperation } from "@/features/auth/session-generation";
 import { useMultiTagsStoreHook } from "./multiTags";
-import {
-  type DataInfo,
-  setToken,
-  setRefreshedToken,
-  removeToken,
-  userKey
-} from "@/utils/auth";
+import { useNotificationStoreHook } from "./notification";
+import { cacheUserInfo, clearCachedUserInfo } from "@/utils/user-info";
+import type { Session } from "@/contracts";
 
-export const useUserStore = defineStore("pure-user", {
-  state: (): userType => ({
-    // 头像
-    avatar: storageLocal().getItem<DataInfo<number>>(userKey)?.avatar ?? "",
-    // 用户名
-    username: storageLocal().getItem<DataInfo<number>>(userKey)?.username ?? "",
-    // 昵称
-    nickname: storageLocal().getItem<DataInfo<number>>(userKey)?.nickname ?? "",
-    // 页面级别权限
-    roles: storageLocal().getItem<DataInfo<number>>(userKey)?.roles ?? [],
-    // 按钮级别权限
-    permissions:
-      storageLocal().getItem<DataInfo<number>>(userKey)?.permissions ?? [],
-    // 是否勾选了登录页的免登录
-    isRemembered: false,
-    // 登录页的免登录存储几天，默认7天
-    loginDay: 7
+let authTransitionRevision = 0;
+
+function sessionUserState(session: Session) {
+  const { profile, roleCodes, permissionKeys } = session;
+  return {
+    authUserId: profile.authUserId,
+    userId: profile.id,
+    avatar: profile.avatarUrl ?? "",
+    username: profile.loginName,
+    nickname: profile.displayName,
+    roles: roleCodes,
+    permissions: permissionKeys,
+    isAuthenticated: true,
+    authReady: true,
+    mustResetPassword: session.mustResetPassword
+  };
+}
+
+export const useUserStore = defineStore("auth-user", {
+  state: (): import("../types").userType => ({
+    avatar: "",
+    username: "",
+    nickname: "",
+    userId: "",
+    authUserId: "",
+    roles: [],
+    permissions: [],
+    isAuthenticated: false,
+    authReady: false,
+    mustResetPassword: false
   }),
   actions: {
-    /** 存储头像 */
     SET_AVATAR(avatar: string) {
       this.avatar = avatar;
     },
-    /** 存储用户名 */
-    SET_USERNAME(username: string) {
-      this.username = username;
-    },
-    /** 存储昵称 */
     SET_NICKNAME(nickname: string) {
       this.nickname = nickname;
     },
-    /** 存储角色 */
-    SET_ROLES(roles: Array<string>) {
-      this.roles = roles;
-    },
-    /** 存储按钮级别权限 */
-    SET_PERMS(permissions: Array<string>) {
-      this.permissions = permissions;
-    },
-    /** 存储是否勾选了登录页的免登录 */
-    SET_ISREMEMBERED(bool: boolean) {
-      this.isRemembered = bool;
-    },
-    /** 设置登录页的免登录存储几天 */
-    SET_LOGINDAY(value: number) {
-      this.loginDay = Number(value);
-    },
-    /** 登入 */
-    async loginByUsername(data) {
-      return new Promise<UserResult>((resolve, reject) => {
-        getLogin(data)
-          .then(data => {
-            if (data?.success) setToken(data.data);
-            resolve(data);
-          })
-          .catch(error => {
-            reject(error);
-          });
+    applySession(session: Session) {
+      Object.assign(this, sessionUserState(session));
+      cacheUserInfo({
+        userId: session.profile.id,
+        authUserId: session.profile.authUserId,
+        avatar: session.profile.avatarUrl ?? "",
+        username: session.profile.loginName,
+        nickname: session.profile.displayName,
+        roles: session.roleCodes,
+        permissions: session.permissionKeys
       });
     },
-    /** 前端登出（不调用接口） */
-    logOut() {
+    clearLocalSession(invalidate = true) {
+      if (invalidate) {
+        authTransitionRevision += 1;
+        invalidateAuthOperations();
+      }
+      useNotificationStoreHook().reset();
+      clearCachedUserInfo();
+      this.avatar = "";
       this.username = "";
+      this.nickname = "";
+      this.userId = "";
+      this.authUserId = "";
       this.roles = [];
       this.permissions = [];
-      removeToken();
+      this.isAuthenticated = false;
+      this.authReady = true;
+      this.mustResetPassword = false;
+    },
+    async restoreSession(): Promise<boolean> {
+      const { getSupabaseClient } = await import("@/shared/supabase/client");
+      const client = getSupabaseClient();
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      const currentAuthSession = data.session;
+
+      if (!currentAuthSession) {
+        if (this.isAuthenticated || !this.authReady) this.clearLocalSession(false);
+        return false;
+      }
+
+      if (this.isAuthenticated && this.authUserId === currentAuthSession.user.id) {
+        return true;
+      }
+
+      const transitionRevision = ++authTransitionRevision;
+      const { restoreSupabaseSession } = await import("@/features/auth/auth.service");
+      const session = await restoreSupabaseSession();
+      if (transitionRevision !== authTransitionRevision) {
+        return this.isAuthenticated;
+      }
+      if (!session) {
+        this.clearLocalSession(false);
+        return false;
+      }
+      this.applySession(session);
+      return true;
+    },
+    /** Sign in with the sole supported method: login name and password. */
+    async loginByUsername(data: { username: string; password: string }) {
+      const transitionRevision = ++authTransitionRevision;
+      const { loginWithSupabase } = await import("@/features/auth/auth.service");
+      const result = await loginWithSupabase({
+        loginName: data.username,
+        password: data.password
+      });
+      if (result.success && transitionRevision === authTransitionRevision) {
+        this.applySession(result.data);
+      }
+      return result;
+    },
+    /** Clear local UI state immediately; revoke and clear only the session being logged out. */
+    logOut() {
+      const loggingOutAuthUserId = this.authUserId;
+      authTransitionRevision += 1;
+      const operationRevision = invalidateAuthOperations();
+      this.clearLocalSession(false);
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();
       if (router.currentRoute.value.path !== "/login") {
-        router.push("/login");
-      }
-    },
-    /** 刷新`token` */
-    async handRefreshToken(
-      data: { refreshToken: string },
-      expectedSessionRevision: number
-    ): Promise<RefreshTokenData> {
-      const response: RefreshTokenResult = await refreshTokenApi(data);
-      if (
-        !response?.success ||
-        !response.data?.accessToken ||
-        !response.data.refreshToken ||
-        !response.data.expires
-      ) {
-        const error = new Error(
-          response?.error?.message ?? "Token refresh returned an invalid response"
-        );
-        Object.assign(error, {
-          code: response?.error?.code ?? "INVALID_REFRESH_RESPONSE"
-        });
-        throw error;
+        void router.push("/login");
       }
 
-      setRefreshedToken(
-        response.data,
-        expectedSessionRevision,
-        data.refreshToken
-      );
-      return response.data;
+      void import("@/shared/supabase/client")
+        .then(async ({ getSupabaseClientIfConfigured }) => {
+          const client = getSupabaseClientIfConfigured();
+          if (!client || !loggingOutAuthUserId) return;
+          const { data } = await client.auth.getSession();
+          if (
+            !data.session ||
+            data.session.user.id !== loggingOutAuthUserId ||
+            !isCurrentAuthOperation(operationRevision)
+          ) return;
+
+          try {
+            await client.rpc("revoke_account_password_session");
+          } catch {
+            // Local sign-out still proceeds when server-side revocation is unavailable.
+          }
+
+          const { data: latest } = await client.auth.getSession();
+          if (
+            latest.session?.user.id === loggingOutAuthUserId &&
+            isCurrentAuthOperation(operationRevision)
+          ) {
+            await client.auth.signOut({ scope: "local" });
+          }
+        })
+        .catch(() => undefined);
     }
   }
 });

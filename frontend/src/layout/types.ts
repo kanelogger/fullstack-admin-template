@@ -1,19 +1,7 @@
 import type { FunctionalComponent } from "vue";
-const { VITE_HIDE_HOME } = import.meta.env;
 
-export const routerArrays: Array<RouteConfigs> =
-  VITE_HIDE_HOME === "false"
-    ? [
-        {
-          path: "/welcome",
-          name: "Welcome",
-          meta: {
-            title: "首页",
-            icon: "ep/home-filled"
-          }
-        }
-      ]
-    : [];
+/** Supabase navigation is session-scoped; no legacy route tags survive logout. */
+export const routerArrays: Array<RouteConfigs> = [];
 
 export type routeMetaType = {
   title?: string;

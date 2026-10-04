@@ -10,8 +10,9 @@ import {
 } from "./build/utils";
 
 export default ({ mode }: ConfigEnv): UserConfigExport => {
-  const { VITE_PORT, VITE_COMPRESSION, VITE_PUBLIC_PATH, VITE_API_BASE_URL } =
-    wrapperEnv(loadEnv(mode, root));
+  const { VITE_PORT, VITE_COMPRESSION, VITE_PUBLIC_PATH } = wrapperEnv(
+    loadEnv(mode, root)
+  );
   return {
     base: VITE_PUBLIC_PATH,
     root,
@@ -23,14 +24,6 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       // 端口号
       port: VITE_PORT,
       host: "0.0.0.0",
-      // 本地跨域代理 https://cn.vitejs.dev/config/server-options.html#server-proxy
-      proxy: {
-        [VITE_API_BASE_URL || "/api"]: {
-          target: "http://localhost:3000",
-          changeOrigin: true,
-          rewrite: path => path.replace(new RegExp(`^${VITE_API_BASE_URL || "/api"}`), "")
-        }
-      },
       // 预热文件以提前转换和缓存结果，降低启动期间的初始页面加载时长并防止转换瀑布
       warmup: {
         clientFiles: ["./index.html", "./src/{views,components}/*"]

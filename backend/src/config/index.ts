@@ -37,4 +37,7 @@ export default {
     database: process.env.MYSQL_DATABASE || "admin_template",
     charset: "utf8mb4_unicode_ci",
   },
+  // Used only by the temporary Supabase-to-legacy token exchange.
+  supabaseUrl: process.env.SUPABASE_URL || "",
+  supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || "",
 };

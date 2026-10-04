@@ -1,0 +1,69 @@
+project_id = "fullstack-admin-template"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:8848"
+additional_redirect_urls = [
+  "http://127.0.0.1:8848/**",
+  "http://localhost:8848/**"
+]
+enable_signup = false
+jwt_expiry = 3600
+
+[auth.email]
+# Existing users use this provider through the server-side login_name mapping
+# and password recovery. New Auth users are provisioned by trusted migrations.
+enable_signup = false
+enable_confirmations = true
+
+[auth.sms]
+# This project uses login_name + password; phone numbers are profile data only.
+enable_signup = false
+
+[auth.passkey]
+enabled = false
+
+[storage]
+enabled = true
+
+[realtime]
+enabled = true
+
+[edge_runtime]
+enabled = true
+
+[functions.session-login]
+verify_jwt = false
+
+[functions.password-reset]
+verify_jwt = false
+
+[functions.user-management]
+enabled = true
+verify_jwt = true
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/user-management/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/user-management/*.html" ]

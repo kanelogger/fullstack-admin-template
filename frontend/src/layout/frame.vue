@@ -85,8 +85,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-loading="loading" class="frame" element-loading-text="加载中...">
+  <div class="frame" :aria-busy="loading">
     <iframe ref="frameRef" :src="frameSrc" class="frame-iframe" />
+    <div
+      v-if="loading"
+      class="absolute inset-0 z-10 grid place-items-center bg-background/80 text-sm text-muted-foreground"
+      role="status"
+    >
+      加载中...
+    </div>
   </div>
 </template>
 

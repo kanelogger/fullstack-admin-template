@@ -3,19 +3,15 @@ import router from "./router";
 import { setupStore } from "@/store";
 import { getConfig, getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
-// import { useEcharts } from "@/plugins/echarts";
 import { createApp, type Directive } from "vue";
-import { useElementPlus } from "@/plugins/elementPlus";
 import { injectResponsiveStorage } from "@/utils/responsive";
-
-import Table from "@pureadmin/table";
-// import PureDescriptions from "@pureadmin/descriptions";
+import { getSupabaseClientIfConfigured } from "@/shared/supabase/client";
+import { useUserStoreHook } from "@/store/modules/user";
 
 // Tailwind 先声明样式层，基础重置随后进入 base 层，utility 类可以覆盖原生控件重置。
 import "./style/tailwind.css";
 import "./style/reset.scss";
 import "./style/index.scss";
-import "element-plus/dist/index.css";
 
 const app = createApp(App);
 
@@ -49,7 +45,7 @@ app.use(VueTippy);
 
 getPlatformConfig(app).then(async () => {
   const platformConfig = getConfig();
-  const configuredPrimary = platformConfig.EpThemeColor;
+  const configuredPrimary = platformConfig.PrimaryColor;
   if (
     typeof configuredPrimary === "string" &&
     CSS.supports("color", configuredPrimary)
@@ -61,11 +57,15 @@ getPlatformConfig(app).then(async () => {
   }
 
   setupStore(app);
+  const supabase = getSupabaseClientIfConfigured();
+  supabase?.auth.onAuthStateChange(event => {
+    if (event === "SIGNED_OUT") {
+      useUserStoreHook().clearLocalSession();
+    }
+  });
   app.use(router);
   await router.isReady();
   injectResponsiveStorage(app, platformConfig);
-  app.use(MotionPlugin).use(useElementPlus).use(Table);
-  // .use(PureDescriptions)
-  // .use(useEcharts);
+  app.use(MotionPlugin);
   app.mount("#app");
 });

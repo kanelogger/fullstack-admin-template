@@ -1,70 +1,21 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useGlobal } from "@pureadmin/utils";
-import { useNav } from "@/layout/hooks/useNav";
+import { Button } from "@/components/ui/button";
+import { ChevronsLeft, ChevronsRight } from "@lucide/vue";
 
-import ArrowLeft from "~icons/ri/arrow-left-double-fill";
-
-interface Props {
-  isActive?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  isActive: false
-});
-
-const { tooltipEffect } = useNav();
-
-const iconClass = computed(() => {
-  return ["w-[16px]", "h-[16px]"];
-});
-
-const { $storage } = useGlobal<GlobalPropertiesApi>();
-const themeColor = computed(() => $storage.layout?.themeColor);
-
-const emit = defineEmits<{
-  (e: "toggleClick"): void;
-}>();
-
-const toggleClick = () => {
-  emit("toggleClick");
-};
+defineProps<{ isActive?: boolean }>();
+const emit = defineEmits<{ (event: "toggleClick"): void }>();
 </script>
 
 <template>
-  <div
-    v-tippy="{
-      content: isActive ? '点击折叠' : '点击展开',
-      theme: tooltipEffect,
-      hideOnClick: 'toggle',
-      placement: 'right'
-    }"
-    class="center-collapse"
-    @click="toggleClick"
+  <Button
+    type="button"
+    variant="outline"
+    size="icon"
+    class="absolute right-0 top-1/2 z-10 size-7 translate-x-1/2 -translate-y-1/2 rounded-full bg-background shadow-sm"
+    :aria-label="isActive ? '折叠侧边栏' : '展开侧边栏'"
+    @click="emit('toggleClick')"
   >
-    <IconifyIconOffline
-      :icon="ArrowLeft"
-      :class="[iconClass, themeColor === 'light' ? '' : 'text-primary']"
-      :style="{ transform: isActive ? 'none' : 'rotateY(180deg)' }"
-    />
-  </div>
+    <ChevronsLeft v-if="isActive" class="size-4" aria-hidden="true" />
+    <ChevronsRight v-else class="size-4" aria-hidden="true" />
+  </Button>
 </template>
-
-<style lang="scss" scoped>
-.center-collapse {
-  position: absolute;
-  top: 50%;
-  right: 2px;
-  z-index: 1002;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 34px;
-  cursor: pointer;
-  background: var(--el-bg-color);
-  border: 1px solid var(--pure-border-color);
-  border-radius: 4px;
-  transform: translate(12px, -50%);
-}
-</style>

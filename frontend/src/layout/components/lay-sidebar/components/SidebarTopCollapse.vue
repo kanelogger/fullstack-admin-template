@@ -1,33 +1,20 @@
 <script setup lang="ts">
-import MenuFold from "~icons/ri/menu-fold-fill";
-import MenuUnfold from "~icons/ri/menu-unfold-fill";
+import { Button } from "@/components/ui/button";
+import { Menu } from "@lucide/vue";
 
-interface Props {
-  isActive?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  isActive: false
-});
-
-const emit = defineEmits<{
-  (e: "toggleClick"): void;
-}>();
-
-const toggleClick = () => {
-  emit("toggleClick");
-};
+defineProps<{ isActive?: boolean }>();
+const emit = defineEmits<{ (event: "toggleClick"): void }>();
 </script>
 
 <template>
-  <div
-    class="px-3 mr-1 navbar-bg-hover"
-    :title="isActive ? '点击折叠' : '点击展开'"
-    @click="toggleClick"
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon"
+    class="navbar-bg-hover shrink-0"
+    :aria-label="isActive ? '关闭导航菜单' : '打开导航菜单'"
+    @click="emit('toggleClick')"
   >
-    <IconifyIconOffline
-      :icon="isActive ? MenuFold : MenuUnfold"
-      class="inline-block! align-middle hover:text-primary dark:hover:text-white!"
-    />
-  </div>
+    <Menu class="size-4" aria-hidden="true" />
+  </Button>
 </template>

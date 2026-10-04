@@ -20,6 +20,10 @@ declare global {
     extraIcon?: string | FunctionalComponent;
     /** 是否在菜单中显示（默认`true`）`可选` */
     showLink?: boolean;
+    /** Menu sort order for dynamic navigation. */
+    rank?: number;
+    /** Marks a route loaded from the server-filtered navigation model. */
+    backstage?: boolean;
     /** 是否显示父级菜单 `可选` */
     showParent?: boolean;
     /** 页面级别权限设置 `可选` */

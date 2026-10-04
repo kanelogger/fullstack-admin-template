@@ -8,30 +8,36 @@ import {
   ref,
   reactive,
   computed,
+  onBeforeUnmount,
   onMounted,
   defineComponent
 } from "vue";
 import {
   useDark,
-  deviceDetection,
   useResizeObserver
-} from "@pureadmin/utils";
+} from "@vueuse/core";
+import { deviceDetection } from "@/utils/shared";
+import { useScroll } from "@vueuse/core";
+import { Button } from "@/components/ui/button";
 import { getConfig } from "@/config";
+import { useNotificationStoreHook } from "@/store/modules/notification";
 
 import LayTag from "./components/lay-tag/index.vue";
 import LayNavbar from "./components/lay-navbar/index.vue";
 import LayContent from "./components/lay-content/index.vue";
 import NavVertical from "./components/lay-sidebar/NavVertical.vue";
 import NavHorizontal from "./components/lay-sidebar/NavHorizontal.vue";
-import PureIcon from "@/components/PureIcon/index.vue";
-import BackTopIcon from "~icons/ri/arrow-up-line";
 
 const appWrapperRef = ref();
-const { isDark } = useDark();
+const mainScrollRef = ref<HTMLElement | null>(null);
+const { y: mainScrollPosition } = useScroll(mainScrollRef);
+const showMainBackTop = computed(() => mainScrollPosition.value > 240);
+useDark();
 const layout = computed(() => useAppStoreHook().layout);
 const isMobile = deviceDetection();
 const fixedHeader = getConfig().FixedHeader;
 const hiddenSideBar = getConfig().HiddenSideBar;
+const notificationStore = useNotificationStoreHook();
 
 const set = reactive({
   sidebar: computed(() => {
@@ -60,6 +66,10 @@ function setTheme(layoutModel: string) {
 function toggle(device: string, bool: boolean) {
   useAppStoreHook().toggleDevice(device);
   useAppStoreHook().toggleSideBar(bool, "resize");
+}
+
+function scrollMainToTop() {
+  mainScrollRef.value?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // 判断是否可自动关闭菜单栏
@@ -94,9 +104,14 @@ useResizeObserver(appWrapperRef, entries => {
 });
 
 onMounted(() => {
+  void notificationStore.startMessageUpdates();
   if (isMobile) {
     toggle("mobile", false);
   }
+});
+
+onBeforeUnmount(() => {
+  notificationStore.stopMessageUpdates();
 });
 
 const LayHeader = defineComponent({
@@ -152,17 +167,19 @@ const LayHeader = defineComponent({
         <!-- 主体内容 -->
         <LayContent :fixed-header="fixedHeader" />
       </div>
-      <el-scrollbar v-else>
-        <el-backtop
-          title="回到顶部"
-          target=".main-container .el-scrollbar__wrap"
-        >
-          <PureIcon :icon="BackTopIcon" />
-        </el-backtop>
+      <div v-else ref="mainScrollRef" class="app-scrollbar relative h-full overflow-x-hidden overflow-y-auto">
         <LayHeader />
         <!-- 主体内容 -->
         <LayContent :fixed-header="fixedHeader" />
-      </el-scrollbar>
+      </div>
+      <Button
+        v-if="!fixedHeader && showMainBackTop"
+        class="fixed bottom-6 right-6 z-40 size-10 rounded-full shadow-md"
+        size="icon"
+        variant="outline"
+        aria-label="回到顶部"
+        @click="scrollMainToTop"
+      >↑</Button>
     </div>
   </div>
 </template>

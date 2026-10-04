@@ -1,30 +1,24 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { useNav } from "@/layout/hooks/useNav";
+import { computed } from "vue";
+import { useFullscreen } from "@vueuse/core";
+import { Button } from "@/components/ui/button";
+import { Maximize, Minimize } from "@lucide/vue";
 
-const screenIcon = ref();
-const { toggle, isFullscreen, Fullscreen, ExitFullscreen } = useNav();
-
-isFullscreen.value = !!(
-  document.fullscreenElement ||
-  document.webkitFullscreenElement ||
-  document.mozFullScreenElement ||
-  document.msFullscreenElement
-);
-
-watch(
-  isFullscreen,
-  full => {
-    screenIcon.value = full ? ExitFullscreen : Fullscreen;
-  },
-  {
-    immediate: true
-  }
-);
+const { isFullscreen, toggle } = useFullscreen();
+const title = computed(() => isFullscreen.value ? "退出全屏" : "进入全屏");
 </script>
 
 <template>
-  <span class="fullscreen-icon navbar-bg-hover" @click="toggle">
-    <IconifyIconOffline :icon="screenIcon" />
-  </span>
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon"
+    class="fullscreen-icon navbar-bg-hover"
+    :aria-label="title"
+    :title="title"
+    @click="toggle"
+  >
+    <Minimize v-if="isFullscreen" class="size-4" aria-hidden="true" />
+    <Maximize v-else class="size-4" aria-hidden="true" />
+  </Button>
 </template>

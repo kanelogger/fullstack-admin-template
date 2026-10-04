@@ -1,111 +1,36 @@
 <script setup lang="ts">
-import { useNav } from "@/layout/hooks/useNav";
-import LaySearch from "../lay-search/index.vue";
-import LayNotice from "../lay-notice/index.vue";
+import { computed } from "vue";
 import { getConfig } from "@/config";
-import { ref, nextTick, computed } from "vue";
-import { isAllEmpty } from "@pureadmin/utils";
-import PureAvatar from "@/components/PureAvatar/index.vue";
+import { getTopMenu } from "@/router/utils";
 import { usePermissionStoreHook } from "@/store/modules/permission";
-import LaySidebarItem from "../lay-sidebar/components/SidebarItem.vue";
-import LaySidebarFullScreen from "../lay-sidebar/components/SidebarFullScreen.vue";
+import SidebarItem from "./components/SidebarItem.vue";
+import SidebarHeaderActions from "./components/SidebarHeaderActions.vue";
 
-import LogoutCircleRLine from "~icons/ri/logout-circle-r-line";
-
-const menuRef = ref();
-const showLogo = ref(getConfig().ShowLogo ?? true);
-
-const {
-  route,
-  title,
-  logout,
-  getLogo,
-  username,
-  userAvatar,
-  backTopMenu,
-  avatarsStyle
-} = useNav();
-
-const defaultActive = computed(() =>
-  !isAllEmpty(route.meta?.activePath) ? route.meta.activePath : route.path
-);
-
-nextTick(() => {
-  menuRef.value?.handleResize();
-});
-
-
+const permissionStore = usePermissionStoreHook();
+const title = getConfig().Title || "Admin";
+const showLogo = getConfig().ShowLogo ?? true;
+const homePath = getTopMenu()?.path ?? "/";
+const menus = computed(() => permissionStore.wholeMenus);
 </script>
 
 <template>
-  <div
-    v-loading="usePermissionStoreHook().wholeMenus.length === 0"
-    class="horizontal-header"
-  >
-    <div v-if="showLogo" class="horizontal-header-left" @click="backTopMenu">
-      <img :src="getLogo()" alt="logo" />
-      <span>{{ title }}</span>
-    </div>
-    <el-menu
-      ref="menuRef"
-      mode="horizontal"
-      popper-class="pure-scrollbar"
-      class="horizontal-header-menu"
-      :default-active="defaultActive"
-    >
-      <LaySidebarItem
-        v-for="route in usePermissionStoreHook().wholeMenus"
-        :key="route.path"
-        :item="route"
-        :base-path="route.path"
-      />
-    </el-menu>
-    <div class="horizontal-header-right">
-      <!-- 菜单搜索 -->
-      <LaySearch id="header-search" />
-      <!-- 全屏 -->
-      <LaySidebarFullScreen id="full-screen" />
-      <!-- 消息通知 -->
-      <LayNotice id="header-notice" />
-      <!-- 退出登录 -->
-      <el-dropdown trigger="click">
-        <span class="el-dropdown-link navbar-bg-hover">
-          <PureAvatar
-            :src="userAvatar"
-            :username="username"
-            :size="22"
-            :style="avatarsStyle"
-          />
-          <p v-if="username" class="dark:text-white">{{ username }}</p>
-        </span>
-        <template #dropdown>
-          <el-dropdown-menu class="logout">
-            <el-dropdown-item @click="logout">
-              <IconifyIconOffline
-                :icon="LogoutCircleRLine"
-                style="margin: 5px"
-              />
-              退出系统
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-  </div>
+  <header class="horizontal-header flex min-w-0 items-center border-b border-border bg-background text-foreground">
+    <RouterLink v-if="showLogo" :to="homePath" class="horizontal-header-left shrink-0 text-sm text-foreground">
+      <span class="grid size-8 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">{{ title.slice(0, 1).toUpperCase() }}</span>
+      <span class="truncate">{{ title }}</span>
+    </RouterLink>
+    <nav aria-label="主导航" class="min-w-0 flex-1 overflow-x-auto">
+      <ul v-if="menus.length" class="horizontal-header-menu flex min-w-max items-center gap-1 px-2">
+        <SidebarItem
+          v-for="item in menus"
+          :key="item.path"
+          :item="item"
+          :base-path="''"
+          horizontal
+        />
+      </ul>
+      <p v-else class="px-4 text-sm text-muted-foreground" role="status">当前账号没有可用菜单。</p>
+    </nav>
+    <SidebarHeaderActions class="horizontal-header-right" />
+  </header>
 </template>
-
-<style lang="scss" scoped>
-:deep(.el-loading-mask) {
-  opacity: 0.45;
-}
-
-.logout {
-  width: 120px;
-
-  ::v-deep(.el-dropdown-menu__item) {
-    display: inline-flex;
-    flex-wrap: wrap;
-    min-width: 100%;
-  }
-}
-</style>
