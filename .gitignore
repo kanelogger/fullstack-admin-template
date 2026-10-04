@@ -58,10 +58,6 @@ pids
 .lock-wscript
 .grunt
 .tern-port
-__pycache__/
-*.py[cod]
-.venv/
-.ipynb_checkpoints/
 
 # ===== Editor & OS =====
 .vscode-test

@@ -9,7 +9,6 @@
 - Node.js：满足 `frontend/package.json#engines`，即 `>=22.13.0`
 - pnpm：`>=9`（前端）
 - 推荐使用 Volta；项目锁定 Node 24.18.0、前端 pnpm 12.3.4、旧后端 npm 12.0.2。
-- Python 开发使用 pyenv；机器学习使用单独的 Miniconda 环境 `environment.ml.yml`。
 - MySQL：`8.0+`，用于后端 API
 - 本地 Supabase 使用 OrbStack 或其他 Docker-compatible runtime；配置、迁移与开发密钥样例已建立。
 - Windows 开发时，前端脚本中的 POSIX `NODE_OPTIONS=...` 需要在 Git Bash 中运行，或使用等价的 POSIX 兼容环境。
@@ -57,7 +56,7 @@
 - [rules/](rules/)：按需加载的测试、安全和 Git 规则。
 - [specs/architecture.md](specs/architecture.md)：当前架构与接口事实。
 - [docs/agent-environment/](docs/agent-environment/)：服务、能力、网络和 CI 对齐资料。
-- [本机开发工具链](docs/agent-environment/local-toolchain.md)：Volta、yrm、pnpm/npm、pyenv/conda、OrbStack 的项目用法。
+- [本机开发工具链](docs/agent-environment/local-toolchain.md)：Volta、yrm、pnpm/npm、OrbStack 的项目用法。
 - [Supabase 本地服务](docs/agent-environment/services.md#supabase-local)：启动、停止、端口与本地数据库重建边界。
 - [Supabase 本地服务](docs/agent-environment/services.md#supabase-local)：启动、停止、端口与本地数据库重建边界。
 - [.agents/skills/agents-maintenance/SKILL.md](.agents/skills/agents-maintenance/SKILL.md)：仅在维护 Agent 规则时加载。

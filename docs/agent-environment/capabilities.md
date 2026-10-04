@@ -7,7 +7,6 @@
 | Node / 包管理器 | `node --version`、`pnpm --version`、`npm --version`；约束见前后端包清单 | 版本符合配置；仅查版本不证明依赖、构建或服务可用 |
 | Volta | `volta --version`、`volta which node`、`volta which pnpm`、`volta which npm` | 只能证明对应二进制可见；项目版本以最近的 `package.json#volta` 为准 |
 | yrm registry 工具 | `yrm --version`、`yrm current` | registry 切换会改用户配置；不要把本机 registry 或 URL 当成仓库事实 |
-| pyenv / Conda | `pyenv --version`、`pyenv version`、`conda --version`、`conda env list` | 当前解释器和 conda 环境名可探测；不据此推断 CUDA/MPS 或框架可用 |
 | OrbStack / Docker | `orb status`、`docker info` | OrbStack 状态与 Docker API 可达性分别记录；CLI 存在不证明容器 runtime 健康 |
 | Supabase CLI / Local 栈 | 在 `frontend/` 执行 `./node_modules/.bin/supabase --version`、`supabase status`；运行状态检查时屏蔽本地 key 输出 | CLI 版本、config 解析、容器健康、数据库 lint 和 migration 测试分别验证；CLI 可执行不代表 Local 栈健康 |
 | Git / 工作区 | `git --version`、`git rev-parse --show-toplevel` | 确认当前检出根；提交规则见 `rules/git.md` |

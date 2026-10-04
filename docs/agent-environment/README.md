@@ -9,7 +9,7 @@
 | 判断可用工具、Skill 或权限 | [`capabilities.md`](capabilities.md) |
 | 网络、沙箱、文件系统或 GUI | [`network-filesystem.md`](network-filesystem.md) |
 | 对齐本地、CI 和发布环境 | [`ci-parity.md`](ci-parity.md) |
-| 配置本机 Node、Python、registry 和 Docker 工具链 | [`local-toolchain.md`](local-toolchain.md) |
+| 配置本机 Node、registry 和 Docker 工具链 | [`local-toolchain.md`](local-toolchain.md) |
 
 ## 维护规则
 

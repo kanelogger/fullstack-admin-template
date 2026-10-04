@@ -6,13 +6,12 @@
 
 用户确认应用登录只保留 `login_name` + 密码；邮箱仅发送密码恢复邮件。浏览器只能经 `session-login` Edge Function 建立应用 Session；Edge Function 登记 session_id，RLS 与旧 JWT bridge 同时校验密码 AMR 和私有 Session 白名单。全局及 email provider 公共注册、手机号注册和 Passkey 均关闭。Recovery OTP 仅用于重置，不能读业务数据或换取旧 JWT；重置要求服务端请求标记和私有密码哈希快照校验。
 
-用户补充要求把本机开发工具链固化到项目：Volta 管 Node，yrm 管 npm registry，前端使用 pnpm、旧后端使用 npm，pyenv 管通用 Python，Miniconda/conda 管机器学习和深度学习，OrbStack 提供 Docker 运行时。
+用户补充要求把本机开发工具链固化到项目：Volta 管 Node，yrm 管 npm registry，前端使用 pnpm、旧后端使用 npm，OrbStack 提供 Docker 运行时。
 
 ## 评估和取舍
 
 - 用两个现有 package manifest 的 `volta` 字段固定项目 Node 和相应包管理器，沿用前端已有 pnpm 与后端 npm 分工；不新增根 package.json，避免改变两个独立项目的安装边界。
 - Node 最低版本提升到 `>=22.13.0`，与当前 Supabase JS 支持边界一致；Volta 固定本机参考 Node 24.18.0。最低兼容范围和本机固定版本分别表达，不把机器补丁版本当成所有环境的最低要求。
-- pyenv 的 `.python-version` 与 conda 的 `environment.ml.yml` 分开；普通 Python 项目用 pyenv + `venv`，机器学习环境只由 conda 管。深度学习框架需要按操作系统和加速硬件另行选择，不能把 CUDA/MPS 假设写进跨平台环境文件。
 - yrm 1.0.6 已多年未发布且会修改用户级 npm registry。保留使用说明，不把它作为项目依赖或提交 registry 地址、凭据；切换后核对 npm 与 pnpm 当前源。
 - OrbStack 是本机 Docker-compatible runtime；不提交 Docker socket、个人路径或密钥。Supabase Local 需要显式启动 OrbStack 并由本地 Docker socket 驱动。
 

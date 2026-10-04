@@ -1,6 +1,6 @@
 # 本机开发工具链
 
-本项目的 Node 服务和 Python/机器学习环境各自独立。项目文件固定可复现的版本和依赖；工具安装、registry 选择及 Docker runtime 属于开发者本机设置，不写入项目凭据。
+本项目的 Node 服务使用独立工具链。项目文件固定可复现的版本和依赖；工具安装、registry 选择及 Docker runtime 属于开发者本机设置，不写入项目凭据。
 
 ## JavaScript 与 Node
 
@@ -27,27 +27,6 @@ pnpm config get registry
 ```
 
 `yrm use` 会改变用户级 registry 设置，影响本机 npm/pnpm 后续联网请求。不要把 registry URL、认证 token 或个人 `.npmrc` 提交到仓库；不要使用旧列表中仍为 HTTP 的镜像。完成切换后用 `yrm use npm` 恢复官方 npm registry，或使用组织批准的 HTTPS 镜像。
-
-## Python 与机器学习
-
-- `.python-version` 固定普通 Python 开发使用的 pyenv 解释器版本 3.12.2。没有该版本时执行 `pyenv install 3.12.2`；项目虚拟环境由标准库 `venv` 创建：
-
-  ```bash
-  python -m venv .venv
-  source .venv/bin/activate
-  ```
-
-  当前仓库没有通用 pip requirements 文件；具体 Python 功能应维护自己的依赖清单。
-
-- `environment.ml.yml` 是独立的 Miniconda/conda 机器学习环境，Python 3.11，包含 Jupyter、NumPy、Pandas 和 scikit-learn。首次创建和启用：
-
-  ```bash
-  conda env create --file environment.ml.yml
-  conda activate fullstack-admin-ml
-  ```
-
-- PyTorch、TensorFlow 等深度学习框架应按操作系统、CPU/GPU 和加速后端单独选择安装命令；不要把 CUDA、Apple MPS 或大型框架预装进通用环境文件。
-- 不要在同一终端同时激活 `.venv` 与 conda 环境。Python 依赖、模型权重、Notebook 输出和训练数据不进入前端/后端部署产物。
 
 ## OrbStack 与 Docker
 

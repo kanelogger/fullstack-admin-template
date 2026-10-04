@@ -29,8 +29,6 @@ environment:
     pnpm: {source: "frontend/package.json#engines.pnpm"}
     backend_package_manager: npm
     volta: {source: ["frontend/package.json#volta", "backend/package.json#volta"]}
-    pyenv: {source: ".python-version"}
-    conda: {source: "environment.ml.yml"}
     registry_manager: yrm
     local_docker_runtime: orbstack
     supabase_cli: {source: "frontend/package.json#devDependencies.supabase"}
@@ -242,7 +240,7 @@ permissions:
 
 freshness:
   scope: "仓库静态配置；本机状态每次使用前探测"
-  evidence: [frontend/package.json, frontend/pnpm-lock.yaml, backend/package.json, backend/db/schema.sql, backend/db/seed.sql, backend/db/preflight-auth-accounts.sql, backend/db/preflight-messages.sql, backend/db/preflight-organization.sql, backend/db/preflight-dictionary-configuration.sql, backend/scripts/migrate-auth-accounts.mjs, backend/scripts/migrate-messages-to-supabase.mjs, backend/scripts/migrate-organization-to-supabase.mjs, backend/scripts/migrate-dictionary-configuration-to-supabase.mjs, .python-version, environment.ml.yml, supabase/config.toml, supabase/migrations/, supabase/tests/, .gitignore]
+  evidence: [frontend/package.json, frontend/pnpm-lock.yaml, backend/package.json, backend/db/schema.sql, backend/db/seed.sql, backend/db/preflight-auth-accounts.sql, backend/db/preflight-messages.sql, backend/db/preflight-organization.sql, backend/db/preflight-dictionary-configuration.sql, backend/scripts/migrate-auth-accounts.mjs, backend/scripts/migrate-messages-to-supabase.mjs, backend/scripts/migrate-dictionary-configuration-to-supabase.mjs, supabase/config.toml, supabase/migrations/, supabase/tests/, .gitignore]
   verified_at: "2026-10-02"
   owner: 项目维护者
   status: verified-static
