@@ -111,7 +111,7 @@ test("message center loads the recipient inbox and marks a message read", async 
     }
     if (request.method() === "PATCH") {
       const idFilter = new URL(request.url()).searchParams.get("id") ?? "";
-      let targetIds: string[] = [];
+      let targetIds: string[];
       if (idFilter.startsWith("eq.")) {
         targetIds = [idFilter.slice(3)];
       } else if (idFilter.startsWith("in.(") && idFilter.endsWith(")")) {

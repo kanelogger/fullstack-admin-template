@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, appendFile, cp, link, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -98,6 +98,7 @@ function isolatedConfig(config, projectId, ports) {
 }
 
 async function createIsolatedProject(tempRoot, projectId, ports) {
+  await mkdir(tempRoot, { recursive: true });
   const isolatedRoot = join(tempRoot, "project");
   const isolatedSupabase = join(isolatedRoot, "supabase");
   await cp(sourceSupabaseRoot, isolatedSupabase, {
@@ -111,6 +112,133 @@ async function createIsolatedProject(tempRoot, projectId, ports) {
   const config = await readFile(configPath, "utf8");
   await writeFile(configPath, isolatedConfig(config, projectId, ports));
   return isolatedRoot;
+}
+
+async function migrationPrivilegeStatements(migrationsRoot) {
+  const files = (await readdir(migrationsRoot))
+    .filter(name => name.endsWith(".sql"))
+    .sort();
+  const statements = [];
+  for (const name of files) {
+    const sql = await readFile(join(migrationsRoot, name), "utf8");
+    statements.push(...[...sql.matchAll(/^\s*(?:grant|revoke)\b[^;]*;/gim)]
+      .map(match => match[0].trim()));
+  }
+  return statements;
+}
+
+async function assertPathDoesNotExist(path) {
+  try {
+    await access(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error("Baseline output already exists; choose a new path to avoid overwriting a file");
+}
+
+async function captureBaseline(workdir, isolatedRoot, baselineCandidate) {
+  run([...workdir, "db", "dump", "--local", "--schema", "public,app_private", "--file", baselineCandidate]);
+  await appendFile(baselineCandidate, `
+
+-- Supabase-managed Storage schemas are excluded from db dump. Preserve this
+-- template's bucket and object policies as part of the new-project baseline.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'admin-attachments',
+  'admin-attachments',
+  false,
+  20971520,
+  array[
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'text/plain',
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip'
+  ]
+)
+on conflict (id) do update
+set name = excluded.name,
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists admin_attachments_upload_authorized on storage.objects;
+create policy admin_attachments_upload_authorized
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'admin-attachments'
+  and (select app_private.is_password_authenticated())
+  and (select app_private.has_permission('files.attachments.upload'))
+  and owner_id = (select auth.uid()::text)
+  and cardinality(storage.foldername(name)) = 1
+  and (storage.foldername(name))[1] = (select public.current_business_user_id())
+);
+
+drop policy if exists admin_attachments_read_authorized on storage.objects;
+create policy admin_attachments_read_authorized
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'admin-attachments'
+  and (select app_private.is_password_authenticated())
+  and (select app_private.has_permission('files.attachments.read'))
+  and exists (
+    select 1
+    from public.attachments as attachment
+    where attachment.storage_path = storage.objects.name
+      and attachment.deleted_at is null
+  )
+);
+
+drop policy if exists admin_attachments_delete_authorized on storage.objects;
+create policy admin_attachments_delete_authorized
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'admin-attachments'
+  and (
+    (select app_private.can_delete_attachment_path(storage.objects.name))
+    or (select app_private.can_cleanup_unregistered_attachment_upload(storage.objects.name))
+  )
+);
+
+-- Supabase manages this publication, so pg_dump does not include its table list.
+do $baseline_realtime$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end
+$baseline_realtime$;
+`);
+  const privilegeStatements = await migrationPrivilegeStatements(join(isolatedRoot, "supabase/migrations"));
+  if (privilegeStatements.length) {
+    const replayablePrivileges = privilegeStatements.map(statement => `
+DO $baseline_privileges$
+BEGIN
+  BEGIN
+    ${statement.replaceAll("$", "$$")}
+  EXCEPTION
+    WHEN undefined_function OR undefined_table OR undefined_object THEN NULL;
+  END;
+END
+$baseline_privileges$;
+`).join("");
+    await appendFile(baselineCandidate, `
+-- Reapply explicit migration ACLs after restoring platform-default ACLs.
+${replayablePrivileges}
+`);
+  }
 }
 
 function statusFor(projectRoot) {
@@ -127,9 +255,9 @@ function statusFor(projectRoot) {
   return { url, publishableKey };
 }
 
-async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports) {
+async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate) {
   const workdir = ["--filter", "fullstack-admin-frontend", "exec", "supabase", "--workdir", isolatedRoot];
-  let stackStopped = false;
+  let stackStopped;
   try {
     console.log(`Starting isolated Supabase project ${projectId}.`);
     run([...workdir, "start"]);
@@ -151,6 +279,10 @@ async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports) {
     if (repeatedSeed.error || repeatedSeed.status !== 0) {
       throw new Error(`Repeat seed application failed (${repeatedSeed.error?.message ?? `exit code ${repeatedSeed.status ?? 1}`})`);
     }
+    if (baselineCandidate) {
+      await captureBaseline(workdir, isolatedRoot, baselineCandidate);
+      console.log(`Captured candidate baseline at ${baselineCandidate}.`);
+    }
     run([...workdir, "db", "lint", "--local", "--level", "warning", "--fail-on", "warning"]);
     run([...workdir, "db", "advisors", "--local", "--type", "all", "--level", "warn", "--fail-on", "warn"]);
     const { url, publishableKey } = statusFor(isolatedRoot);
@@ -163,7 +295,12 @@ async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports) {
     };
     run(["exec", "node", "scripts/test-bootstrap-admin.mjs"], { env: testEnv });
     run(["--filter", "fullstack-admin-frontend", "test:db"], { env: testEnv, inherit: true });
-    run(["--filter", "fullstack-admin-frontend", "test:e2e:local"], { env: { ...testEnv, CI: "1" }, inherit: true });
+    console.log("Bootstrapping the documented default administrator and checking browser login.");
+    run(["setup:admin"], { env: { SUPABASE_PROJECT_ROOT: isolatedRoot } });
+    run(["--filter", "fullstack-admin-frontend", "test:e2e:local"], {
+      env: { ...testEnv, CI: "1", E2E_TEMPLATE_ADMIN: "1" },
+      inherit: true
+    });
   } finally {
     const stop = spawnSync(pnpm, [...workdir, "stop", "--project-id", projectId, "--no-backup"], {
       cwd: projectRoot,
@@ -178,7 +315,52 @@ async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports) {
   if (!stackStopped) throw new Error("Disposable Supabase cleanup failed");
 }
 
+async function validateGeneratedBaseline(baselineCandidate, tempRoot) {
+  const projectId = `template-baseline-${randomUUID().replaceAll("-", "").slice(0, 10)}`;
+  const portsList = await reservePorts(9);
+  const ports = {
+    api: portsList[0],
+    db: portsList[1],
+    shadow: portsList[2],
+    studio: portsList[3],
+    mailpit: portsList[4],
+    smtp: portsList[5],
+    pop3: portsList[6],
+    analytics: portsList[7],
+    vector: portsList[8]
+  };
+  const isolatedRoot = await createIsolatedProject(join(tempRoot, "baseline-validation"), projectId, ports);
+  const migrationsRoot = join(isolatedRoot, "supabase/migrations");
+  await rm(migrationsRoot, { recursive: true, force: true });
+  await mkdir(migrationsRoot, { recursive: true });
+  await cp(baselineCandidate, join(migrationsRoot, "00000000000000_template_baseline.sql"));
+  const migrations = (await readdir(migrationsRoot)).filter(name => name.endsWith(".sql"));
+  assert.deepEqual(migrations, ["00000000000000_template_baseline.sql"], "Baseline validation must replay only the generated SQL");
+  console.log("Validating the generated baseline in a second isolated empty database.");
+  await runDisposableDatabaseChecks(isolatedRoot, projectId, ports);
+}
+
 async function main() {
+  const args = process.argv.slice(2).filter(argument => argument !== "--");
+  let baselineOutput;
+  let baselineCandidate;
+  if (args.length) {
+    if (args.length !== 2 || args[0] !== "--baseline-output") {
+      throw new Error("Usage: node scripts/check-migrations.mjs [--baseline-output <new-sql-file-path>]");
+    }
+    baselineOutput = resolve(args[1]);
+    const forbiddenRoot = join(projectRoot, "supabase/migrations");
+    const relativeToMigrations = relative(forbiddenRoot, baselineOutput);
+    const outputIsInsideMigrations = !isAbsolute(relativeToMigrations) &&
+      relativeToMigrations !== ".." &&
+      !relativeToMigrations.startsWith(`..${sep}`);
+    if (relativeToMigrations === "" || outputIsInsideMigrations) {
+      throw new Error("Baseline output must not overwrite a tracked source migration");
+    }
+    await mkdir(dirname(baselineOutput), { recursive: true });
+    await assertPathDoesNotExist(baselineOutput);
+    baselineCandidate = join(dirname(baselineOutput), `.${basename(baselineOutput)}.${randomUUID()}.tmp`);
+  }
   await validateMigrationInventory();
   const projectId = `template-migration-${randomUUID().replaceAll("-", "").slice(0, 10)}`;
   const portsList = await reservePorts(9);
@@ -196,9 +378,15 @@ async function main() {
   const tempRoot = await mkdtemp(join(os.tmpdir(), "fullstack-admin-migrations-"));
   const isolatedRoot = await createIsolatedProject(tempRoot, projectId, ports);
   try {
-    await runDisposableDatabaseChecks(isolatedRoot, projectId, ports);
-    console.log("Disposable empty-database migrations, seed, pgTAP, Storage/Auth integrations, and local Auth browser flow passed.");
+    await runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate);
+    if (baselineCandidate) {
+      await validateGeneratedBaseline(baselineCandidate, tempRoot);
+      await link(baselineCandidate, baselineOutput);
+      console.log(`Published the validated baseline at ${baselineOutput}.`);
+    }
+    console.log("Disposable empty-database migrations, seed, pgTAP, Storage/Auth integrations, default-admin login, and local Auth browser flow passed.");
   } finally {
+    if (baselineCandidate) await rm(baselineCandidate, { force: true });
     await rm(tempRoot, { recursive: true, force: true });
   }
 }

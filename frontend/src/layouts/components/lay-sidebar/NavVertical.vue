@@ -159,16 +159,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .sidebar-container {
   box-sizing: border-box;
-  width: 210px !important;
+  width: 240px !important;
   font-size: 0.875rem;
 }
 
 .sidebar-container.sidebar-collapsed {
-  width: 54px !important;
+  width: 60px !important;
 }
 
 .sidebar-container.has-logo .sidebar-menu-scroll {
-  height: calc(100% - 92px);
+  height: calc(100% - 100px);
 }
 
 .sidebar-container.no-logo .sidebar-menu-scroll {

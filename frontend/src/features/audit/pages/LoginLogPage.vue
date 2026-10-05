@@ -1,0 +1,6 @@
+<script setup lang="ts">
+import AuditLogPage from "@/features/audit/AuditLogPage.vue";
+defineOptions({ name: "LogLoginLog" });
+</script>
+
+<template><AuditLogPage kind="login" /></template>

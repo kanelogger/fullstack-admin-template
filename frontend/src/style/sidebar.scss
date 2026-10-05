@@ -1,7 +1,7 @@
 .main-container {
   position: relative;
   min-height: 100vh;
-  margin-left: 210px;
+  margin-left: 240px;
   background: var(--background);
   transition: margin-left var(--app-transition-duration);
 }
@@ -11,7 +11,7 @@
   top: 0;
   right: 0;
   z-index: 40;
-  width: calc(100% - 210px);
+  width: calc(100% - 240px);
   transition: width var(--app-transition-duration);
 }
 
@@ -25,15 +25,15 @@
 }
 
 .hideSidebar .main-container {
-  margin-left: 54px;
+  margin-left: 60px;
 }
 
 .hideSidebar .fixed-header {
-  width: calc(100% - 54px);
+  width: calc(100% - 60px);
 }
 
 .sidebar-container.sidebar-collapsed {
-  width: 54px !important;
+  width: 60px !important;
 }
 
 body[layout="horizontal"] .main-container,

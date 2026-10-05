@@ -22,7 +22,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="flex h-12 shrink-0 items-center justify-end gap-1 px-2 text-foreground">
+  <div class="flex h-14 shrink-0 items-center justify-end gap-1 px-3 text-foreground">
     <LaySearch id="header-search" />
     <SidebarFullScreen />
     <LayNotice id="header-notice" />

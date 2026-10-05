@@ -22,6 +22,10 @@ jobs:
           cache: pnpm
       - name: Install workspace
         run: pnpm install --frozen-lockfile
+      - name: Check route registry
+        run: pnpm check:routes
+      - name: Lint
+        run: pnpm lint
       - name: Install PC Chromium
         run: pnpm --filter fullstack-admin-frontend exec playwright install --with-deps chromium
       - name: Type check

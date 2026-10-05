@@ -40,7 +40,7 @@ describe("role and menu management contracts", () => {
       updatedAt: "2026-10-02T00:00:00.000Z"
     };
     expect(ManagedMenuSchema.parse(menu).id).toBe("9007199254740993");
-    expect(ManagedMenuSchema.safeParse({ ...menu, parentId: 9007199254740993 }).success).toBe(false);
+    expect(ManagedMenuSchema.safeParse({ ...menu, parentId: Number("9007199254740993") }).success).toBe(false);
   });
 
   it("accepts a server-paginated catalog and rejects duplicate or overlapping authorization keys", () => {

@@ -40,7 +40,12 @@ if (result.error || result.status !== 0) {
   } else {
     const playwright = spawnSync(
       resolve(frontendRoot, "node_modules/.bin/playwright"),
-      ["test", "e2e/auth-recovery-local.spec.ts", "--workers=1"],
+      [
+        "test",
+        "e2e/auth-recovery-local.spec.ts",
+        ...(process.env.E2E_TEMPLATE_ADMIN === "1" ? ["e2e/default-admin-login-local.spec.ts"] : []),
+        "--workers=1"
+      ],
       {
         cwd: frontendRoot,
         stdio: "inherit",

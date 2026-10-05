@@ -62,6 +62,7 @@
   },
   "workspace": {
     "dependencies": [
+      "npm:@supabase/supabase-js@2.117.2",
       "npm:zod@4.6.5"
     ]
   }

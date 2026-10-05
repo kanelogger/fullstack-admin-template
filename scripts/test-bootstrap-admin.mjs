@@ -76,7 +76,7 @@ try {
   const winnerAuth = candidates[winner.index];
   const winnerIdentity = identities[winner.index];
   const bootstrap = BootstrapAdminResultSchema.parse(winner.result.value.data);
-  assert.equal(bootstrap.mustResetPassword, true);
+  assert.equal(bootstrap.mustResetPassword, false);
   profileIds.push(bootstrap.id);
 
   const { data: mappedProfile, error: profileError } = await admin
@@ -87,7 +87,7 @@ try {
   if (profileError || !mappedProfile) throw new Error("The winning bootstrap profile was not stored");
   assert.equal(String(mappedProfile.id), bootstrap.id);
   assert.equal(mappedProfile.login_name, winnerIdentity.loginName);
-  assert.equal(mappedProfile.must_reset_password, true);
+  assert.equal(mappedProfile.must_reset_password, false);
 
   const replay = await admin.rpc("bootstrap_first_admin_profile", {
     p_auth_user_id: winnerAuth.id,
@@ -148,7 +148,7 @@ try {
     .eq("id", bootstrap.id)
     .single();
   if (preserveError) throw new Error("Could not verify the protected administrator reset state");
-  assert.equal(preservedProfile.must_reset_password, true, "password setup must remain required");
+  assert.equal(preservedProfile.must_reset_password, false, "explicit password recovery must not force the default admin to reset before login");
   assert.ok(preservedProfile.password_reset_requested_at, "the marked reset request remains available for email delivery");
 
   const delivery = await admin.auth.resetPasswordForEmail(winnerIdentity.email, {
@@ -166,7 +166,7 @@ try {
     initialAdminConcurrency: "one winner",
     identicalInitialization: "idempotent",
     ordinaryAccountPromotion: "rejected",
-    passwordSetupState: "profile protected and reset email captured by Mailpit"
+    passwordSetupState: "default credentials enabled; explicit reset flow remains available"
   }));
 } finally {
   await cleanup();

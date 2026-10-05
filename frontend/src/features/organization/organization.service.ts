@@ -126,7 +126,7 @@ export async function getPosts(input: unknown = {}): Promise<PostPage> {
 export async function listDepartmentOptions(): Promise<Department[]> {
   const items: Department[] = [];
   let page = 1;
-  let total = 0;
+  let total: number;
   do {
     const result = await getDepartments({ page, pageSize: 100 });
     items.push(...result.items);
@@ -141,7 +141,7 @@ export async function listDepartmentOptions(): Promise<Department[]> {
 export async function listPostOptions(): Promise<Post[]> {
   const items: Post[] = [];
   let page = 1;
-  let total = 0;
+  let total: number;
   do {
     const result = await getPosts({ page, pageSize: 100 });
     items.push(...result.items);

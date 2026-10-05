@@ -17,11 +17,18 @@
     "@template/contracts": "workspace:*"
   },
   "devDependencies": {
-    "deno": "2.9.6"
+    "@eslint/js": "^10.0.1",
+    "deno": "2.9.6",
+    "eslint": "^10.12.0",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^17.13.0",
+    "typescript-eslint": "^8.71.0"
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "pnpm --filter fullstack-admin-frontend build",
+    "lint": "eslint . --max-warnings 70 && pnpm exec deno lint supabase/functions",
+    "check:routes": "node scripts/check-routes.mjs",
     "typecheck": "pnpm --filter fullstack-admin-frontend typecheck && pnpm --filter @template/contracts typecheck && node scripts/typecheck-edge-functions.mjs",
     "test:unit": "pnpm --filter fullstack-admin-frontend test:unit && pnpm --filter @template/contracts test && node --test scripts/*.test.mjs",
     "test:e2e:mock": "pnpm --filter fullstack-admin-frontend test:e2e",

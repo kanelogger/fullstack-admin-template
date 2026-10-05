@@ -3,7 +3,7 @@ import router from "./router";
 import { setupStore } from "@/stores";
 import { getConfig, getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
-import { createApp, type Directive } from "vue";
+import { createApp } from "vue";
 import { injectResponsiveStorage } from "@/utils/responsive";
 import { getSupabaseClientIfConfigured } from "@/lib/supabase/client";
 import { useSessionStoreHook } from "@/stores/modules/session";
@@ -14,12 +14,6 @@ import "./style/reset.scss";
 import "./style/index.scss";
 
 const app = createApp(App);
-
-// 自定义指令
-import * as directives from "@/directives";
-Object.keys(directives).forEach(key => {
-  app.directive(key, (directives as { [key: string]: Directive })[key]);
-});
 
 // 全局注册@iconify/vue图标库
 import {

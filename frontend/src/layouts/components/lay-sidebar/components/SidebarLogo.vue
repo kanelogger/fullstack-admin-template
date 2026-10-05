@@ -8,7 +8,7 @@ const homePath = getTopMenu()?.path ?? "/welcome";
 </script>
 
 <template>
-  <div class="sidebar-logo-container flex h-12 shrink-0 items-center overflow-hidden border-b border-border px-3">
+  <div class="sidebar-logo-container flex h-14 shrink-0 items-center overflow-hidden border-b border-border px-4">
     <RouterLink
       :to="homePath"
       :title="title"

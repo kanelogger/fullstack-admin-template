@@ -39,24 +39,24 @@ const layout = computed(() => {
 
 const getSectionStyle = computed(() => {
   return [
-    hideTabs && layout.value ? "padding-top: 48px;" : "",
+    hideTabs && layout.value ? "padding-top: 56px;" : "",
     !hideTabs && layout.value
       ? showModel == "chrome"
-        ? "padding-top: 85px;"
-        : "padding-top: 81px;"
+        ? "padding-top: 93px;"
+        : "padding-top: 89px;"
       : "",
-    hideTabs && !layout.value ? "padding-top: 48px;" : "",
+    hideTabs && !layout.value ? "padding-top: 56px;" : "",
     !hideTabs && !layout.value
       ? showModel == "chrome"
-        ? "padding-top: 85px;"
-        : "padding-top: 81px;"
+        ? "padding-top: 93px;"
+        : "padding-top: 89px;"
       : "",
     props.fixedHeader
       ? ""
       : `padding-top: 0;${
           hideTabs
-            ? "min-height: calc(100vh - 48px);"
-            : "min-height: calc(100vh - 86px);"
+            ? "min-height: calc(100vh - 56px);"
+            : "min-height: calc(100vh - 94px);"
         }`
   ];
 });

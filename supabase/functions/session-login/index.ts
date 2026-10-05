@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { createClient } from "@supabase/supabase-js";
 import { jsonResponse, handlePreflight } from "../_shared/http.ts";
 import { LoginIdentitySchema, LoginRequestSchema } from "../_shared/contracts.ts";
 

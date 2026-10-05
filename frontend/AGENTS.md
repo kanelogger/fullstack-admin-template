@@ -24,4 +24,4 @@
 
 ## 命令
 
-从仓库根目录运行 `pnpm dev`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`。完整 migration replay 与真实本地浏览器链路使用 `pnpm check:migrations`。仅面向 PC Chromium 验收，不定义移动端适配要求。
+从仓库根目录运行 `pnpm dev`、`pnpm check:routes`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`。完整 migration replay 与真实本地浏览器链路使用 `pnpm check:migrations`。仅面向 PC Chromium 验收，不定义移动端适配要求。

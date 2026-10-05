@@ -5,6 +5,8 @@
 ## 常用入口
 
 - `pnpm typecheck`：检查 Vue/TypeScript、共享 Zod 合同与三个 Deno Edge Function 入口。
+- `pnpm lint`：检查 Vue、TypeScript、共享合同、仓库脚本与 Deno Edge Functions。
+- `pnpm check:routes`：核对 RouteKey 合同、页面注册、唯一默认路径、有效权限键及导入文件存在且不被 Git 忽略；CI 还要求导入文件已跟踪。
 - `pnpm build`：生成生产前端包。
 - `pnpm test:unit`：运行前端逻辑、合同、Edge helper 和本地脚本测试。
 - `pnpm test:e2e:mock`：用隔离响应启动 Vite 与 PC Chromium，验证路由、主要页面、授权 UI、延迟 Session 刷新/退出竞态，以及另一标签切换账号时保留新 Session。

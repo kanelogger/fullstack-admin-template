@@ -17,7 +17,7 @@ function toggleSidebar() {
 </script>
 
 <template>
-  <header class="navbar flex h-12 min-w-0 items-center gap-3 border-b border-border bg-background px-2 text-foreground shadow-sm">
+  <header class="navbar flex h-14 min-w-0 items-center gap-3 border-b border-border bg-background/95 px-4 text-foreground backdrop-blur">
     <SidebarTopCollapse
       v-if="isMobile"
       :is-active="sidebarOpened"

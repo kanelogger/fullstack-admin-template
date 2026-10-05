@@ -1,6 +1,3 @@
-import { randomBytes } from "node:crypto";
-import { createInterface } from "node:readline/promises";
-import { stdin, stdout } from "node:process";
 import { createClient } from "@supabase/supabase-js";
 import {
   BootstrapAdminInputSchema,
@@ -13,6 +10,13 @@ import {
   matchesBootstrapMarker
 } from "./bootstrap-admin-helpers.mjs";
 import { getLocalSupabaseStatus, projectRoot } from "./local-supabase.mjs";
+
+const initialAdmin = {
+  loginName: "admin",
+  displayName: "Administrator",
+  email: "admin@example.test"
+};
+const initialPassword = "admin123456";
 
 async function findBootstrapUser(admin, input) {
   for (let page = 1; page <= 1000; page += 1) {
@@ -42,7 +46,9 @@ async function removeUncommittedIdentity(admin, authUserId) {
 }
 
 async function setup(input) {
-  const { url, serviceRoleKey } = getLocalSupabaseStatus();
+  const { url, serviceRoleKey } = getLocalSupabaseStatus(
+    process.env.SUPABASE_PROJECT_ROOT ?? projectRoot
+  );
   const admin = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
@@ -50,7 +56,6 @@ async function setup(input) {
   let authUser = await findBootstrapUser(admin, input);
   const createdThisRun = !authUser;
   if (!authUser) {
-    const initialPassword = `${randomBytes(48).toString("base64url")}aA1!`;
     const { data, error } = await admin.auth.admin.createUser({
       email: input.email,
       password: initialPassword,
@@ -76,6 +81,9 @@ async function setup(input) {
     if (createdThisRun && !await removeUncommittedIdentity(admin, authUser.id)) {
       throw new Error("Bootstrap failed; the local Auth identity was preserved because its profile state could not be verified");
     }
+    if (createdThisRun && bootstrapError.message?.includes("An initial administrator already exists")) {
+      throw new Error("An administrator already exists in this local database; setup-admin leaves existing accounts and passwords unchanged.");
+    }
     if (createdThisRun) throw new Error("Bootstrap failed and the uncommitted Auth identity was removed");
     throw new Error("Bootstrap retry failed; the marked local Auth identity was preserved for retry");
   }
@@ -88,7 +96,9 @@ async function setup(input) {
   if (metadataError) throw new Error("Administrator exists, but bootstrap completion could not be recorded; rerun setup-admin");
 
   if (!result.mustResetPassword) {
-    console.log("The initial administrator is already set up and has completed password reset.");
+    console.log(createdThisRun
+      ? "Initial administrator admin is ready. Use the documented local template credentials to sign in."
+      : "Initial administrator admin is already set up.");
     return;
   }
 
@@ -109,22 +119,7 @@ async function setup(input) {
   console.log(`Business profile ID: ${result.id}`);
 }
 
-async function main() {
-  if (!stdin.isTTY || !stdout.isTTY) throw new Error("Run setup-admin in an interactive terminal");
-  const prompt = createInterface({ input: stdin, output: stdout });
-  try {
-    const input = BootstrapAdminInputSchema.parse({
-      loginName: await prompt.question("Login name: "),
-      displayName: await prompt.question("Display name: "),
-      email: await prompt.question("Email for password setup: ")
-    });
-    await setup(input);
-  } finally {
-    prompt.close();
-  }
-}
-
-main().catch(error => {
+setup(BootstrapAdminInputSchema.parse(initialAdmin)).catch(error => {
   console.error(error instanceof Error ? error.message : "Initial-admin setup failed");
   process.exitCode = 1;
 });

@@ -9,7 +9,7 @@ const memoryStorage = new Map<string, string>();
 export function storageLocal(): LocalStorageAdapter {
   return {
     getItem<T>(key: string): T | null {
-      let raw: string | null = null;
+      let raw: string | null;
       try {
         raw = globalThis.localStorage?.getItem(key) ?? null;
       } catch {
@@ -184,6 +184,7 @@ export function throttle<T extends (...args: any[]) => void>(
   return function throttled(this: unknown, ...args: Parameters<T>) {
     const now = Date.now();
     latestArgs = args;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- Debounced calls retain the caller context.
     latestThis = this;
     if (now - lastCall >= delay) {
       lastCall = now;
@@ -234,7 +235,7 @@ export async function copyTextToClipboard(value: string): Promise<boolean> {
   textarea.style.opacity = "0";
   document.body.appendChild(textarea);
   textarea.select();
-  let copied = false;
+  let copied: boolean;
   try {
     copied = document.execCommand("copy");
   } finally {

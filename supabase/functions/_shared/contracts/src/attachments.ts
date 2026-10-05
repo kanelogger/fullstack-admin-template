@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex -- Rejecting ASCII control characters is intentional. */
 import { z } from "zod";
 import { BusinessIdSchema } from "./ids.ts";
 import { createPaginatedResultSchema, PaginationRequestSchema } from "./pagination.ts";
@@ -37,6 +38,7 @@ export function getSupportedAttachmentMimeType(fileExt: string, mimeType?: strin
 export const AttachmentSchema = z
   .object({
     id: BusinessIdSchema,
+    // deno-lint-ignore no-control-regex -- Control characters are invalid in uploaded file names.
     originalName: z.string().min(1).max(255).refine(value => !/[\u0000-\u001f\u007f]/.test(value)),
     storagePath: z.string().min(1).max(512),
     mimeType: z.string().min(1).max(128),
@@ -78,6 +80,7 @@ export const CreateAttachmentMetadataRequestSchema = z
       .trim()
       .min(1)
       .max(255)
+      // deno-lint-ignore no-control-regex -- Control characters are invalid in uploaded file names.
       .refine(value => !/[\u0000-\u001f\u007f]/.test(value)),
     mimeType: z.string().trim().min(1).max(128),
     fileExt: z.string().regex(/^[a-z0-9]{1,32}$/),

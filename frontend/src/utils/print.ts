@@ -7,9 +7,9 @@ interface PrintFunction {
 
 const Print = function (dom, options?: object): PrintFunction {
   options = options || {};
-  // @ts-expect-error
+  // @ts-expect-error Print supports invocation without `new` for legacy callers.
   if (!(this instanceof Print)) return new Print(dom, options);
-  // @ts-expect-error
+  // @ts-expect-error The legacy plugin exposes configuration through the instance.
   this.conf = {
     styleStr: "",
     // Elements that need to dynamically get and set the height
@@ -19,26 +19,26 @@ const Print = function (dom, options?: object): PrintFunction {
     // Callback after printing
     printDoneCallBack: null
   };
-  // @ts-expect-error
+  // @ts-expect-error The legacy plugin iterates its dynamic configuration keys.
   for (const key in this.conf) {
-    if (key && options.hasOwnProperty(key)) {
-      // @ts-expect-error
+    if (key && Object.prototype.hasOwnProperty.call(options, key)) {
+      // @ts-expect-error Dynamic keys are validated against the instance configuration.
       this.conf[key] = options[key];
     }
   }
   if (typeof dom === "string") {
-    // @ts-expect-error
+    // @ts-expect-error DOM height options belong to the legacy plugin instance.
     this.dom = document.querySelector(dom);
   } else {
-    // @ts-expect-error
+    // @ts-expect-error The plugin resolves a DOM element from its legacy selector input.
     this.dom = this.isDOM(dom) ? dom : dom.$el;
   }
-  // @ts-expect-error
+  // @ts-expect-error Legacy plugin methods are attached to the constructor prototype.
   if (this.conf.setDomHeightArr && this.conf.setDomHeightArr.length) {
-    // @ts-expect-error
+    // @ts-expect-error Legacy plugin methods are attached to the constructor prototype.
     this.setDomHeight(this.conf.setDomHeightArr);
   }
-  // @ts-expect-error
+  // @ts-expect-error Legacy plugin initialization runs against the constructed instance.
   this.init();
 };
 

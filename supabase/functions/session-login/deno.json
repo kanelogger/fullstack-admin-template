@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.117.2",
     "@template/contracts/": "../_shared/contracts/src/",
     "zod": "npm:zod@4.6.5"
   },

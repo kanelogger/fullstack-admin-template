@@ -19,9 +19,9 @@ export const menuRouteRegistry = {
   "administration.posts": () => import("@/features/organization/pages/posts/index.vue"),
   "administration.dictionaries": () => import("@/features/dictionaries/pages/dictionaries/index.vue"),
   "administration.configurations": () => import("@/features/configuration/pages/system-config/index.vue"),
-  "audit.login-logs": () => import("@/features/audit/pages/logs/login-log/index.vue"),
-  "audit.operation-logs": () => import("@/features/audit/pages/logs/operation-log/index.vue"),
-  "audit.exception-logs": () => import("@/features/audit/pages/logs/exception-log/index.vue")
+  "audit.login-logs": () => import("@/features/audit/pages/LoginLogPage.vue"),
+  "audit.operation-logs": () => import("@/features/audit/pages/OperationLogPage.vue"),
+  "audit.exception-logs": () => import("@/features/audit/pages/ExceptionLogPage.vue")
 } satisfies Record<ManagedRouteKey, () => Promise<{ default: Component }>>;
 
 export type RegisteredMenuRouteKey = ManagedRouteKey;

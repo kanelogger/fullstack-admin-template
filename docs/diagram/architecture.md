@@ -90,7 +90,7 @@ scripts/               # 本地开发、首次管理员和验收入口
 - RLS/RPC/Edge Functions 是服务端安全边界。客户端守卫提供导航体验，按钮权限只控制界面展示。
 - `current_navigation()` 在服务端按授权过滤菜单；数据库只返回固定 RouteKey。前端静态 registry 决定可装载 Vue 页面，不执行数据库提供的任意路径或组件。
 - Auth 状态改变后在回调之外刷新授权与导航。其他标签退出后登录了不同账号时，本页恢复新账号的权限和菜单；尚未完成的旧账号登出不能清除新 Session。页面恢复焦点及定期轮询同步 Session；延迟结果使用身份与操作版本校验，不能覆盖已退出或新账号。
-- 首位管理员由 `pnpm setup:admin` 在本机 Supabase Local 初始化，再通过 Mailpit 重置邮件设定密码；随机初始密码不会被输出。
+- 首位管理员由 `pnpm setup:admin` 在本机 Supabase Local 初始化，模板默认凭据为 `admin` / `admin123456`，邮箱为 `admin@example.test`。
 
 ## 6. 应用壳与业务范围
 

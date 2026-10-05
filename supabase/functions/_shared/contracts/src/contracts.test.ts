@@ -144,7 +144,7 @@ describe("shared contracts", () => {
       updatedAt: "2026-10-02T00:00:00Z"
     };
     expect(ManagedUserSchema.parse(user)).toEqual(user);
-    expect(ManagedUserSchema.safeParse({ ...user, id: 9007199254740993 }).success).toBe(false);
+    expect(ManagedUserSchema.safeParse({ ...user, id: Number("9007199254740993") }).success).toBe(false);
   });
 
   it("requires email only on account creation and never accepts an initial password", () => {

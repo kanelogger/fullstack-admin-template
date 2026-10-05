@@ -108,7 +108,16 @@ commands:
       command_ref: "package.json#scripts.supabase:db:reset"
       requires: [docker-compatible-runtime, confirmed-disposable-local-project, human-approval]
       side_effects: [drop-and-recreate-current-local-database]
-  lint: not-applicable
+  lint:
+    command: "pnpm lint"
+    cwd: .
+    command_ref: "package.json#scripts.lint"
+    scope: "frontend Vue/TypeScript, shared contracts, Deno Edge Functions and repository scripts"
+  route_registry:
+    command: "pnpm check:routes"
+    cwd: .
+    command_ref: "package.json#scripts.check:routes"
+    scope: "RouteKey contract, route metadata, import files and Git ignore/tracking state"
   e2e: pc-chromium-playwright
   browser_test: playwright
   execution_guide: docs/agent-environment/commands.md

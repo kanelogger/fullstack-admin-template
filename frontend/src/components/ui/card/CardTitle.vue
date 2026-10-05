@@ -6,7 +6,7 @@ const props = defineProps<{ class?: HTMLAttributes["class"] }>();
 </script>
 
 <template>
-  <h2 :class="cn('text-base font-semibold leading-none tracking-tight', props.class)">
+  <h2 data-slot="card-title" :class="cn('text-base font-semibold leading-none tracking-tight', props.class)">
     <slot />
   </h2>
 </template>

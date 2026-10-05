@@ -13,7 +13,7 @@
 ## Auth 与权限
 
 - 唯一应用登录入口为 `login_name + 密码`。`session-login` Edge Function 在服务端映射已验证邮箱，建立 Auth Session 并登记允许访问业务数据的 Session。邮箱仅用于密码恢复；底层 recovery Session 不能读取业务数据。
-- 首位管理员通过根命令 `pnpm setup:admin` 建立。仅限当前 Supabase Local；随机初始密码不输出，使用 Mailpit 密码重置链接完成设置。公共注册关闭。
+- 首位管理员通过根命令 `pnpm setup:admin` 建立。仅限当前 Supabase Local；模板默认登录账号为 `admin`、密码为 `admin123456`、邮箱为 `admin@example.test`。公共注册关闭。
 - `profiles.auth_user_id` 必填并引用 `auth.users.id`；业务实体 ID 为 PostgreSQL BIGINT，在 Zod API 合同中以十进制字符串传输。
 - RLS 是数据安全边界。`current_profile()` 返回本人资料、角色码和权限键；`current_navigation()` 按服务端授权返回菜单。浏览器只按固定 RouteKey registry 装载动态页面。路由守卫和按钮权限提供 UX 控制，不能替代 RLS/Edge/RPC 权限检查。
 - 角色菜单授权复用菜单路由的既有 permission key，不创建第二套 role-menu 关系。按钮权限由角色权限集合及服务端授权函数管理。
@@ -30,5 +30,5 @@
 
 - Node `>=22.13.0`、pnpm `>=9`，项目固定 Node 24.18.0 / pnpm 12.3.4；Postgres Local major version 为 17。
 - `pnpm supabase:start/status/stop` 管理本地栈；`pnpm dev` 同时启动 Edge Functions 与 Vite (`127.0.0.1:8848`)。Auth 邮件由本地 Mailpit 捕获。
-- `pnpm typecheck` 检查前端、合同包和 Deno Edge Function；`pnpm test:unit` 跑 Vitest/helper；`pnpm test:e2e:mock` 覆盖 PC UI；`pnpm test:e2e:local` 覆盖本地 Supabase 完整 PC 浏览器链路：Auth、字典 CRUD、Realtime、刷新、越权拒绝和登出后 RLS 拒绝旧 token；`pnpm test:db` 跑当前本地 Supabase pgTAP 与服务集成；`pnpm check:migrations` 执行隔离空库重放、lint/advisors、数据库/服务测试和该真实浏览器流程。
-- GitHub Actions 在 push/pull_request 上执行冻结安装、类型检查、构建、单测、PC mock 浏览器测试和隔离 migration check。无生产部署配置。
+- `pnpm check:routes` 检查 RouteKey 合同、菜单元数据、权限键与可跟踪的页面导入；`pnpm lint` 检查 Vue/TypeScript、共享合同、脚本和 Deno Edge Functions。`pnpm typecheck` 检查前端、合同包和 Edge Function 类型；`pnpm test:unit` 跑 Vitest/helper；`pnpm test:e2e:mock` 覆盖 PC UI；`pnpm test:e2e:local` 覆盖本地 Supabase 完整 PC 浏览器链路：Auth、字典 CRUD、Realtime、刷新、越权拒绝和登出后 RLS 拒绝旧 token；`pnpm test:db` 跑当前本地 Supabase pgTAP 与服务集成；`pnpm check:migrations` 执行隔离空库重放、数据库 lint/advisors、服务测试、默认凭据创建与浏览器登录。
+- GitHub Actions 在 push/pull_request 上执行冻结安装、路由检查、源码 lint、类型检查、构建、单测、PC mock 浏览器测试和隔离 migration check。无生产部署配置。

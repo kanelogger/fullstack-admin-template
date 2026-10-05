@@ -22,7 +22,7 @@ describe("dictionary contracts", () => {
       updatedAt: "2026-10-02T00:00:00Z"
     };
     expect(DictionaryItemSchema.parse(item)).toEqual(item);
-    expect(DictionaryItemSchema.safeParse({ ...item, id: 9223372036854775807 }).success).toBe(false);
+    expect(DictionaryItemSchema.safeParse({ ...item, id: Number("9223372036854775807") }).success).toBe(false);
     expect(DictionaryItemSchema.safeParse({ ...item, dictTypeId: 12 }).success).toBe(false);
   });
 

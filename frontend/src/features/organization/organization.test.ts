@@ -33,7 +33,7 @@ describe("organization contracts and read-model mapping", () => {
 
     expect(department.id).toBe("9223372036854775807");
     expect(post.id).toBe("9007199254740993");
-    expect(() => mapDepartmentRow({ id: 9007199254740993 })).toThrow();
+    expect(() => mapDepartmentRow({ id: Number("9007199254740993") })).toThrow();
     expect(() => mapPostRow({ id: "9223372036854775808" })).toThrow();
   });
 
@@ -82,7 +82,7 @@ describe("organization contracts and read-model mapping", () => {
     expect(
       DepartmentPageSchema.safeParse({
         items: [{
-          id: 9007199254740993,
+          id: Number("9007199254740993"),
           deptCode: "HQ",
           deptName: "总部",
           status: 1,

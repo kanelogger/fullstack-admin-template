@@ -1,7 +1,6 @@
 import {
   BusinessIdSchema,
   ErrorEnvelopeSchema,
-  ManagedUserSchema,
   UserListPageSchema,
   UserListRequestSchema,
   UserManagementDeleteResultSchema,

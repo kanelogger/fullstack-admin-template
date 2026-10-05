@@ -20,7 +20,7 @@ describe("system configuration contracts", () => {
       updatedAt: "2026-10-02T00:00:00Z"
     };
     expect(SystemConfigSchema.parse(config)).toEqual(config);
-    expect(SystemConfigSchema.safeParse({ ...config, id: 9007199254740993 }).success).toBe(false);
+    expect(SystemConfigSchema.safeParse({ ...config, id: Number("9007199254740993") }).success).toBe(false);
     expect(SystemConfigValueSchema.parse({
       configCode: config.configCode,
       configValue: "false",

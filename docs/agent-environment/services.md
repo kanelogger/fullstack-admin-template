@@ -6,7 +6,7 @@
 - 启动/状态/停止：在仓库根目录执行 `pnpm supabase:start`、`pnpm supabase:status`、`pnpm supabase:stop`。
 - Local API 默认在 `127.0.0.1:54321`，Postgres 在 54322，Studio 在 54323，Mailpit 在 54324；Edge Functions 与其他本地服务端口由 `supabase/config.toml` 管理。
 - `pnpm supabase:stop` 保留数据库卷。`pnpm supabase:db:reset` 会清空当前 Local 数据库；执行前确认项目和数据归属。
-- Auth 邮件仅投递到本地 Mailpit，不会向真实用户发信。查看管理员密码设置邮件可打开 `http://127.0.0.1:54324`。
+- Auth 邮件仅投递到本地 Mailpit，不会向真实用户发信。首次管理员使用本地默认凭据，不需要邮件设置密码；密码恢复邮件可在 `http://127.0.0.1:54324` 查看。
 
 CLI 已安装不证明 Docker runtime 或数据库健康；用脱敏 `pnpm supabase:status` 及具体集成验证确认。
 

@@ -1,13 +1,19 @@
+/* eslint-disable no-unsafe-finally -- Cleanup failures must fail isolated Auth acceptance. */
 import { spawn, spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
+import {
+  captureCleanupFailure,
+  localSupabaseStatus,
+  stopLocalEdgeServer,
+  waitForFunctions
+} from "./helpers/local-edge-functions";
 
 const frontendRoot = process.cwd();
 const repositoryRoot = resolve(process.env.SUPABASE_PROJECT_ROOT ?? resolve(frontendRoot, ".."));
 const supabaseCli = resolve(frontendRoot, "node_modules/.bin/supabase");
-const localAuthApi = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
 const mailpitUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 
 type AccountFixtureOptions = {
@@ -79,61 +85,6 @@ async function createRecoveryFixture(
     await admin.auth.admin.deleteUser(created.user.id);
     throw error;
   }
-}
-
-function localSupabaseStatus() {
-  const result = spawnSync(supabaseCli, ["--workdir", repositoryRoot, "status", "--output", "json"], {
-    cwd: frontendRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-    env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
-  });
-  if (result.error || result.status !== 0) throw new Error("Supabase Local is not running");
-  let status;
-  try {
-    status = JSON.parse(result.stdout);
-  } catch {
-    throw new Error("Supabase Local status could not be read");
-  }
-  const url = status.API_URL ?? status.api_url;
-  const publishableKey = status.PUBLISHABLE_KEY ?? status.ANON_KEY;
-  const serviceRoleKey = status.SERVICE_ROLE_KEY ?? status.service_role_key ?? status.SECRET_KEY;
-  if (!localAuthApi.test(url ?? "") || !publishableKey || !serviceRoleKey) {
-    throw new Error("This test only accepts the project's local Supabase API");
-  }
-  return { url, publishableKey, serviceRoleKey };
-}
-
-async function waitForFunctions(child: ReturnType<typeof spawn>, url: string, publishableKey: string) {
-  const headers = {
-    apikey: publishableKey,
-    "Content-Type": "application/json",
-    Origin: "http://127.0.0.1:8848"
-  };
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    if (child.exitCode !== null) throw new Error("Local Edge Functions did not start");
-    try {
-      const login = await fetch(`${url}/functions/v1/session-login`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ loginName: "__codex_edge_readiness__", password: "invalid-test-password" })
-      });
-      const loginBody = await login.json().catch(() => null);
-      const reset = await fetch(`${url}/functions/v1/password-reset`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ loginName: "__codex_edge_readiness__" })
-      });
-      const resetBody = await reset.json().catch(() => null);
-      if (login.status === 401 && loginBody?.error?.code === "INVALID_CREDENTIALS" && reset.status === 200 && resetBody?.success) {
-        return;
-      }
-    } catch {
-      // Wait until the gateway and both function bundles answer their probes.
-    }
-    await new Promise(resolveDelay => setTimeout(resolveDelay, 500));
-  }
-  throw new Error("Local Edge Functions did not become ready");
 }
 
 async function messagesFor(email: string) {
@@ -212,7 +163,11 @@ test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permi
   test.setTimeout(90_000);
   test.skip(process.env.E2E_LOCAL_AUTH !== "1", "Run pnpm test:e2e:auth to enable the real local Auth flow");
 
-  const { url, publishableKey, serviceRoleKey } = localSupabaseStatus();
+  const { url, publishableKey, serviceRoleKey } = localSupabaseStatus({
+    frontendRoot,
+    repositoryRoot,
+    supabaseCli
+  });
   const admin = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
@@ -231,6 +186,8 @@ test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permi
   let commonProfile: Awaited<ReturnType<typeof createRecoveryFixture>> | undefined;
   let dictionaryTypeId: string | undefined;
   let realtimeMessageId: string | undefined;
+  let testFailure: unknown;
+  let testFailed = false;
   try {
     await waitForFunctions(edgeServer, url, publishableKey);
     commonProfile = await createRecoveryFixture(admin, {
@@ -452,48 +409,90 @@ test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permi
       realtimeInboxDelivery: true,
       protectedRouteRestoredAfterRefresh: true
     })}\n`);
+  } catch (error) {
+    testFailed = true;
+    testFailure = error;
   } finally {
+    const cleanupFailures: Error[] = [];
     if (recoveryAccessToken) {
-      await admin.auth.admin.signOut(recoveryAccessToken, "global").catch(() => undefined);
-    }
-    const { error: auditCleanupError } = await admin
-      .from("login_logs")
-      .delete()
-      .in("login_name", [profile.login_name, commonProfile?.login_name ?? "__codex_no_fixture__", "__codex_edge_readiness__"])
-      .gte("logged_at", auditStartAt);
-    if (auditCleanupError) throw new Error("Could not clean local account/password audit fixtures");
-    if (dictionaryTypeId) {
-      if (!/^\d+$/.test(dictionaryTypeId)) throw new Error("The browser returned a nonnumeric dictionary ID");
-      cleanLocalFixtureSql(`delete from public.dict_items where dict_type_id = ${dictionaryTypeId}`);
-      cleanLocalFixtureSql(`delete from public.dict_types where id = ${dictionaryTypeId}`);
-    }
-    if (realtimeMessageId) {
-      if (!/^\d+$/.test(realtimeMessageId)) throw new Error("The browser returned a nonnumeric message ID");
-      cleanLocalFixtureSql(`delete from public.messages where id = ${realtimeMessageId}`);
-    }
-    const fixtureProfileIds = [profile.id, commonProfile?.id].filter((id): id is string => Boolean(id));
-    await admin.from("operation_logs").delete().in("operator_id", fixtureProfileIds);
-    await admin.from("user_roles").delete().in("user_id", fixtureProfileIds);
-    const { error: profileCleanupError } = await admin.from("profiles").delete().eq("id", profile.id);
-    if (profileCleanupError) throw new Error("Could not clean the local recovery profile fixture");
-    if (commonProfile) await admin.from("profiles").delete().eq("id", commonProfile.id);
-    const { error: userCleanupError } = await admin.auth.admin.deleteUser(authUserId);
-    if (userCleanupError) throw new Error("Could not clean the local recovery Auth fixture");
-    if (commonProfile) {
-      const { error: commonUserCleanupError } = await admin.auth.admin.deleteUser(commonProfile.auth_user_id);
-      if (commonUserCleanupError) throw new Error("Could not clean the local common-user Auth fixture");
-    }
-    if (newMessageIds.length) {
-      await fetch(`${mailpitUrl}/api/v1/messages`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ IDs: newMessageIds })
+      await captureCleanupFailure(cleanupFailures, "Could not revoke the recovery session", async () => {
+        const { error } = await admin.auth.admin.signOut(recoveryAccessToken, "global");
+        // Password reset may already have invalidated this recovery session.
+        if (error && error.name !== "AuthSessionMissingError") throw error;
       });
     }
-    edgeServer.kill("SIGINT");
-    await new Promise(resolveExit => {
-      if (edgeServer.exitCode !== null) return resolveExit();
-      edgeServer.once("exit", () => resolveExit());
+    await captureCleanupFailure(cleanupFailures, "Could not clean local account/password audit fixtures", async () => {
+      const { error } = await admin
+        .from("login_logs")
+        .delete()
+        .in("login_name", [profile.login_name, commonProfile?.login_name ?? "__codex_no_fixture__", "__codex_edge_readiness__"])
+        .gte("logged_at", auditStartAt);
+      if (error) throw error;
     });
+    if (dictionaryTypeId) {
+      await captureCleanupFailure(cleanupFailures, "Could not clean the local dictionary item fixture", () => {
+        if (!/^\d+$/.test(dictionaryTypeId!)) throw new Error("The browser returned a nonnumeric dictionary ID");
+        cleanLocalFixtureSql(`delete from public.dict_items where dict_type_id = ${dictionaryTypeId}`);
+      });
+      await captureCleanupFailure(cleanupFailures, "Could not clean the local dictionary type fixture", () => {
+        if (!/^\d+$/.test(dictionaryTypeId!)) throw new Error("The browser returned a nonnumeric dictionary ID");
+        cleanLocalFixtureSql(`delete from public.dict_types where id = ${dictionaryTypeId}`);
+      });
+    }
+    if (realtimeMessageId) {
+      await captureCleanupFailure(cleanupFailures, "Could not clean the local Realtime message fixture", () => {
+        if (!/^\d+$/.test(realtimeMessageId!)) throw new Error("The browser returned a nonnumeric message ID");
+        cleanLocalFixtureSql(`delete from public.messages where id = ${realtimeMessageId}`);
+      });
+    }
+    const fixtureProfileIds = [profile.id, commonProfile?.id].filter((id): id is string => Boolean(id));
+    await captureCleanupFailure(cleanupFailures, "Could not clean recovery operation-log fixtures", async () => {
+      const { error } = await admin.from("operation_logs").delete().in("operator_id", fixtureProfileIds);
+      if (error) throw error;
+    });
+    await captureCleanupFailure(cleanupFailures, "Could not clean recovery role-assignment fixtures", async () => {
+      const { error } = await admin.from("user_roles").delete().in("user_id", fixtureProfileIds);
+      if (error) throw error;
+    });
+    await captureCleanupFailure(cleanupFailures, "Could not clean the local recovery profile fixture", async () => {
+      const { error } = await admin.from("profiles").delete().eq("id", profile.id);
+      if (error) throw error;
+    });
+    if (commonProfile) {
+      await captureCleanupFailure(cleanupFailures, "Could not clean the local common-user profile fixture", async () => {
+        const { error } = await admin.from("profiles").delete().eq("id", commonProfile!.id);
+        if (error) throw error;
+      });
+    }
+    await captureCleanupFailure(cleanupFailures, "Could not clean the local recovery Auth fixture", async () => {
+      const { error } = await admin.auth.admin.deleteUser(authUserId);
+      if (error) throw error;
+    });
+    if (commonProfile) {
+      await captureCleanupFailure(cleanupFailures, "Could not clean the local common-user Auth fixture", async () => {
+        const { error } = await admin.auth.admin.deleteUser(commonProfile!.auth_user_id);
+        if (error) throw error;
+      });
+    }
+    if (newMessageIds.length) {
+      await captureCleanupFailure(cleanupFailures, "Could not clean local Mailpit recovery emails", async () => {
+        const response = await fetch(`${mailpitUrl}/api/v1/messages`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ IDs: newMessageIds })
+        });
+        if (!response.ok) throw new Error(`Mailpit returned HTTP ${response.status}`);
+      });
+    }
+    await captureCleanupFailure(cleanupFailures, "Could not stop the local Edge Functions subprocess", () =>
+      stopLocalEdgeServer(edgeServer)
+    );
+    if (cleanupFailures.length) {
+      if (testFailed) {
+        throw new AggregateError([testFailure, ...cleanupFailures], "Local Auth recovery E2E and cleanup failed");
+      }
+      throw new AggregateError(cleanupFailures, "Local Auth recovery E2E cleanup failed");
+    }
+    if (testFailed) throw testFailure;
   }
 });
