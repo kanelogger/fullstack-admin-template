@@ -168,12 +168,37 @@ test("all registered PC pages render across every navigation layout and theme", 
         await expect.poll(() => page.evaluate(() => document.body.getAttribute("layout"))).toBe(layout);
         await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("dark")))
           .toBe(theme === "dark");
+        if (layout !== "vertical") {
+          const navLabel = layout === "horizontal" ? "主导航" : "一级导航";
+          const navigation = page.getByRole("navigation", { name: navLabel });
+          await expect(navigation).toBeVisible();
+          const navMetrics = await navigation.evaluate(element => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth
+          }));
+          expect(navMetrics.scrollWidth, `${navLabel} must expose overflow controls`).toBeGreaterThan(navMetrics.clientWidth);
+          const activeMenuItem = navigation.locator(`a[href$="${path}"]`);
+          await expect(activeMenuItem).toHaveCount(1);
+          await expect(activeMenuItem).toBeInViewport({ ratio: 1 });
+        }
         const overflow = await page.evaluate(() =>
           document.documentElement.scrollWidth > window.innerWidth + 2
         );
         expect(overflow, `${routeKey} must keep page overflow inside its own panels (${theme}, ${layout})`).toBe(false);
         await page.waitForFunction(() => !document.querySelector(".fade-transform-enter-active"));
         await saveVisual(page, testInfo, `${theme}-${layout}-${routeKey.replaceAll(".", "-")}`);
+        if (layout !== "vertical" && routeKey === "dashboard.overview") {
+          const navLabel = layout === "horizontal" ? "主导航" : "一级导航";
+          const navigation = page.getByRole("navigation", { name: navLabel });
+          const initialScrollLeft = await navigation.evaluate(element => element.scrollLeft);
+          await page.getByRole("button", { name: `向右滚动${navLabel}` }).click();
+          await expect.poll(() => navigation.evaluate(element => element.scrollLeft))
+            .toBeGreaterThan(initialScrollLeft);
+          await expect(page.getByRole("button", { name: `向左滚动${navLabel}` })).toBeVisible();
+          await page.getByRole("button", { name: `向左滚动${navLabel}` }).click();
+          await expect.poll(() => navigation.evaluate(element => element.scrollLeft))
+            .toBeLessThanOrEqual(initialScrollLeft + 1);
+        }
       }
     }
   }
