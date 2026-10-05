@@ -1,4 +1,4 @@
-// 这里存放本地图标，在 src/layout/index.vue 文件中加载，避免在首启动加载
+// 这里存放本地图标，在 src/layouts/index.vue 文件中加载，避免首屏重复请求
 import { svgRawToIcon } from "@/utils/shared";
 import { addIcon } from "@iconify/vue/dist/offline";
 

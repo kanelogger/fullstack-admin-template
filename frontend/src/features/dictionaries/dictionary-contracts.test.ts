@@ -5,7 +5,7 @@ import {
   ReplaceDictionaryItemOrderRequestSchema,
   SaveDictionaryItemRequestSchema,
   SaveDictionaryTypeRequestSchema
-} from "../../contracts/dictionary";
+} from "@template/contracts/dictionary";
 
 describe("dictionary contracts", () => {
   it("keeps BIGINT type and item IDs as decimal strings", () => {

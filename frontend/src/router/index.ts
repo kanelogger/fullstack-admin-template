@@ -2,9 +2,9 @@ import { getConfig } from "@/config";
 import NProgress from "@/utils/progress";
 import { buildHierarchyTree } from "@/utils/tree";
 import remainingRouter from "./modules/remaining";
-import { useMultiTagsStoreHook } from "@/store/modules/multiTags";
-import { usePermissionStoreHook } from "@/store/modules/permission";
-import { useUserStoreHook } from "@/store/modules/user";
+import { useTabsStoreHook } from "@/stores/modules/tabs";
+import { usePermissionStoreHook } from "@/stores/modules/permission";
+import { useSessionStoreHook } from "@/stores/modules/session";
 import { findRegisteredMenuRouteByPath } from "@/features/menus/menu-routes.registry";
 import { openLink, cloneDeep } from "@/utils/shared";
 import {
@@ -102,8 +102,9 @@ export function resetRouter() {
   resetLoadedPaths();
 }
 
-/** 路由白名单 */
-const whiteList = ["/login", "/reset-password"];
+/** Public error routes stay available without an application session. */
+const whiteList = ["/login"];
+const publicErrorPaths = new Set(["/access-denied", "/server-error"]);
 
 function externalLinkName(name: unknown): name is string {
   return typeof name === "string" && /^https?:\/\//i.test(name);
@@ -126,26 +127,47 @@ router.beforeEach(async (to: ToRouteType, from) => {
     });
   }
 
-  if (to.path === "/reset-password") return true;
+  if (
+    to.path === "/reset-password" ||
+    publicErrorPaths.has(to.path)
+  ) return true;
+
+  const unknownPath = to.name === "PageNotFound" &&
+    !findRegisteredMenuRouteByPath(to.path);
 
   let hasSession = false;
   try {
-    hasSession = await useUserStoreHook().restoreSession();
+    hasSession = await useSessionStoreHook().restoreSession();
   } catch {
-    useUserStoreHook().clearLocalSession(false);
+    useSessionStoreHook().clearLocalSession(false);
   }
   if (!hasSession) {
     if (whiteList.includes(to.path)) return true;
+    // Unknown URLs stay public 404s when signed out. A private custom RouteKey
+    // path is only resolved after an authenticated navigation read.
+    if (unknownPath) return true;
     return { path: "/login" };
   }
 
-  const userInfo = useUserStoreHook();
+  const permissionStore = usePermissionStoreHook();
+
+  if (unknownPath) {
+    try {
+      await initRouter();
+    } catch {
+      return { path: "/server-error" };
+    }
+    const resolved = router.resolve(to.fullPath);
+    if (!resolved.matched.some(record => record.meta.backstage)) return true;
+    // Re-enter the guard with the resolved server-filtered route metadata.
+    return to.fullPath;
+  }
 
   if (externalLinkName(to.name)) {
     openLink(to.name as string);
     return false;
   }
-  if (to.meta?.roles && !isOneOfArray(to.meta.roles, userInfo.roles)) {
+  if (to.meta?.roles && !isOneOfArray(to.meta.roles, permissionStore.roleCodes)) {
     return { path: "/access-denied" };
   }
   const defaultMenu = findRegisteredMenuRouteByPath(to.path);
@@ -154,16 +176,15 @@ router.beforeEach(async (to: ToRouteType, from) => {
     : defaultMenu
       ? [defaultMenu.requiredPermissionKey]
       : [];
-  if (!requiredPermissions.every(permission => userInfo.permissions?.includes(permission))) {
+  if (!requiredPermissions.every(permission => permissionStore.permissionKeys.includes(permission))) {
     return { path: "/access-denied" };
   }
 
-  const permissionStore = usePermissionStoreHook();
   if (to.path === "/login" || (from.name === undefined && permissionStore.wholeMenus.length === 0)) {
     try {
       await initRouter();
     } catch {
-      useUserStoreHook().logOut();
+      useSessionStoreHook().logOut();
       return { path: "/login" };
     }
 
@@ -179,7 +200,7 @@ router.beforeEach(async (to: ToRouteType, from) => {
       : null;
     if (currentMenu?.meta?.title) {
       const tagMenu = currentMenu.children?.length ? currentMenu.children[0] : currentMenu;
-      useMultiTagsStoreHook().handleTags("push", {
+      useTabsStoreHook().handleTags("push", {
         path: tagMenu.path,
         name: tagMenu.name,
         meta: tagMenu.meta

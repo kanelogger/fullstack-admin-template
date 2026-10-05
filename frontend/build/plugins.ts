@@ -3,7 +3,6 @@ import { viteBuildInfo } from "./info";
 import svgLoader from "vite-svg-loader";
 import Icons from "unplugin-icons/vite";
 import type { PluginOption } from "vite";
-import vueJsx from "@vitejs/plugin-vue-jsx";
 import tailwindcss from "@tailwindcss/vite";
 import { configCompressPlugin } from "./compress";
 import removeNoMatch from "vite-plugin-router-warn";
@@ -18,8 +17,6 @@ export function getPluginsList(
   return [
     tailwindcss(),
     vue(),
-    // jsx、tsx语法支持
-    vueJsx(),
     /**
      * 在页面上按住组合键时，鼠标在页面移动即会在 DOM 上出现遮罩层并显示相关信息，点击一下将自动打开 IDE 并将光标定位到元素对应的代码位置
      * Mac 默认组合键 Option + Shift

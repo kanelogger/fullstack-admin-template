@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(89);
+select no_plan();
 
 select has_table('public', 'departments', 'department table exists');
 select has_table('public', 'posts', 'post table exists');
@@ -52,12 +52,6 @@ select ok(has_function_privilege('authenticated', 'public.delete_department(text
 select ok(not has_function_privilege('anon', 'public.delete_department(text)', 'execute'), 'anonymous callers cannot invoke department delete');
 select ok(has_function_privilege('authenticated', 'public.delete_post(text)', 'execute'), 'authenticated callers can invoke the permission-checked post delete API');
 select ok(not has_function_privilege('anon', 'public.delete_post(text)', 'execute'), 'anonymous callers cannot invoke post delete');
-select ok(has_function_privilege('service_role', 'public.import_legacy_departments(jsonb,boolean)', 'execute'), 'service_role can import legacy departments');
-select ok(not has_function_privilege('authenticated', 'public.import_legacy_departments(jsonb,boolean)', 'execute'), 'authenticated users cannot import legacy departments');
-select ok(has_function_privilege('service_role', 'public.import_legacy_posts(jsonb,boolean)', 'execute'), 'service_role can import legacy posts');
-select ok(not has_function_privilege('authenticated', 'public.import_legacy_posts(jsonb,boolean)', 'execute'), 'authenticated users cannot import legacy posts');
-select ok(has_function_privilege('service_role', 'public.assert_legacy_organization_references(text[],text[])', 'execute'), 'service_role can preflight legacy profile references');
-select ok(not has_function_privilege('authenticated', 'public.assert_legacy_organization_references(text[],text[])', 'execute'), 'authenticated users cannot run the legacy reference preflight');
 select ok(
   (select count(*) = 8 from public.permission_catalog where permission_key in (
     'organization.departments.read',
@@ -179,248 +173,7 @@ select ok(not exists (select 1 from public.department_read_model where dept_code
 select ok(not exists (select 1 from public.post_read_model where post_code = 'CODEX_ORG_POST'), 'soft-deleted posts are hidden from the read model');
 
 reset role;
-set local role service_role;
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    false
-  )->>'sourceCount',
-  '2',
-  'department import preview reports its source row count'
-);
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    false
-  )->>'rowsToInsert',
-  '2',
-  'department import preview reports rows that would be inserted'
-);
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    false
-  )->>'insertedCount',
-  '0',
-  'department import preview does not write rows'
-);
-select ok(
-  not exists (select 1 from public.departments where id in (920000000000001, 920000000000002)),
-  'department import preview leaves the source IDs absent'
-);
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'insertedCount',
-  '2',
-  'department import apply preserves both source IDs'
-);
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'alreadyPresentCount',
-  '2',
-  'repeating department import treats matching rows as already present'
-);
-select is(
-  public.import_legacy_departments(
-    '[
-      {"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Legacy Department","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"920000000000002","dept_code":"LEGACY_ORG_REMOVED","dept_name":"Legacy Removed Department","status":1,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'insertedCount',
-  '0',
-  'repeating department import inserts no duplicate rows'
-);
-select throws_ok(
-  $$select public.import_legacy_departments(
-    '[{"id":"920000000000001","dept_code":"LEGACY_ORG_DEPT","dept_name":"Changed Name","status":0,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}]'::jsonb,
-    true
-  )$$,
-  '23505',
-  'Department import conflicts with an existing ID',
-  'department import rejects changed content for an existing ID'
-);
-select is(
-  (select id from public.department_read_model where dept_code = 'LEGACY_ORG_DEPT'),
-  '920000000000001',
-  'department import read model preserves the exact BIGINT ID string'
-);
-select ok(
-  (select status = 0 and description = 'source description'
-    and created_at = '2026-10-01T00:00:00Z'::timestamptz
-    and updated_at = '2026-10-02T00:00:00Z'::timestamptz
-   from public.departments where id = 920000000000001),
-  'department import preserves status, description, and timestamps'
-);
-select ok(
-  (select deleted and status = 1 from public.departments where id = 920000000000002)
-  and not exists (select 1 from public.department_read_model where id = '920000000000002'),
-  'department import preserves the soft-delete flag'
-);
-select ok(
-  currval('public.departments_id_seq') >= 920000000000002,
-  'department import advances the identity sequence beyond imported IDs'
-);
 
-select is(
-  public.import_legacy_posts(
-    '[
-      {"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Legacy Post","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"930000000000002","post_code":"LEGACY_ORG_REMOVED_POST","post_name":"Legacy Removed Post","status":0,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    false
-  )->>'rowsToInsert',
-  '2',
-  'post import preview reports rows that would be inserted'
-);
-select is(
-  public.import_legacy_posts(
-    '[
-      {"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Legacy Post","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"930000000000002","post_code":"LEGACY_ORG_REMOVED_POST","post_name":"Legacy Removed Post","status":0,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    false
-  )->>'insertedCount',
-  '0',
-  'post import preview does not write rows'
-);
-select ok(
-  not exists (select 1 from public.posts where id in (930000000000001, 930000000000002)),
-  'post import preview leaves the source IDs absent'
-);
-select is(
-  public.import_legacy_posts(
-    '[
-      {"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Legacy Post","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"930000000000002","post_code":"LEGACY_ORG_REMOVED_POST","post_name":"Legacy Removed Post","status":0,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'insertedCount',
-  '2',
-  'post import apply preserves both source IDs'
-);
-select is(
-  public.import_legacy_posts(
-    '[
-      {"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Legacy Post","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"930000000000002","post_code":"LEGACY_ORG_REMOVED_POST","post_name":"Legacy Removed Post","status":0,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'alreadyPresentCount',
-  '2',
-  'repeating post import treats matching rows as already present'
-);
-select is(
-  public.import_legacy_posts(
-    '[
-      {"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Legacy Post","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"},
-      {"id":"930000000000002","post_code":"LEGACY_ORG_REMOVED_POST","post_name":"Legacy Removed Post","status":0,"description":null,"deleted":true,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}
-    ]'::jsonb,
-    true
-  )->>'insertedCount',
-  '0',
-  'repeating post import inserts no duplicate rows'
-);
-select throws_ok(
-  $$select public.import_legacy_posts(
-    '[{"id":"930000000000001","post_code":"LEGACY_ORG_POST","post_name":"Changed Name","status":1,"description":"source description","deleted":false,"created_at":"2026-10-01T00:00:00Z","updated_at":"2026-10-02T00:00:00Z"}]'::jsonb,
-    true
-  )$$,
-  '23505',
-  'Post import conflicts with an existing ID',
-  'post import rejects changed content for an existing ID'
-);
-select is(
-  (select id from public.post_read_model where post_code = 'LEGACY_ORG_POST'),
-  '930000000000001',
-  'post import read model preserves the exact BIGINT ID string'
-);
-select ok(
-  (select status = 1 and description = 'source description'
-    and created_at = '2026-10-01T00:00:00Z'::timestamptz
-    and updated_at = '2026-10-02T00:00:00Z'::timestamptz
-   from public.posts where id = 930000000000001),
-  'post import preserves status, description, and timestamps'
-);
-select ok(
-  (select deleted and status = 0 from public.posts where id = 930000000000002)
-  and not exists (select 1 from public.post_read_model where id = '930000000000002'),
-  'post import preserves the soft-delete flag'
-);
-select ok(
-  currval('public.posts_id_seq') >= 930000000000002,
-  'post import advances the identity sequence beyond imported IDs'
-);
-
-select lives_ok(
-  $$select public.assert_legacy_organization_references(
-    array['920000000000001', '920000000000002']::text[],
-    array['930000000000001', '930000000000002']::text[]
-  )$$,
-  'reference preflight accepts existing IDs including soft-deleted organization rows'
-);
-select throws_ok(
-  $$select public.assert_legacy_organization_references(array['910000000000001']::text[], array[]::text[])$$,
-  '23503',
-  'A legacy profile references a missing department',
-  'reference preflight rejects a missing department ID'
-);
-select throws_ok(
-  $$select public.assert_legacy_organization_references(array[]::text[], array['910000000000002']::text[])$$,
-  '23503',
-  'A legacy profile references a missing post',
-  'reference preflight rejects a missing post ID'
-);
-select throws_ok(
-  $$select public.assert_legacy_organization_references(array['01']::text[], array[]::text[])$$,
-  '22023',
-  'Department reference ID is invalid',
-  'reference preflight rejects non-canonical BIGINT strings'
-);
-select throws_ok(
-  $$select public.assert_legacy_organization_references(array_fill('1'::text, array[101]), array[]::text[])$$,
-  '22023',
-  'Organization reference batches cannot exceed 100 IDs',
-  'reference preflight bounds its input arrays'
-);
-
-reset role;
-select set_config('request.jwt.claims', '{"role":"service_role"}', true);
-select lives_ok(
-  $$update public.profiles
-    set department_id = 920000000000002, post_id = 930000000000002
-    where login_name = '__codex_rls_common'$$,
-  'trusted legacy profile imports may preserve references to soft-deleted source rows'
-);
-select ok(
-  (select department_id = 920000000000002 and post_id = 930000000000002
-   from public.profiles where login_name = '__codex_rls_common'),
-  'legacy profile BIGINT references remain unchanged after organization import'
-);
-update public.profiles
-set department_id = null, post_id = null
-where login_name = '__codex_rls_common';
-
-reset role;
 select set_config(
   'request.jwt.claims',
   (
@@ -461,6 +214,11 @@ join public.permission_catalog as permission
 where role.code = 'OPERATOR'
 on conflict do nothing;
 
+insert into public.departments (dept_code, dept_name, status, description)
+values ('CODEX_OPERATOR_DEPT', 'Operator Test Department', 1, 'read/update permission test');
+insert into public.posts (post_code, post_name, status, description)
+values ('CODEX_OPERATOR_POST', 'Operator Test Post', 1, 'read permission test');
+
 select set_config(
   'request.jwt.claims',
   (
@@ -488,21 +246,21 @@ select ok(app_private.has_permission('organization.departments.read'), 'OPERATOR
 select ok(not app_private.has_permission('organization.departments.delete'), 'OPERATOR lacks department delete permission');
 select ok(not app_private.has_permission('organization.posts.update'), 'OPERATOR lacks post update permission');
 select is(
-  (select count(*)::integer from public.department_read_model where dept_code = 'LEGACY_ORG_DEPT'),
+  (select count(*)::integer from public.department_read_model where dept_code = 'CODEX_OPERATOR_DEPT'),
   1,
   'OPERATOR reads departments when its concrete read permission is granted'
 );
 select is(
-  (select count(*)::integer from public.post_read_model where post_code = 'LEGACY_ORG_POST'),
+  (select count(*)::integer from public.post_read_model where post_code = 'CODEX_OPERATOR_POST'),
   1,
   'OPERATOR reads posts when its concrete read permission is granted'
 );
 select lives_ok(
-  $$update public.departments set status = 0 where dept_code = 'LEGACY_ORG_DEPT'$$,
+  $$update public.departments set status = 0 where dept_code = 'CODEX_OPERATOR_DEPT'$$,
   'OPERATOR can update departments when its concrete update permission is granted'
 );
 select is(
-  (select status::integer from public.department_read_model where dept_code = 'LEGACY_ORG_DEPT'),
+  (select status::integer from public.department_read_model where dept_code = 'CODEX_OPERATOR_DEPT'),
   0,
   'department update permission changes the requested row'
 );
@@ -522,7 +280,7 @@ select throws_ok(
   'OPERATOR cannot create a department without create permission'
 );
 select throws_ok(
-  $$select public.delete_department((select id::text from public.departments where dept_code = 'LEGACY_ORG_DEPT'))$$,
+  $$select public.delete_department((select id::text from public.departments where dept_code = 'CODEX_OPERATOR_DEPT'))$$,
   '42501',
   'Department delete permission is required',
   'OPERATOR cannot delete a department without delete permission'

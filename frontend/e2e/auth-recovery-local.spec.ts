@@ -1,18 +1,85 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
-import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 
 const frontendRoot = process.cwd();
-const repositoryRoot = resolve(frontendRoot, "..");
-const backendRoot = resolve(repositoryRoot, "backend");
-const backendRequire = createRequire(resolve(backendRoot, "package.json"));
-const dotenv = backendRequire("dotenv");
+const repositoryRoot = resolve(process.env.SUPABASE_PROJECT_ROOT ?? resolve(frontendRoot, ".."));
 const supabaseCli = resolve(frontendRoot, "node_modules/.bin/supabase");
-const localAuthApi = /^http:\/\/(127\.0\.0\.1|localhost):54321$/;
-const mailpitUrl = "http://127.0.0.1:54324";
+const localAuthApi = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
+const mailpitUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
+
+type AccountFixtureOptions = {
+  roleCode?: "SUPER_ADMIN" | "COMMON_USER";
+  mustResetPassword?: boolean;
+  loginPrefix?: string;
+  displayName?: string;
+};
+
+async function createRecoveryFixture(
+  admin: ReturnType<typeof createClient>,
+  options: AccountFixtureOptions = {}
+) {
+  const suffix = randomUUID().replaceAll("-", "").slice(0, 16);
+  const roleCode = options.roleCode ?? "SUPER_ADMIN";
+  const mustResetPassword = options.mustResetPassword ?? true;
+  const loginPrefix = options.loginPrefix ?? "__codex_recovery";
+  const initialPassword = `Fixture-${randomUUID()}-Aa1!`;
+  const fixture = {
+    loginName: `${loginPrefix}_${suffix}`,
+    userCode: `${loginPrefix}_${suffix}`,
+    displayName: options.displayName ?? "Disposable recovery test account",
+    email: `${loginPrefix}_${suffix}@example.test`
+  };
+  const { data: role, error: roleError } = await admin
+    .from("roles")
+    .select("id")
+    .eq("code", roleCode)
+    .single();
+  if (roleError || !role) throw new Error(`Seeded ${roleCode} role is missing`);
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email: fixture.email,
+    password: initialPassword,
+    email_confirm: true
+  });
+  if (createError || !created.user) throw new Error("Could not create the disposable Auth fixture");
+
+  let profileId: string | undefined;
+  try {
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .insert({
+        auth_user_id: created.user.id,
+        user_code: fixture.userCode,
+        login_name: fixture.loginName,
+        display_name: fixture.displayName,
+        email: fixture.email,
+        is_active: true,
+        must_reset_password: mustResetPassword
+      })
+      .select("id,auth_user_id,login_name,email")
+      .single();
+    if (profileError || !profile) throw new Error("Could not create the disposable business profile");
+    profileId = String(profile.id);
+
+    const { error: assignmentError } = await admin
+      .from("user_roles")
+      .insert({ user_id: profile.id, role_id: role.id });
+    if (assignmentError) throw new Error(`Could not assign the disposable ${roleCode} role`);
+    return {
+      ...profile,
+      id: String(profile.id),
+      display_name: fixture.displayName,
+      initialPassword
+    };
+  } catch (error) {
+    if (profileId) await admin.from("profiles").delete().eq("id", profileId);
+    await admin.auth.admin.deleteUser(created.user.id);
+    throw error;
+  }
+}
 
 function localSupabaseStatus() {
   const result = spawnSync(supabaseCli, ["--workdir", repositoryRoot, "status", "--output", "json"], {
@@ -125,33 +192,32 @@ function authMethods(accessToken: string): string[] {
   }
 }
 
-test("real local recovery action link opens the SPA reset page and permits account/password login", async ({ page }) => {
-  test.skip(process.env.E2E_LOCAL_AUTH !== "1", "Run pnpm test:e2e:auth to enable the real local Auth flow");
+function cleanLocalFixtureSql(sql: string): void {
+  const result = spawnSync(
+    supabaseCli,
+    ["--workdir", repositoryRoot, "db", "query", "--local", sql],
+    {
+      cwd: frontendRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
+    }
+  );
+  if (result.error || result.status !== 0) {
+    throw new Error("Could not clean a disposable browser-flow database fixture");
+  }
+}
 
-  const dedicatedEnv = resolve(backendRoot, "test-db/.env");
-  const backendEnv = resolve(backendRoot, ".env");
-  if (realpathSync(backendEnv) !== realpathSync(dedicatedEnv)) {
-    throw new Error("Real Auth browser test requires backend/.env to point to the dedicated test database");
-  }
-  const mysqlEnv = dotenv.parse(readFileSync(dedicatedEnv));
-  if (mysqlEnv.MYSQL_DATABASE !== "fullstack_admin_template_test") {
-    throw new Error("Real Auth browser test only accepts the dedicated synthetic MySQL test database");
-  }
+test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permission denial, and secure logout", async ({ page }) => {
+  test.setTimeout(90_000);
+  test.skip(process.env.E2E_LOCAL_AUTH !== "1", "Run pnpm test:e2e:auth to enable the real local Auth flow");
 
   const { url, publishableKey, serviceRoleKey } = localSupabaseStatus();
   const admin = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
-  const { data: profiles, error: profileError } = await admin
-    .from("user_management_read_model")
-    .select("id,auth_user_id,login_name,email,is_active,roles")
-    .eq("is_active", true)
-    .limit(1000);
-  if (profileError) throw new Error("Could not inspect local synthetic Auth users");
-  const profile = (profiles ?? []).find(row =>
-    row.login_name === "superadmin" && row.roles?.some((role: { code?: string }) => role.code === "SUPER_ADMIN")
-  );
-  if (!profile?.auth_user_id) throw new Error("Dedicated local SUPER_ADMIN Auth profile is missing");
+  const profile = await createRecoveryFixture(admin);
+  const authUserId = profile.auth_user_id;
 
   const auditStartAt = new Date().toISOString();
   const previousMessages = await messagesFor(profile.email);
@@ -161,10 +227,18 @@ test("real local recovery action link opens the SPA reset page and permits accou
     env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
   });
   const newMessageIds: string[] = [];
-  let accountClient: ReturnType<typeof createClient> | undefined;
   let recoveryAccessToken: string | undefined;
+  let commonProfile: Awaited<ReturnType<typeof createRecoveryFixture>> | undefined;
+  let dictionaryTypeId: string | undefined;
+  let realtimeMessageId: string | undefined;
   try {
     await waitForFunctions(edgeServer, url, publishableKey);
+    commonProfile = await createRecoveryFixture(admin, {
+      roleCode: "COMMON_USER",
+      mustResetPassword: false,
+      loginPrefix: "__codex_common",
+      displayName: "Disposable common-user browser account"
+    });
     const resetResponse = await fetch(`${url}/functions/v1/password-reset`, {
       method: "POST",
       headers: {
@@ -217,37 +291,151 @@ test("real local recovery action link opens the SPA reset page and permits accou
     await page.getByRole("button", { name: "保存新密码" }).click();
     await expect(page).toHaveURL(/#\/login$/);
 
-    const accountLogin = await fetch(`${url}/functions/v1/session-login`, {
-      method: "POST",
-      headers: {
-        apikey: publishableKey,
-        "Content-Type": "application/json",
-        Origin: "http://127.0.0.1:8848"
-      },
-      body: JSON.stringify({ loginName: profile.login_name, password })
-    });
-    const loginBody = await accountLogin.json().catch(() => null);
-    const tokens = loginBody?.data?.tokens;
+    await page.getByRole("textbox", { name: "账号" }).fill(profile.login_name);
+    await page.getByRole("textbox", { name: "密码" }).fill(password);
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page.getByRole("heading", { name: "系统概览" })).toBeVisible();
+
+    const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
+    const browserSession = await page.evaluate(key => {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    }, storageKey);
+    if (!browserSession || !authMethods(browserSession.access_token).includes("password")) {
+      throw new Error("The PC browser did not establish an account/password Auth Session");
+    }
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const dictionaryCode = `pc_e2e_${suffix}`;
+    const dictionaryName = `PC E2E ${suffix}`;
+    const updatedDictionaryName = `PC E2E Updated ${suffix}`;
+    page.on("dialog", dialog => dialog.accept());
+    const primaryNav = page.getByRole("complementary", { name: "主导航" });
+    await primaryNav.getByText("系统管理", { exact: true }).click();
+    const dictionaryLink = primaryNav.getByRole("link", { name: "数据字典" });
+    await expect(dictionaryLink).toBeVisible();
+    await dictionaryLink.click();
+    await expect(page.getByRole("heading", { name: "数据字典" })).toBeVisible();
+    await page.getByRole("button", { name: "新增类型" }).click();
+    const createTypeDialog = page.getByRole("dialog");
+    await createTypeDialog.getByLabel("字典编码").fill(dictionaryCode);
+    await createTypeDialog.getByLabel("字典名称").fill(dictionaryName);
+    const dictionarySaveResponse = page.waitForResponse(response =>
+      response.url().includes("/rest/v1/rpc/save_dictionary_type") &&
+      response.request().method() === "POST"
+    );
+    await createTypeDialog.getByRole("button", { name: "保存", exact: true }).click();
+    const savedTypeResponse = await dictionarySaveResponse;
+    const savedType = await savedTypeResponse.json().catch(() => null);
+    if (!savedTypeResponse.ok() || typeof savedType?.id !== "string") {
+      throw new Error("The browser dictionary write did not return the shared string-ID contract");
+    }
+    dictionaryTypeId = savedType.id;
+    const createdTypeRow = page.getByRole("row").filter({ hasText: dictionaryCode });
+    await expect(createdTypeRow).toBeVisible();
+
+    await createdTypeRow.getByRole("button", { name: "编辑" }).click();
+    const editTypeDialog = page.getByRole("dialog");
+    await editTypeDialog.getByLabel("字典名称").fill(updatedDictionaryName);
+    await editTypeDialog.getByRole("button", { name: "保存", exact: true }).click();
+    const updatedTypeRow = page.getByRole("row").filter({ hasText: updatedDictionaryName });
+    await expect(updatedTypeRow).toBeVisible();
+    await updatedTypeRow.getByRole("button", { name: "删除" }).click();
+    await expect(page.getByText(updatedDictionaryName, { exact: true })).toHaveCount(0);
+
+    await page.goto("/#/operation/messages");
+    await expect(page.getByRole("heading", { name: "消息中心" })).toBeVisible();
+    await expect(page.getByLabel("消息中心，0 条未读")).toBeVisible();
+    const realtimeTitle = `PC Realtime ${suffix}`;
+    const { data: createdMessage, error: createdMessageError } = await admin
+      .from("messages")
+      .insert({
+        receiver_id: profile.id,
+        sender_id: profile.id,
+        title: realtimeTitle,
+        summary: "PC browser Realtime acceptance",
+        content: "The active inbox subscriber should receive this message.",
+        message_type: "NOTICE"
+      })
+      .select("id")
+      .single();
+    if (createdMessageError || !createdMessage) throw new Error("Could not create the browser Realtime message");
+    realtimeMessageId = String(createdMessage.id);
+    await expect(page.getByText(realtimeTitle, { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel("消息中心，1 条未读")).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "消息中心" })).toBeVisible();
+    await expect(page.getByText(realtimeTitle, { exact: true })).toBeVisible();
+    await expect(page.getByLabel("消息中心，1 条未读")).toBeVisible();
+
+    const profileQuery = new URL(`${url}/rest/v1/profiles`);
+    profileQuery.searchParams.set("select", "id");
+    profileQuery.searchParams.set("id", `eq.${profile.id}`);
+    const readProfileWithBrowserToken = async () => {
+      const response = await fetch(profileQuery, {
+        headers: {
+          apikey: publishableKey,
+          Authorization: `Bearer ${browserSession.access_token}`
+        }
+      });
+      const body = await response.json().catch(() => null);
+      return { status: response.status, body };
+    };
+    const profileBeforeLogout = await readProfileWithBrowserToken();
     if (
-      accountLogin.status !== 200 || loginBody?.success !== true ||
-      typeof tokens?.accessToken !== "string" ||
-      !authMethods(tokens.accessToken).includes("password")
+      profileBeforeLogout.status !== 200 ||
+      !Array.isArray(profileBeforeLogout.body) ||
+      !profileBeforeLogout.body.some((row: { id?: unknown }) => String(row.id) === profile.id)
     ) {
-      throw new Error("The reset account did not sign in through the account/password Edge flow");
+      throw new Error("The active browser access token did not read its own Profile");
     }
 
-    accountClient = createClient(url, publishableKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
+    await page.goto("/#/profile/info");
+    await expect(page.getByRole("heading", { name: "个人资料" })).toBeVisible();
+    await expect(page.getByLabel("登录名")).toHaveValue(profile.login_name);
+
+    let delayProfile = false;
+    let releaseProfile!: () => void;
+    let markProfilePending!: () => void;
+    const profilePending = new Promise<void>(resolve => {
+      markProfilePending = resolve;
     });
-    const { error: sessionError } = await accountClient.auth.setSession({
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken
+    await page.route("**/rest/v1/rpc/current_profile", async route => {
+      if (!delayProfile) return route.continue();
+      delayProfile = false;
+      markProfilePending();
+      await new Promise<void>(resolve => {
+        releaseProfile = resolve;
+      });
+      await route.continue();
     });
-    if (sessionError) throw new Error("The account/password Session could not be initialized");
-    const { data: profileResult, error: profileRpcError } = await accountClient.rpc("current_profile");
-    if (profileRpcError || profileResult?.id !== profile.id) {
-      throw new Error("The password session could not read its own profile");
+
+    delayProfile = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await profilePending;
+    await page.getByLabel(`用户菜单：${profile.display_name}`).click();
+    await page.getByRole("button", { name: "退出系统" }).click();
+    await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
+
+    releaseProfile();
+    await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
+    await expect.poll(() => page.evaluate(key => localStorage.getItem(key), storageKey)).toBeNull();
+    const profileAfterLogout = await readProfileWithBrowserToken();
+    const oldTokenStillReadsProfile = profileAfterLogout.status === 200 &&
+      Array.isArray(profileAfterLogout.body) &&
+      profileAfterLogout.body.some((row: { id?: unknown }) => String(row.id) === profile.id);
+    if (oldTokenStillReadsProfile || ![200, 401, 403].includes(profileAfterLogout.status)) {
+      throw new Error("Logout did not prove that the old access token is rejected by Profile RLS");
     }
+    await page.reload();
+    await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
+
+    if (!commonProfile) throw new Error("The common-user authorization fixture was not created");
+    await page.getByRole("textbox", { name: "账号" }).fill(commonProfile.login_name);
+    await page.getByRole("textbox", { name: "密码" }).fill(commonProfile.initialPassword);
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page.getByLabel(`用户菜单：${commonProfile.display_name}`)).toBeVisible();
+    await page.goto("/#/log/login-logs");
+    await expect(page.getByText("抱歉，你无权访问该页面")).toBeVisible();
 
     process.stdout.write(`${JSON.stringify({
       recoveryActionLinkOpenedInBrowser: true,
@@ -255,26 +443,46 @@ test("real local recovery action link opens the SPA reset page and permits accou
       recoverySessionCapturedAndRevoked: Boolean(recoveryAccessToken),
       forcedResetCleared: true,
       accountPasswordLogin: true,
-      registeredProfileRead: true
+      registeredProfileRead: true,
+      delayedRefreshDidNotRestoreAfterLogout: true,
+      oldAccessTokenRejectedByRls: true,
+      reloadRemainedSignedOut: true,
+      directUnauthorizedRouteDenied: true,
+      dictionaryCrud: true,
+      realtimeInboxDelivery: true,
+      protectedRouteRestoredAfterRefresh: true
     })}\n`);
   } finally {
     if (recoveryAccessToken) {
       await admin.auth.admin.signOut(recoveryAccessToken, "global").catch(() => undefined);
     }
-    if (accountClient) {
-      try {
-        await accountClient.rpc("revoke_account_password_session");
-      } catch {
-        // Clear local session even if revocation is unavailable.
-      }
-      await accountClient.auth.signOut({ scope: "local" });
-    }
     const { error: auditCleanupError } = await admin
       .from("login_logs")
       .delete()
-      .in("login_name", [profile.login_name, "__codex_edge_readiness__"])
+      .in("login_name", [profile.login_name, commonProfile?.login_name ?? "__codex_no_fixture__", "__codex_edge_readiness__"])
       .gte("logged_at", auditStartAt);
     if (auditCleanupError) throw new Error("Could not clean local account/password audit fixtures");
+    if (dictionaryTypeId) {
+      if (!/^\d+$/.test(dictionaryTypeId)) throw new Error("The browser returned a nonnumeric dictionary ID");
+      cleanLocalFixtureSql(`delete from public.dict_items where dict_type_id = ${dictionaryTypeId}`);
+      cleanLocalFixtureSql(`delete from public.dict_types where id = ${dictionaryTypeId}`);
+    }
+    if (realtimeMessageId) {
+      if (!/^\d+$/.test(realtimeMessageId)) throw new Error("The browser returned a nonnumeric message ID");
+      cleanLocalFixtureSql(`delete from public.messages where id = ${realtimeMessageId}`);
+    }
+    const fixtureProfileIds = [profile.id, commonProfile?.id].filter((id): id is string => Boolean(id));
+    await admin.from("operation_logs").delete().in("operator_id", fixtureProfileIds);
+    await admin.from("user_roles").delete().in("user_id", fixtureProfileIds);
+    const { error: profileCleanupError } = await admin.from("profiles").delete().eq("id", profile.id);
+    if (profileCleanupError) throw new Error("Could not clean the local recovery profile fixture");
+    if (commonProfile) await admin.from("profiles").delete().eq("id", commonProfile.id);
+    const { error: userCleanupError } = await admin.auth.admin.deleteUser(authUserId);
+    if (userCleanupError) throw new Error("Could not clean the local recovery Auth fixture");
+    if (commonProfile) {
+      const { error: commonUserCleanupError } = await admin.auth.admin.deleteUser(commonProfile.auth_user_id);
+      if (commonUserCleanupError) throw new Error("Could not clean the local common-user Auth fixture");
+    }
     if (newMessageIds.length) {
       await fetch(`${mailpitUrl}/api/v1/messages`, {
         method: "DELETE",

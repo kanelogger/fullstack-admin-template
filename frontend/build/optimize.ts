@@ -8,8 +8,6 @@ const include = [
   "mitt",
   "dayjs",
   "pinia",
-  "vue-types",
-  "vue-tippy",
   "pinyin-pro",
   "sortablejs",
   "@vueuse/core",

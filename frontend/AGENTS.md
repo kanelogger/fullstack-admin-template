@@ -1,21 +1,27 @@
-# 范围
+# 前端工作区
 
-管理后台前端：Vue 3 + Vue Router + Pinia + shadcn-vue + Tailwind CSS v4 + VueUse，使用 Vite 7 构建，负责全部页面、路由、状态与 API 封装。UI 正在分阶段从 Element Plus 迁移；登录/密码恢复、Profile、消息中心、用户/角色/菜单、组织、字典、配置、附件、三类审计日志、仪表盘，以及侧栏、顶栏、面包屑、多标签、搜索、通知已使用 Supabase/Zod/shadcn-vue；少数旧共享组件仍待迁移。Supabase `current_navigation()` 已接管应用动态路由，Fastify `async-routes` 只保留为旧接口。
+本目录是根 pnpm workspace 的 Vue 3 PC 浏览器应用包。依赖安装、运行和验证从仓库根目录执行，使用 pnpm 与根 `pnpm-lock.yaml`。
 
-## 局部约束
+## 结构边界
 
-- Node 最低 `>=22.13.0`，Volta 固定 Node 24.18.0 与 pnpm 12.3.4；前端包管理器固定 `pnpm`（>=9）。
-- shadcn-vue 组件源码位于 `src/components/ui/`，主题变量与 Tailwind CSS v4 入口位于 `src/style/tailwind.css`，配置位于 `components.json`。
-- 新增 shadcn-vue 组件可运行 `pnpm dlx shadcn-vue@latest add <component>`，生成源码放入本仓库维护。
-- 新页面优先使用 `src/components/ui/` 中的 shadcn-vue 组件和 Tailwind 工具类；迁移旧页面时保持 API、路由权限和业务行为不变。
-- `dev`/`build` 脚本内联 `NODE_OPTIONS=...`（POSIX 写法）；Windows cmd 不识别，本机用 Git Bash 运行，或改用 cross-env 等价写法。
-- Fastify 旧模块请求走 `/api` 前缀，经 `src/utils/http/index.ts` 封装；dev 代理由 `vite.config.ts` 转发到 `http://localhost:3000`。Supabase Auth 与已迁移功能通过 feature service/repository 调用 Supabase JS，不能绕过契约直接在页面写数据请求。
-- 登录只提供 `login_name` + 密码；浏览器只能通过 `session-login` Edge Function 获取应用 Session，不得直接调用 Auth 密码登录。服务端登记的 Session 才能访问业务数据；邮箱只用于密码重置，公共注册关闭。不要增加 OTP/魔法链接、短信、OAuth、SSO 或 Passkey 登录入口。
-- 跨模块 Zod 契约位于 `src/contracts/`。Supabase Local 配置和 migrations 位于仓库根 `supabase/`；从 `frontend/` 执行 `pnpm run supabase:start/status/stop`，本地数据库重建命令为 `pnpm run supabase:db:reset`。
-- 验证入口：`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e`（16 项账号密码登录、应用壳、消息、用户/角色/菜单、组织、字典/配置、附件、审计日志、仪表盘及导航 smoke；业务 API 使用隔离 fixtures/mock）、`pnpm test:e2e:auth`（本地 Auth 邮件恢复、SPA 改密、账号密码登录和本人 Profile）、`pnpm run test:db`（本地 Supabase 413 项 pgTAP/RLS、审计日志、仪表盘权限、私有 Storage、角色/菜单/组织/字典/配置、Session、消息 Realtime 和导入幂等）、`pnpm test:auth-bridge`（专用 MySQL 测试库、Supabase Local、Fastify；验证账号密码 bridge、动态菜单、有效/无效旧 Token 刷新）。常规动态导航与模块 smoke 使用隔离 fixtures；真实慢刷新期间退出/切换账号仍待端到端验收。
-- 环境变量按 `.env.example`、`.env.development.example` 复制为本地 `.env*`；真实文件不提交。
+- `src/app/`：Vue 应用根组件。
+- `src/layouts/`：后台布局、侧栏、顶栏、多标签和通知。
+- `src/router/`：公开错误路由、动态路由和守卫。
+- `src/stores/`：`session`、`permission`、`ui`、`tabs`、`notification` Pinia 状态。
+- `src/features/`：按认证、用户、角色、菜单、组织、字典、配置、消息、附件、审计、Dashboard、Profile 等业务域组织页面和服务。
+- `src/components/`：跨业务共享组件；shadcn-vue 组件源码位于 `src/components/ui/`。
+- `src/lib/supabase/`：Supabase JS client。
+- `@template/contracts`：位于 `supabase/functions/_shared/contracts` 的 workspace 包，作为前端与 Edge Functions 唯一 Zod 契约源。
 
-## 按需指南
+业务页面不得直接调用 Supabase client；数据访问经 feature service，输入/输出按共享 Zod 契约验证。授权由权限 Store、路由守卫及服务端 RLS 共同执行，不能依赖隐藏按钮。
 
-- 权限指令（`v-perms`/`v-auth`）：`src/directives/`
-- 布局与多标签：`src/layout/`、`src/store/modules/multiTags.ts`
+## Auth 与 Supabase
+
+- 登录只接受 `login_name + 密码`；浏览器通过 `session-login` Edge Function 获取 Session，不直接执行密码登录。
+- Supabase Session 只由 Auth client 持久化。业务资料存在 `profiles`；权限在 Pinia permission Store 的内存快照中；Session Store 不持久化角色/权限。
+- Auth 状态变更后在回调之外刷新权限和导航；登出、账号切换时清理标签、路由、权限和通知。临时网络错误保留已验证的 UI 状态，RLS 仍在服务端拒绝过期权限。
+- `.env.example` 和 `.env.development.example` 只包含本地 URL、端口和 publishable key 样例；严禁将 service-role/secret key 放入 `VITE_*`。
+
+## 命令
+
+从仓库根目录运行 `pnpm dev`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`。完整 migration replay 与真实本地浏览器链路使用 `pnpm check:migrations`。仅面向 PC Chromium 验收，不定义移动端适配要求。

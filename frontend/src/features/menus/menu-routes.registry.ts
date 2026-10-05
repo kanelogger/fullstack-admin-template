@@ -1,27 +1,27 @@
 import type { Component } from "vue";
-import type { ManagedRouteKey } from "@/contracts/menu-management";
-import type { PermissionKey } from "@/contracts/permissions";
+import type { ManagedRouteKey } from "@template/contracts/menu-management";
+import type { PermissionKey } from "@template/contracts/permissions";
 
 /**
  * Closed client-side registry. Menu records select one of these stable keys;
  * the database never supplies a Vue path, import expression, or component name.
  */
 export const menuRouteRegistry = {
-  "dashboard.overview": () => import("@/views/welcome/index.vue"),
-  "account.profile": () => import("@/views/profile/index.vue"),
-  "account.change-password": () => import("@/views/profile/change-password/index.vue"),
-  "communication.messages": () => import("@/views/operation/message/index.vue"),
-  "operation.attachments": () => import("@/views/operation/attachment/index.vue"),
-  "administration.users": () => import("@/views/system/user/index.vue"),
-  "administration.roles": () => import("@/views/system/role/index.vue"),
-  "administration.menus": () => import("@/views/system/menu/index.vue"),
-  "administration.departments": () => import("@/views/system/dept/index.vue"),
-  "administration.posts": () => import("@/views/system/post/index.vue"),
-  "administration.dictionaries": () => import("@/views/system/dict/index.vue"),
-  "administration.configurations": () => import("@/views/system/config/index.vue"),
-  "audit.login-logs": () => import("@/views/log/login-log/index.vue"),
-  "audit.operation-logs": () => import("@/views/log/operation-log/index.vue"),
-  "audit.exception-logs": () => import("@/views/log/exception-log/index.vue")
+  "dashboard.overview": () => import("@/features/dashboard/pages/dashboard/index.vue"),
+  "account.profile": () => import("@/features/profile/pages/profile/index.vue"),
+  "account.change-password": () => import("@/features/profile/pages/profile/change-password/index.vue"),
+  "communication.messages": () => import("@/features/messages/pages/messages/index.vue"),
+  "operation.attachments": () => import("@/features/attachments/pages/attachments/index.vue"),
+  "administration.users": () => import("@/features/users/pages/users/index.vue"),
+  "administration.roles": () => import("@/features/roles/pages/roles/index.vue"),
+  "administration.menus": () => import("@/features/menus/pages/menus/index.vue"),
+  "administration.departments": () => import("@/features/organization/pages/departments/index.vue"),
+  "administration.posts": () => import("@/features/organization/pages/posts/index.vue"),
+  "administration.dictionaries": () => import("@/features/dictionaries/pages/dictionaries/index.vue"),
+  "administration.configurations": () => import("@/features/configuration/pages/system-config/index.vue"),
+  "audit.login-logs": () => import("@/features/audit/pages/logs/login-log/index.vue"),
+  "audit.operation-logs": () => import("@/features/audit/pages/logs/operation-log/index.vue"),
+  "audit.exception-logs": () => import("@/features/audit/pages/logs/exception-log/index.vue")
 } satisfies Record<ManagedRouteKey, () => Promise<{ default: Component }>>;
 
 export type RegisteredMenuRouteKey = ManagedRouteKey;

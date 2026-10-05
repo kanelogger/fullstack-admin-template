@@ -17,10 +17,9 @@ import {
   isIncludeAllChildren
 } from "@/utils/shared";
 import { buildHierarchyTree } from "@/utils/tree";
-import { getCachedUserInfo } from "@/utils/user-info";
-import { type menuType, routerArrays } from "@/layout/types";
-import { useMultiTagsStoreHook } from "@/store/modules/multiTags";
-import { usePermissionStoreHook } from "@/store/modules/permission";
+import { type menuType, routerArrays } from "@/layouts/types";
+import { useTabsStoreHook } from "@/stores/modules/tabs";
+import { usePermissionStoreHook } from "@/stores/modules/permission";
 import { getCurrentNavigation } from "@/features/menus/menus.service";
 import { buildNavigationRoutes } from "@/features/menus/navigation-routes";
 
@@ -76,20 +75,9 @@ function isOneOfArray(a: Array<string>, b: Array<string>) {
     : true;
 }
 
-/** 从localStorage里取出当前登录用户的角色roles，过滤无权限的菜单 */
+/** Supabase current_navigation 已按当前用户的 RLS 权限过滤动态菜单。 */
 function filterNoPermissionTree(data: RouteComponent[]) {
-  const currentUser = getCachedUserInfo();
-  const currentRoles = currentUser?.roles ?? [];
-  const currentPermissions = currentUser?.permissions ?? [];
-  const newTree = cloneDeep(data).filter((route: any) =>
-    isOneOfArray(route.meta?.roles, currentRoles) &&
-    (!route.meta?.auths?.length ||
-      isIncludeAllChildren(route.meta.auths, currentPermissions))
-  );
-  newTree.forEach(
-    (v: any) => v.children && (v.children = filterNoPermissionTree(v.children))
-  );
-  return filterChildrenTree(newTree);
+  return filterChildrenTree(cloneDeep(data));
 }
 
 /** 通过指定 `key` 获取父级路径集合，默认 `key` 为 `path` */
@@ -137,21 +125,6 @@ function findRouteByPath(path: string, routes: RouteRecordRaw[]) {
   }
 }
 
-/** 动态路由注册完成后，再添加全屏404（页面不存在）页面，避免刷新动态路由页面时误跳转到404页面 */
-function addPathMatch() {
-  if (!router.hasRoute("pathMatch")) {
-    router.addRoute({
-      path: "/:pathMatch(.*)*",
-      name: "PageNotFound",
-      component: () => import("@/views/error/404.vue"),
-      meta: {
-        title: "404",
-        showLink: false
-      }
-    });
-  }
-}
-
 /** 处理动态路由（后端返回的路由） */
 function handleAsyncRoutes(routeList) {
   const routes = addAsyncRoutes(routeList ?? []);
@@ -164,15 +137,14 @@ function handleAsyncRoutes(routeList) {
   router.addRoute(homeRoute);
   usePermissionStoreHook().handleWholeMenus(routes);
 
-  if (!useMultiTagsStoreHook().getMultiTagsCache) {
-    useMultiTagsStoreHook().handleTags("equal", [
+  if (!useTabsStoreHook().getMultiTagsCache) {
+    useTabsStoreHook().handleTags("equal", [
       ...routerArrays,
       ...usePermissionStoreHook().flatteningRoutes.filter(
         v => v?.meta?.fixedTag
       )
     ]);
   }
-  addPathMatch();
 }
 
 /** 初始化动态路由；请求或路由处理失败时将拒绝 Promise，由调用方恢复状态。 */
@@ -327,7 +299,7 @@ function getTopMenu(tag = false): menuType | undefined {
   const firstMenu = usePermissionStoreHook().wholeMenus[0];
   if (!firstMenu) return undefined;
   const topMenu = firstMenu?.children?.length ? handleTopMenu(firstMenu) : firstMenu;
-  if (tag && topMenu) useMultiTagsStoreHook().handleTags("push", topMenu);
+  if (tag && topMenu) useTabsStoreHook().handleTags("push", topMenu);
   return topMenu;
 }
 
@@ -338,7 +310,6 @@ export {
   filterTree,
   initRouter,
   getTopMenu,
-  addPathMatch,
   isOneOfArray,
   getHistoryMode,
   addAsyncRoutes,

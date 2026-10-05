@@ -12,9 +12,9 @@ import {
   type DictionaryOption,
   type DictionaryType,
   type DictionaryTypeListPage
-} from "@/contracts/dictionary";
-import { BusinessIdSchema } from "@/contracts/ids";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts/dictionary";
+import { BusinessIdSchema } from "@template/contracts/ids";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 function throwOnError(error: { message?: string } | null, fallback: string): void {
   if (error) throw new Error(error.message || fallback);

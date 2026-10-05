@@ -12,8 +12,8 @@ import {
   type DepartmentPage,
   type Post,
   type PostPage
-} from "@/contracts/organization";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts/organization";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type DatabaseRow = Record<string, unknown>;
 type OrganizationKind = "department" | "post";

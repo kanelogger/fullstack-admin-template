@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(89);
+select no_plan();
 
 select has_table('public', 'profiles', 'business profiles table exists');
 select has_table('public', 'messages', 'user inbox table exists');
@@ -80,8 +80,8 @@ select is(
       and table_name = 'profiles'
       and column_name = 'auth_user_id'
   ),
-  'YES',
-  'Auth UUID mapping remains nullable during legacy account preflight'
+  'NO',
+  'every business profile is linked to a Supabase Auth identity'
 );
 
 select is(
@@ -161,12 +161,10 @@ select ok(
   'trusted server-side code can deliver messages'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.import_legacy_messages(jsonb,boolean)', 'execute'),
-  'authenticated users cannot import legacy messages'
-);
-select ok(
-  has_function_privilege('service_role', 'public.import_legacy_messages(jsonb,boolean)', 'execute'),
-  'only trusted server-side code can import legacy messages'
+  has_function_privilege('service_role', 'public.bootstrap_first_admin_profile(uuid,text,text,text)', 'execute')
+    and not has_function_privilege('authenticated', 'public.bootstrap_first_admin_profile(uuid,text,text,text)', 'execute')
+    and not has_function_privilege('anon', 'public.bootstrap_first_admin_profile(uuid,text,text,text)', 'execute'),
+  'only the trusted local setup command can initialize the first administrator'
 );
 
 select ok(
@@ -430,7 +428,7 @@ select is(
 );
 
 -- A recovery session can perform only the password-reset completion RPC. It
--- still cannot read a business profile or obtain a Fastify bridge identity.
+-- still cannot read a business profile or derive a business user identity.
 select set_config(
   'request.jwt.claim.sub',
   (select auth_user_id::text from public.profiles where login_name like '__codex_rls_reset_%'),

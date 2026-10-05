@@ -2,12 +2,13 @@ import {
   AttachmentListRequestSchema,
   AttachmentPageSchema,
   AttachmentSchema,
+  getSupportedAttachmentMimeType,
   BusinessIdSchema,
   CreateAttachmentMetadataRequestSchema,
   type Attachment,
   type AttachmentPage
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const BUCKET = "admin-attachments";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -84,7 +85,7 @@ async function currentBusinessUserId(): Promise<string> {
 
 function safeExtension(filename: string): string {
   const extension = filename.split(/[\\/]/).at(-1)?.match(/\.([a-z0-9]{1,32})$/i)?.[1];
-  return extension?.toLowerCase() ?? "bin";
+  return extension?.toLowerCase() ?? "";
 }
 
 export async function uploadAttachment(
@@ -97,10 +98,14 @@ export async function uploadAttachment(
   if (file.size > MAX_FILE_SIZE) throw failure("附件不能超过 20 MiB");
   if (file.size < 0) throw failure("附件大小无效");
 
+  const fileExt = safeExtension(file.name);
+  const mimeType = getSupportedAttachmentMimeType(fileExt, file.type);
+  if (!mimeType) throw failure("文件格式不支持或扩展名与文件类型不匹配");
+
   const request = CreateAttachmentMetadataRequestSchema.parse({
     originalName: file.name,
-    mimeType: file.type || "application/octet-stream",
-    fileExt: safeExtension(file.name),
+    mimeType,
+    fileExt,
     fileSize: file.size,
     businessModule: input.businessModule ?? null,
     businessRecordId: input.businessRecordId ?? null

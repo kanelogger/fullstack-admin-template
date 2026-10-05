@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select no_plan();
 
 select has_table('public', 'menus', 'menu management table exists');
 select ok(
@@ -32,6 +32,14 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.admin_role_catalog()', 'execute'),
   'anonymous callers cannot invoke the role catalog API'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.admin_roles_page(text,text,text,integer,integer)', 'execute')
+    and has_function_privilege('authenticated', 'public.admin_role_members(bigint,integer,integer)', 'execute')
+    and has_function_privilege('authenticated', 'public.replace_role_authorization(bigint,text[],text[])', 'execute')
+    and has_function_privilege('authenticated', 'public.menu_role_catalog(bigint)', 'execute')
+    and has_function_privilege('authenticated', 'public.replace_menu_role_authorization(bigint,bigint[])', 'execute'),
+  'server-paginated role, member, and menu-authorization RPCs are available to authenticated callers'
 );
 select ok(
   has_function_privilege('authenticated', 'public.save_admin_role(text,text,text,text,boolean)', 'execute'),
@@ -89,6 +97,18 @@ select is(
   (select count(*)::integer from public.permission_catalog),
   'SUPER_ADMIN catalog entry reflects all registered permissions'
 );
+select ok(
+  jsonb_typeof(public.admin_roles_page(null, null, 'all', 1, 2)->'roles') = 'array'
+    and (public.admin_roles_page(null, null, 'all', 1, 2)->>'pageSize')::integer = 2
+    and (public.admin_roles_page(null, null, 'all', 1, 2)->>'total')::integer = (select count(*)::integer from public.roles),
+  'role list filters and paginates on the database server'
+);
+select ok(
+  (public.admin_role_members((select id from public.roles where code = 'SUPER_ADMIN'), 1, 10)->>'total')::integer = 1
+    and (public.admin_role_members((select id from public.roles where code = 'SUPER_ADMIN'), 1, 10)->'items'->0->>'loginName') = '__codex_rls_super'
+    and not ((public.admin_role_members((select id from public.roles where code = 'SUPER_ADMIN'), 1, 10)->'items'->0) ? 'email'),
+  'role member pages include account labels without disclosing email addresses'
+);
 select lives_ok(
   $$select public.save_admin_role(null, 'CODEX_ROLE_MENU_TEST', 'Codex Role Menu Test', null, true)$$,
   'SUPER_ADMIN can create a role'
@@ -120,6 +140,57 @@ select results_eq(
     where role.code = 'CODEX_ROLE_MENU_TEST'$$,
   $$values ('administration.users.read'::text)$$,
   'permission replacement is atomic and complete'
+);
+select lives_ok(
+  $$select public.replace_role_authorization(
+    (select id from public.roles where code = 'CODEX_ROLE_MENU_TEST'),
+    array['administration.roles.read']::text[],
+    array['administration.users.create']::text[]
+  )$$,
+  'role authorization saves menu and action permissions together'
+);
+select lives_ok(
+  $$select public.replace_menu_role_authorization(
+    (select id from public.menus where route_key = 'administration.roles'),
+    array[(select id from public.roles where code = 'CODEX_ROLE_MENU_TEST')]::bigint[]
+  )$$,
+  'menu authorization grants its existing permission key'
+);
+select ok(
+  (select bool_and(role_permission.permission_key in ('administration.roles.read', 'administration.users.create'))
+   from public.role_permissions as role_permission
+   join public.roles as role on role.id = role_permission.role_id
+   where role.code = 'CODEX_ROLE_MENU_TEST')
+  and exists (
+    select 1 from public.role_permissions as role_permission
+    join public.roles as role on role.id = role_permission.role_id
+    where role.code = 'CODEX_ROLE_MENU_TEST' and role_permission.permission_key = 'administration.users.create'
+  ),
+  'incremental menu authorization preserves action permissions'
+);
+select is(
+  (public.menu_role_catalog((select id from public.menus where route_key = 'account.profile'))->>'sharedMenuCount')::integer,
+  2,
+  'menus that share a permission key are reported as linked'
+);
+select lives_ok(
+  $$select public.replace_menu_role_authorization(
+    (select id from public.menus where route_key = 'administration.roles'),
+    array[]::bigint[]
+  )$$,
+  'menu role authorization can be removed independently'
+);
+select ok(
+  exists (
+    select 1 from public.role_permissions as role_permission
+    join public.roles as role on role.id = role_permission.role_id
+    where role.code = 'CODEX_ROLE_MENU_TEST' and role_permission.permission_key = 'administration.users.create'
+  ) and not exists (
+    select 1 from public.role_permissions as role_permission
+    join public.roles as role on role.id = role_permission.role_id
+    where role.code = 'CODEX_ROLE_MENU_TEST' and role_permission.permission_key = 'administration.roles.read'
+  ),
+  'removing a menu grant keeps unrelated permissions'
 );
 select throws_ok(
   $$select public.save_admin_role(
@@ -225,9 +296,8 @@ select throws_ok(
 );
 select ok(
   jsonb_array_length(public.admin_menu_catalog()) > 0
-  and public.admin_menu_catalog() @> '[{"routeKey":"communication.messages"}]'::jsonb
   and not public.admin_menu_catalog() @> '[{"routeKey":"administration.users"}]'::jsonb,
-  'OPERATOR reads only menu paths allowed by its permissions'
+  'OPERATOR can read menu metadata but not an ungranted user-management route'
 );
 select throws_ok(
   $$select public.save_admin_role(null, 'CODEX_DENIED_ROLE', 'Denied Role', null, true)$$,

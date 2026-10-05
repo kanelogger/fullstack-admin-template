@@ -16,8 +16,8 @@ import {
   type UserListPage,
   type UserListRequest,
   type UserManagementRoleOption
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 function failure(message: string): Error {
   return new Error(message);

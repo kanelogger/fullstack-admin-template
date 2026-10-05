@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MenuEntrySchema } from "@/contracts/menu";
+import { MenuEntrySchema } from "@template/contracts/menu";
 import { buildNavigationRoutes } from "./navigation-routes";
 
 const rows = MenuEntrySchema.array().parse([

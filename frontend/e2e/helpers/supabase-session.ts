@@ -18,6 +18,7 @@ export async function installSupabaseSessionMock(
   const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const supabaseUrl = process.env.VITE_SUPABASE_URL ?? "http://127.0.0.1:54321";
   const storageKey = `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
+  const fixtureMarker = `${storageKey}-playwright-initialized`;
   const encodedPayload = Buffer.from(JSON.stringify({
     sub: profile.authUserId,
     aud: "authenticated",
@@ -42,9 +43,15 @@ export async function installSupabaseSessionMock(
     }
   };
 
-  await page.addInitScript(({ storageKey, session }) => {
+  await page.addInitScript(({ storageKey, fixtureMarker, session }) => {
+    if (sessionStorage.getItem(fixtureMarker)) return;
     localStorage.setItem(storageKey, JSON.stringify(session));
-  }, { storageKey, session });
+    sessionStorage.setItem(fixtureMarker, "1");
+  }, { storageKey, fixtureMarker, session });
+
+  // UI fixture specs validate socket-driven state through explicit mocked
+  // inputs; keep the client WebSocket local to the browser context.
+  await page.routeWebSocket(/\/realtime\/v1\/websocket/, () => {});
 
   await page.route("**/rest/v1/rpc/current_profile", route => route.fulfill({
     status: 200,

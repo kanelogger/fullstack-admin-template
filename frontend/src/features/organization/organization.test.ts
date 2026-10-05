@@ -5,7 +5,7 @@ import {
   PostListRequestSchema,
   SaveDepartmentRequestSchema,
   SavePostRequestSchema
-} from "@/contracts/organization";
+} from "@template/contracts/organization";
 import { mapDepartmentRow, mapPostRow } from "./organization.service";
 
 const timestamp = "2026-10-02T03:04:05.000Z";

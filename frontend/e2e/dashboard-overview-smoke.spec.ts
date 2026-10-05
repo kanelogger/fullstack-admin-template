@@ -48,8 +48,16 @@ async function prepareDashboardPage(page: Page) {
 }
 
 const overview = {
-  todoCount: 0,
+  todoCount: 2,
   unreadMessageCount: 2,
+  todoMessages: [{
+    id: "9007199254740996",
+    title: "待处理通知",
+    summary: null,
+    messageType: "NOTICE",
+    readStatus: false,
+    sentAt: "2026-10-02T09:30:00.000Z"
+  }],
   recentOperations: [{
     id: "9007199254740993",
     operatorName: "超级管理员",
@@ -59,7 +67,7 @@ const overview = {
     operationResult: 1,
     operatedAt: "2026-10-02T10:00:00.000Z"
   }],
-  announcements: [{
+  recentMessages: [{
     id: "9007199254740995",
     title: "系统维护通知",
     summary: "本周末例行维护",

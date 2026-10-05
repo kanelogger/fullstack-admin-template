@@ -76,8 +76,7 @@ private-*/
 supabase/.temp/
 supabase/.branches/
 
-# ===== Host-specific skill links =====
-# 只保留仓库自带、可提交的 Skill；其余由本机 skill 管理器注入的软链接是绝对路径，
-# 提交进模板仓库会污染 fork。项目启用的 Skill 见 .omp/config.yml。
+# ===== Agent Skills =====
+# 只跟踪仓库自带的 agents-maintenance；其他项目级或本机安装的技能保持忽略。
 .agents/skills/*
 !.agents/skills/agents-maintenance/

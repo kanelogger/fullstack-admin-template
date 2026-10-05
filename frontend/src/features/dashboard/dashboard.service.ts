@@ -1,8 +1,8 @@
 import {
   DashboardOverviewSchema,
   type DashboardOverview
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export async function getDashboardOverview(): Promise<DashboardOverview> {
   const { data, error } = await getSupabaseClient().rpc("dashboard_overview");

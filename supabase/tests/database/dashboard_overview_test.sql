@@ -34,9 +34,19 @@ select set_config(
   true
 );
 set local role authenticated;
-select is(public.dashboard_overview()->>'todoCount', '0', 'dashboard keeps the existing empty todo count');
-select ok((public.dashboard_overview()->>'unreadMessageCount')::integer >= 0, 'dashboard returns only an integer inbox count');
-select ok(jsonb_typeof(public.dashboard_overview()->'announcements') = 'array', 'dashboard returns an announcement list');
+select is(
+  public.dashboard_overview()->>'todoCount',
+  public.dashboard_overview()->>'unreadMessageCount',
+  'dashboard todo count is the same caller-scoped unread-message count'
+);
+select ok(
+  jsonb_typeof(public.dashboard_overview()->'todoMessages') = 'array',
+  'dashboard returns a caller-scoped unread-message task list'
+);
+select ok(
+  jsonb_typeof(public.dashboard_overview()->'recentMessages') = 'array',
+  'dashboard returns recent messages of every type'
+);
 select ok(jsonb_typeof(public.dashboard_overview()->'recentOperations') = 'array', 'dashboard returns recent activity');
 select ok(
   exists (
@@ -71,7 +81,11 @@ select set_config(
   true
 );
 set local role authenticated;
-select is(public.dashboard_overview()->>'todoCount', '0', 'OPERATOR with dashboard permission can load the overview');
+select is(
+  public.dashboard_overview()->>'todoCount',
+  public.dashboard_overview()->>'unreadMessageCount',
+  'OPERATOR sees the same caller-scoped todo and unread-message count'
+);
 select ok(public.dashboard_overview()->'adminStats' = 'null'::jsonb, 'OPERATOR without system or audit permissions receives no admin metrics');
 select is(
   jsonb_array_length(public.dashboard_overview()->'recentOperations'),

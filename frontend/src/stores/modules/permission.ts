@@ -1,0 +1,88 @@
+import { defineStore } from "pinia";
+import { cloneDeep } from "@/utils/shared";
+import {
+  type cacheType,
+  store,
+  ascending,
+  getKeyList,
+  filterTree,
+  constantMenus,
+  filterNoPermissionTree,
+  formatFlatteningRoutes
+} from "../utils";
+import { useTabsStoreHook } from "./tabs";
+
+export const usePermissionStore = defineStore("permission", {
+  state: () => ({
+    roleCodes: [] as string[],
+    permissionKeys: [] as string[],
+    // 静态路由生成的菜单
+    constantMenus,
+    // 整体路由生成的菜单（静态、动态）
+    wholeMenus: [],
+    // 整体路由（一维数组格式）
+    flatteningRoutes: [],
+    // 缓存页面keepAlive
+    cachePageList: []
+  }),
+  actions: {
+    setAuthorization(roleCodes: string[], permissionKeys: string[]) {
+      this.roleCodes = [...roleCodes];
+      this.permissionKeys = [...permissionKeys];
+    },
+    clearAuthorization() {
+      this.roleCodes = [];
+      this.permissionKeys = [];
+      this.wholeMenus = [];
+      this.cachePageList = [];
+    },
+    /** 组装整体路由生成的菜单 */
+    handleWholeMenus(routes: any[]) {
+      this.wholeMenus = filterNoPermissionTree(
+        filterTree(ascending(this.constantMenus.concat(routes)))
+      );
+      this.flatteningRoutes = formatFlatteningRoutes(
+        cloneDeep(this.constantMenus.concat(routes)) as any
+      );
+    },
+    /** 监听缓存页面是否存在于标签页，不存在则删除 */
+    clearCache() {
+      let cacheLength = this.cachePageList.length;
+      const nameList = getKeyList(useTabsStoreHook().multiTags, "name");
+      while (cacheLength > 0) {
+        nameList.findIndex(v => v === this.cachePageList[cacheLength - 1]) ===
+          -1 &&
+          this.cachePageList.splice(
+            this.cachePageList.indexOf(this.cachePageList[cacheLength - 1]),
+            1
+          );
+        cacheLength--;
+      }
+    },
+    cacheOperate({ mode, name }: cacheType) {
+      const delIndex = this.cachePageList.findIndex(v => v === name);
+      switch (mode) {
+        case "refresh":
+          this.cachePageList = this.cachePageList.filter(v => v !== name);
+          this.clearCache();
+          break;
+        case "add":
+          this.cachePageList.push(name);
+          break;
+        case "delete":
+          delIndex !== -1 && this.cachePageList.splice(delIndex, 1);
+          this.clearCache();
+          break;
+      }
+    },
+    /** 清空缓存页面 */
+    clearAllCachePage() {
+      this.wholeMenus = [];
+      this.cachePageList = [];
+    }
+  }
+});
+
+export function usePermissionStoreHook() {
+  return usePermissionStore(store);
+}

@@ -1,10 +1,10 @@
-const Layout = () => import("@/layout/index.vue");
+const Layout = () => import("@/layouts/index.vue");
 
 export default [
   {
     path: "/reset-password",
     name: "ResetPassword",
-    component: () => import("@/views/auth/reset-password.vue"),
+    component: () => import("@/features/auth/pages/reset-password.vue"),
     meta: {
       title: "重置密码",
       showLink: false
@@ -13,7 +13,7 @@ export default [
   {
     path: "/login",
     name: "Login",
-    component: () => import("@/views/login/index.vue"),
+    component: () => import("@/features/auth/pages/login.vue"),
     meta: {
       title: "登录",
       showLink: false
@@ -23,7 +23,7 @@ export default [
   {
     path: "/access-denied",
     name: "AccessDenied",
-    component: () => import("@/views/error/403.vue"),
+    component: () => import("@/features/errors/pages/403.vue"),
     meta: {
       title: "403",
       showLink: false
@@ -33,9 +33,18 @@ export default [
   {
     path: "/server-error",
     name: "ServerError",
-    component: () => import("@/views/error/500.vue"),
+    component: () => import("@/features/errors/pages/500.vue"),
     meta: {
       title: "500",
+      showLink: false
+    }
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    name: "PageNotFound",
+    component: () => import("@/features/errors/pages/404.vue"),
+    meta: {
+      title: "404",
       showLink: false
     }
   },
@@ -50,7 +59,7 @@ export default [
       {
         path: "/redirect/:path(.*)",
         name: "Redirect",
-        component: () => import("@/layout/redirect.vue")
+        component: () => import("@/layouts/redirect.vue")
       }
     ]
   }

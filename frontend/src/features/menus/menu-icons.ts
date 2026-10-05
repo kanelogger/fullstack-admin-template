@@ -39,7 +39,7 @@ const legacyElementIcons: Record<string, Component> = {
   Lock: LockKeyhole
 };
 
-/** Convert legacy Element Plus icon names to bundled Lucide icons. */
+/** Resolve persisted menu icon aliases to bundled Lucide icons. */
 export function resolveMenuIcon(iconName: string | null | undefined): Component | undefined {
   if (!iconName) return undefined;
   return legacyElementIcons[iconName] ?? useRenderIcon(iconName);

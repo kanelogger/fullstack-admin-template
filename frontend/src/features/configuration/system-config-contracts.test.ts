@@ -4,7 +4,7 @@ import {
   SystemConfigListRequestSchema,
   SystemConfigSchema,
   SystemConfigValueSchema
-} from "../../contracts/system-config";
+} from "@template/contracts/system-config";
 
 describe("system configuration contracts", () => {
   it("preserves large configuration IDs and legacy typed values", () => {

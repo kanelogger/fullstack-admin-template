@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Department, Post } from "@/contracts/organization";
-import { useUserStoreHook } from "@/store/modules/user";
+import type { Department, Post } from "@template/contracts/organization";
+import { usePermissionStoreHook } from "@/stores/modules/permission";
 import {
   deleteDepartment,
   deletePost,
@@ -33,8 +33,7 @@ type Row = {
 };
 
 const props = defineProps<{ kind: Kind }>();
-const userStore = useUserStoreHook();
-const permissions = computed(() => new Set(userStore.permissions));
+const permissions = computed(() => new Set(usePermissionStoreHook().permissionKeys));
 const resource = computed(() => props.kind === "department" ? "departments" : "posts");
 const label = computed(() => props.kind === "department" ? "部门" : "岗位");
 const codeLabel = computed(() => props.kind === "department" ? "部门编码" : "岗位编码");

@@ -4,8 +4,8 @@ import {
   type Profile,
   type ProfileUpdateRequest,
   type Session
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 function toSession(value: unknown): Session {
   if (!value || typeof value !== "object") {

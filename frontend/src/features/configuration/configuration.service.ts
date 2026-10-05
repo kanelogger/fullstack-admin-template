@@ -8,8 +8,8 @@ import {
   type SystemConfig,
   type SystemConfigListPage,
   type SystemConfigValue
-} from "@/contracts/system-config";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts/system-config";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 function throwOnError(error: { message?: string } | null, fallback: string): void {
   if (error) throw new Error(error.message || fallback);

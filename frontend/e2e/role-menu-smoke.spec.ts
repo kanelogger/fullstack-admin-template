@@ -17,7 +17,8 @@ test("role permission replacement and menu CRUD use stable local route keys", as
     { key: "administration.menus.create", description: "创建菜单" },
     { key: "administration.menus.update", description: "更新菜单" },
     { key: "administration.menus.delete", description: "删除菜单" },
-    { key: "administration.users.read", description: "读取用户" }
+    { key: "administration.users.read", description: "读取用户" },
+    { key: "administration.users.create", description: "创建用户" }
   ];
   let roles = [{
     id: "9007199254740993",
@@ -119,7 +120,75 @@ test("role permission replacement and menu CRUD use stable local route keys", as
   }));
   await page.route("**/rest/v1/rpc/current_business_user_id", route => route.fulfill({ status: 200, body: JSON.stringify(actorId) }));
   await page.route("**/rest/v1/messages**", route => route.fulfill({ status: 200, headers: { "content-range": "*/0", "access-control-expose-headers": "content-range" }, body: "[]" }));
-  await page.route("**/rest/v1/permission_catalog**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(permissions.map(item => ({ permission_key: item.key, description: item.description }))) }));
+  await page.route("**/rest/v1/rpc/admin_roles_page", route => {
+    const args = route.request().postDataJSON() as Record<string, unknown>;
+    const name = String(args.p_name ?? "").toLowerCase();
+    const code = String(args.p_code ?? "").toLowerCase();
+    const status = String(args.p_status ?? "all");
+    const pageNumber = Number(args.p_page ?? 1);
+    const pageSize = Number(args.p_page_size ?? 10);
+    const filtered = roles.filter(role =>
+      (!name || role.name.toLowerCase().includes(name)) &&
+      (!code || role.code.toLowerCase().includes(code)) &&
+      (status === "all" || (status === "active" ? role.isActive : !role.isActive))
+    );
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ roles: filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize), permissions, menus, total: filtered.length, page: pageNumber, pageSize })
+    });
+  });
+  await page.route("**/rest/v1/rpc/admin_role_members", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      items: [{ id: actorId, userCode: "ADMIN-001", loginName: "admin", displayName: "系统管理员", isActive: true }],
+      total: 1,
+      page: 1,
+      pageSize: 10
+    })
+  }));
+  await page.route("**/rest/v1/rpc/admin_menu_permission_catalog", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(permissions)
+  }));
+  await page.route("**/rest/v1/rpc/menu_role_catalog", route => {
+    const args = route.request().postDataJSON() as Record<string, unknown>;
+    const menu = menus.find(item => item.id === String(args.p_menu_id));
+    const permissionKey = menu?.requiredPermissionKey ?? "administration.roles.read";
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        permissionKey,
+        sharedMenuCount: menus.filter(item => item.kind === "route" && item.requiredPermissionKey === permissionKey).length,
+        roles: roles.map(role => ({
+          id: role.id,
+          code: role.code,
+          name: role.name,
+          isActive: role.isActive,
+          isSystem: role.isSystem,
+          authorized: role.code === "SUPER_ADMIN" || role.permissionKeys.includes(permissionKey)
+        }))
+      })
+    });
+  });
+  await page.route("**/rest/v1/rpc/replace_menu_role_authorization", async route => {
+    const args = route.request().postDataJSON() as Record<string, unknown>;
+    rpcCalls.push({ name: "replace_menu_role_authorization", args });
+    const menu = menus.find(item => item.id === String(args.p_menu_id));
+    const key = menu?.requiredPermissionKey;
+    const selectedIds = args.p_role_ids as string[];
+    roles = roles.map(role => {
+      if (!key || role.code === "SUPER_ADMIN") return role;
+      const keys = new Set(role.permissionKeys);
+      if (selectedIds.includes(role.id)) keys.add(key);
+      else keys.delete(key);
+      return { ...role, permissionKeys: [...keys] };
+    });
+    return route.fulfill({ status: 204 });
+  });
 
   await page.route("**/rest/v1/rpc/admin_role_catalog", route => route.fulfill({
     status: 200,
@@ -146,11 +215,11 @@ test("role permission replacement and menu CRUD use stable local route keys", as
       : [...roles, role];
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(role) });
   });
-  await page.route("**/rest/v1/rpc/replace_role_permissions", async route => {
+  await page.route("**/rest/v1/rpc/replace_role_authorization", async route => {
     const args = route.request().postDataJSON() as Record<string, unknown>;
-    rpcCalls.push({ name: "replace_role_permissions", args });
+    rpcCalls.push({ name: "replace_role_authorization", args });
     roles = roles.map(role => role.id === String(args.p_role_id)
-      ? { ...role, permissionKeys: args.p_permission_keys as string[] }
+      ? { ...role, permissionKeys: [...args.p_menu_permission_keys as string[], ...args.p_action_permission_keys as string[]] }
       : role);
     return route.fulfill({ status: 200, contentType: "application/json", body: "null" });
   });
@@ -200,7 +269,7 @@ test("role permission replacement and menu CRUD use stable local route keys", as
   await expect(page.getByText("OPERATOR", { exact: true })).toBeVisible();
   const superAdminRow = page.getByRole("row").filter({ hasText: "超级管理员" });
   await expect(superAdminRow.getByText("系统权限", { exact: true })).toBeVisible();
-  await expect(superAdminRow.getByRole("button", { name: "权限" })).toHaveCount(0);
+  await expect(superAdminRow.getByRole("button", { name: "菜单与权限" })).toHaveCount(0);
   await superAdminRow.getByRole("button", { name: "编辑" }).click();
   const superAdminDialog = page.getByRole("dialog");
   await expect(superAdminDialog.getByText("SUPER_ADMIN 必须保持启用。", { exact: true })).toBeVisible();
@@ -215,19 +284,36 @@ test("role permission replacement and menu CRUD use stable local route keys", as
   await expect(page.getByText("客服专员", { exact: true })).toBeVisible();
 
   const roleRow = page.getByRole("row").filter({ hasText: "客服专员" });
-  await roleRow.getByRole("button", { name: "权限" }).click();
+  await roleRow.getByRole("button", { name: "成员" }).click();
+  const membersDialog = page.getByRole("dialog", { name: /角色成员/ });
+  await expect(membersDialog.getByText("系统管理员", { exact: true })).toBeVisible();
+  await membersDialog.getByRole("button", { name: "关闭" }).click();
+
+  await roleRow.getByRole("button", { name: "菜单与权限" }).click();
   const permissionDialog = page.getByRole("dialog");
-  await permissionDialog.getByRole("checkbox", { name: /communication\.messages\.read/ }).check();
-  await permissionDialog.getByRole("button", { name: "保存权限" }).click();
-  await expect(roleRow).toContainText("1");
-  expect(rpcCalls.find(call => call.name === "replace_role_permissions")?.args).toMatchObject({
+  await permissionDialog.getByRole("checkbox", { name: "菜单 角色管理" }).check();
+  await permissionDialog.getByRole("checkbox", { name: /administration\.users\.create/ }).check();
+  await permissionDialog.getByRole("button", { name: "保存授权" }).click();
+  await expect(roleRow).toContainText("2");
+  expect(rpcCalls.find(call => call.name === "replace_role_authorization")?.args).toMatchObject({
     p_role_id: "9007199254740995",
-    p_permission_keys: ["communication.messages.read"]
+    p_menu_permission_keys: ["administration.roles.read"],
+    p_action_permission_keys: ["administration.users.create"]
   });
 
   await page.getByRole("link", { name: "菜单管理" }).click();
   await expect(page).toHaveURL(/#\/system\/menus$/);
   await expect(page.getByRole("heading", { name: "菜单管理" })).toBeVisible();
+  const menuRow = page.getByRole("row").filter({ hasText: "角色管理" });
+  await menuRow.getByRole("button", { name: "授权角色" }).click();
+  const menuRolesDialog = page.getByRole("dialog", { name: /菜单授权角色/ });
+  await expect(menuRolesDialog.getByText("administration.roles.read", { exact: true })).toBeVisible();
+  await expect(menuRolesDialog.getByRole("checkbox", { name: /客服专员/ })).toBeChecked();
+  await menuRolesDialog.getByRole("button", { name: "保存角色授权" }).click();
+  expect(rpcCalls.find(call => call.name === "replace_menu_role_authorization")?.args).toMatchObject({
+    p_menu_id: "9007199254740994",
+    p_role_ids: ["9007199254740995"]
+  });
   await page.getByRole("button", { name: "新增菜单" }).click();
   const menuDialog = page.getByRole("dialog");
   await menuDialog.getByLabel("菜单名称").fill("客服工作台");

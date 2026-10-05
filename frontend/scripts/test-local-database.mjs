@@ -5,7 +5,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const frontendRoot = process.cwd();
 const supabaseCli = resolve(frontendRoot, "node_modules/.bin/supabase");
+const supabaseProjectRoot = resolve(process.env.SUPABASE_PROJECT_ROOT ?? resolve(frontendRoot, ".."));
+const mailpitUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const resetFixtureSuffix = randomUUID().slice(0, 8);
+const organizationFixtureSuffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
+const organizationFixtureCodes = {
+  department: `__CODEX_${organizationFixtureSuffix}_DEPT`,
+  post: `__CODEX_${organizationFixtureSuffix}_POST`
+};
 const fixtureUsers = [
   {
     id: "910000000000001",
@@ -39,7 +46,7 @@ const fixtureUsers = [
 ];
 
 function runSupabase(args, options = {}) {
-  return spawnSync(supabaseCli, ["--workdir", "..", ...args], {
+  return spawnSync(supabaseCli, ["--workdir", supabaseProjectRoot, ...args], {
     cwd: frontendRoot,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "ignore"]
@@ -62,7 +69,7 @@ function getLocalAdminClient() {
     values.SERVICE_ROLE_KEY ?? values.service_role_key ?? values.SECRET_KEY;
   if (
     typeof url !== "string" ||
-    !/^http:\/\/(127\.0\.0\.1|localhost):54321$/.test(url) ||
+    !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(url) ||
     typeof serviceRoleKey !== "string" ||
     !serviceRoleKey
   ) {
@@ -179,6 +186,20 @@ async function ensureFixtures(admin) {
       }
     }
   }
+
+  const { data: operatorRole, error: operatorRoleError } = await admin
+    .from("roles")
+    .select("id")
+    .eq("code", "OPERATOR")
+    .single();
+  if (operatorRoleError || !operatorRole) throw new Error("Seeded OPERATOR role is missing");
+  const { data: operatorPermissions, error: operatorPermissionsError } = await admin
+    .from("role_permissions")
+    .select("permission_key")
+    .eq("role_id", operatorRole.id);
+  if (operatorPermissionsError || !operatorPermissions?.some(item => item.permission_key === "communication.messages.read")) {
+    throw new Error("Seed must grant OPERATOR the message-center read permission");
+  }
 }
 
 async function cleanupAuditLogFixtures(admin) {
@@ -226,6 +247,22 @@ async function ensureMessageFixtures(admin) {
   if (error) throw new Error("Could not create local message fixtures");
 }
 
+async function ensureOrganizationFixtures(admin) {
+  const { error: departmentError } = await admin.from("departments").insert({
+    dept_code: organizationFixtureCodes.department,
+    dept_name: "Disposable department option",
+    status: 1
+  });
+  if (departmentError) throw new Error("Could not provision local department options");
+
+  const { error: postError } = await admin.from("posts").insert({
+    post_code: organizationFixtureCodes.post,
+    post_name: "Disposable post option",
+    status: 1
+  });
+  if (postError) throw new Error("Could not provision local post options");
+}
+
 async function cleanupFixtures(admin) {
   await cleanupAuditLogFixtures(admin);
   const loginNames = fixtureUsers.map(user => user.loginName);
@@ -271,6 +308,13 @@ async function cleanupFixtures(admin) {
       if (error) throw new Error("Could not delete local Auth test fixture");
     }
   }
+
+  const { error: departmentError } = await admin.from("departments")
+    .delete().eq("dept_code", organizationFixtureCodes.department);
+  if (departmentError) throw new Error("Could not clean the local department option fixture");
+  const { error: postError } = await admin.from("posts")
+    .delete().eq("post_code", organizationFixtureCodes.post);
+  if (postError) throw new Error("Could not clean the local post option fixture");
 }
 
 function delay(milliseconds) {
@@ -297,7 +341,7 @@ function tokenHasAuthMethod(accessToken, method) {
 async function startEdgeFunctions(url, publishableKey) {
   const edgeServer = spawn(
     supabaseCli,
-    ["--workdir", "..", "functions", "serve", "--no-verify-jwt"],
+    ["--workdir", supabaseProjectRoot, "functions", "serve", "--no-verify-jwt"],
     { cwd: frontendRoot, stdio: "inherit" }
   );
 
@@ -384,7 +428,7 @@ async function invokeUserManagement(url, publishableKey, accessToken, body) {
 }
 
 async function mailpitMessagesFor(email) {
-  const response = await fetch("http://127.0.0.1:54324/api/v1/messages?start=0&limit=100");
+  const response = await fetch(`${mailpitUrl}/api/v1/messages?start=0&limit=100`);
   if (!response.ok) return [];
   const mailbox = await response.json();
   return (mailbox.messages ?? []).filter(message =>
@@ -469,11 +513,13 @@ async function testManagedUserAdministration(url, publishableKey, admin) {
     const { data: departmentOptions, error: departmentOptionsError } = await admin
       .from("department_read_model")
       .select("id")
+      .eq("dept_code", organizationFixtureCodes.department)
       .eq("status", 1)
       .limit(1);
     const { data: postOptions, error: postOptionsError } = await admin
       .from("post_read_model")
       .select("id")
+      .eq("post_code", organizationFixtureCodes.post)
       .eq("status", 1)
       .limit(1);
     const departmentId = departmentOptions?.[0]?.id;
@@ -482,7 +528,7 @@ async function testManagedUserAdministration(url, publishableKey, admin) {
       departmentOptionsError || postOptionsError ||
       typeof departmentId !== "string" || typeof postId !== "string"
     ) {
-      throw new Error("The imported department/post rows could not be read as exact text IDs");
+      throw new Error("The disposable department/post options could not be read as exact text IDs");
     }
     const updatedResult = await invokeUserManagement(url, publishableKey, superAccessToken, {
       action: "update",
@@ -627,7 +673,7 @@ async function testManagedUserAdministration(url, publishableKey, admin) {
       ])
     ];
     if (capturedMessageIds.length) {
-      await fetch("http://127.0.0.1:54324/api/v1/messages", {
+      await fetch(`${mailpitUrl}/api/v1/messages`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ IDs: capturedMessageIds })
@@ -661,7 +707,7 @@ async function testForcedResetEmail(url, publishableKey, admin) {
 
     for (let attempt = 0; attempt < 30; attempt += 1) {
       const mailpitResponse = await fetch(
-        "http://127.0.0.1:54324/api/v1/messages?start=0&limit=50"
+        `${mailpitUrl}/api/v1/messages?start=0&limit=50`
       );
       if (mailpitResponse.ok) {
         const mailbox = await mailpitResponse.json();
@@ -691,7 +737,7 @@ async function testForcedResetEmail(url, publishableKey, admin) {
     console.log(`Forced-reset email captured by local Mailpit (${capturedMessageIds.length})`);
   } finally {
     if (capturedMessageIds.length) {
-      await fetch("http://127.0.0.1:54324/api/v1/messages", {
+      await fetch(`${mailpitUrl}/api/v1/messages`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ IDs: capturedMessageIds })
@@ -702,124 +748,6 @@ async function testForcedResetEmail(url, publishableKey, admin) {
       if (edgeServer.exitCode !== null) return resolveExit();
       edgeServer.once("exit", () => resolveExit());
     });
-  }
-}
-
-async function testLegacyMessageImport(admin) {
-  const receiver = fixtureUsers.find(user => user.roleCode === "COMMON_USER");
-  if (!receiver) throw new Error("Message import recipient fixture is missing");
-
-  const importedId = "9007199254740993";
-  const sequenceTitle = `__codex_sequence_${randomUUID()}`;
-  const legacyMessage = {
-    id: importedId,
-    receiver_id: receiver.id,
-    sender_id: null,
-    title: `__codex_import_${randomUUID()}`,
-    summary: null,
-    content: "",
-    message_type: "CUSTOM_NOTICE",
-    read_status: true,
-    sent_at: "2026-10-01T10:00:00.000Z",
-    read_at: null,
-    created_by: null,
-    created_at: "2026-10-01T10:00:00.000Z",
-    updated_by: null,
-    updated_at: "2026-10-01T10:00:00.000Z",
-    deleted: false
-  };
-
-  try {
-    const { data: preview, error: previewError } = await admin.rpc(
-      "import_legacy_messages",
-      { p_rows: [legacyMessage], p_apply: false }
-    );
-    if (
-      previewError ||
-      preview?.sourceCount !== 1 ||
-      preview?.rowsToInsert !== 1 ||
-      preview?.insertedCount !== 0
-    ) {
-      throw new Error("Legacy message import preview returned an invalid result");
-    }
-    const { data: notInserted, error: previewReadError } = await admin
-      .from("messages")
-      .select("id")
-      .eq("id", importedId)
-      .maybeSingle();
-    if (previewReadError || notInserted) {
-      throw new Error("Legacy message import preview modified the target database");
-    }
-
-    const { data: applied, error: applyError } = await admin.rpc(
-      "import_legacy_messages",
-      { p_rows: [legacyMessage], p_apply: true }
-    );
-    if (applyError || applied?.insertedCount !== 1) {
-      throw new Error("Legacy message import did not insert the validated row");
-    }
-    const { data: imported, error: importReadError } = await admin
-      .from("message_read_model")
-      .select("id, message_type, read_status, read_at, content")
-      .eq("id", importedId)
-      .single();
-    if (
-      importReadError ||
-      imported?.id !== importedId ||
-      imported?.message_type !== legacyMessage.message_type ||
-      imported?.read_status !== true ||
-      imported?.read_at !== null ||
-      imported?.content !== ""
-    ) {
-      throw new Error("Legacy message import did not preserve source values");
-    }
-
-    const { data: retried, error: retryError } = await admin.rpc(
-      "import_legacy_messages",
-      { p_rows: [legacyMessage], p_apply: true }
-    );
-    if (
-      retryError ||
-      retried?.alreadyPresentCount !== 1 ||
-      retried?.insertedCount !== 0
-    ) {
-      throw new Error("Legacy message import is not idempotent");
-    }
-
-    const conflictingMessage = { ...legacyMessage, title: "conflicting duplicate" };
-    const { error: conflictError } = await admin.rpc("import_legacy_messages", {
-      p_rows: [conflictingMessage],
-      p_apply: false
-    });
-    if (!conflictError) {
-      throw new Error("Legacy message import accepted a conflicting ID");
-    }
-
-    const { error: sequenceInsertError } = await admin.from("messages").insert({
-      receiver_id: receiver.id,
-      title: sequenceTitle,
-      summary: null,
-      content: "sequence probe",
-      message_type: "NOTICE"
-    });
-    if (sequenceInsertError) throw new Error("Could not verify the imported identity sequence");
-    const { data: sequenceProbe, error: sequenceReadError } = await admin
-      .from("message_read_model")
-      .select("id")
-      .eq("receiver_id", receiver.id)
-      .eq("title", sequenceTitle)
-      .single();
-    if (
-      sequenceReadError ||
-      !sequenceProbe ||
-      BigInt(sequenceProbe.id) <= BigInt(importedId)
-    ) {
-      throw new Error("Legacy message import did not advance the identity sequence");
-    }
-    console.log("Legacy message import preview/apply/idempotency checks passed");
-  } finally {
-    await admin.from("messages").delete().eq("id", importedId);
-    await admin.from("messages").delete().eq("title", sequenceTitle);
   }
 }
 
@@ -862,7 +790,6 @@ async function testAttachmentStorageAccess(url, publishableKey, admin) {
   const clients = [];
   let storagePath = null;
   let attachmentId = null;
-  let legacyStoragePath = null;
   const metadataIds = new Set();
   try {
     const owner = await createAccountPasswordClient(url, publishableKey, superAdmin);
@@ -1014,98 +941,9 @@ async function testAttachmentStorageAccess(url, publishableKey, admin) {
       throw new Error("SUPER_ADMIN could not soft-delete attachment metadata");
     }
 
-    const legacyId = "9007199254740997";
-    const legacyBytes = Buffer.from("imported private attachment", "utf8");
-    legacyStoragePath = `legacy/${legacyId}/${randomUUID()}.txt`;
-    const { error: legacyUploadError } = await admin.storage
-      .from("admin-attachments")
-      .upload(legacyStoragePath, new Blob([legacyBytes], { type: "text/plain" }), {
-        contentType: "text/plain",
-        upsert: false
-      });
-    if (legacyUploadError) throw new Error("Service role could not stage a legacy private object");
-
-    const legacyRow = {
-      id: legacyId,
-      original_name: "__codex_imported_attachment.txt",
-      storage_path: legacyStoragePath,
-      mime_type: "text/plain",
-      file_ext: "txt",
-      file_size: String(legacyBytes.length),
-      business_module: "PROJECT",
-      business_record_id: null,
-      reference_status: "1",
-      upload_user_id: superAdmin.id,
-      uploaded_at: "2026-10-02T10:00:00.000Z",
-      created_by: null,
-      created_at: "2026-10-02T09:00:00.000Z",
-      updated_by: superAdmin.id,
-      updated_at: "2026-10-02T10:00:00.000Z",
-      deleted: false
-    };
-    const { data: importPreview, error: previewError } = await admin.rpc(
-      "import_legacy_attachments",
-      { p_rows: [legacyRow], p_apply: false }
-    );
-    if (
-      previewError ||
-      importPreview?.sourceCount !== 1 ||
-      importPreview?.rowsToInsert !== 1 ||
-      importPreview?.insertedCount !== 0
-    ) {
-      throw new Error("Legacy attachment preview returned an invalid result");
-    }
-    const { data: previewMetadata, error: previewReadError } = await admin
-      .from("attachments").select("id").eq("id", legacyId).maybeSingle();
-    if (previewReadError || previewMetadata) {
-      throw new Error("Legacy attachment preview modified the target database");
-    }
-
-    const { data: importApply, error: importApplyError } = await admin.rpc(
-      "import_legacy_attachments",
-      { p_rows: [legacyRow], p_apply: true }
-    );
-    if (importApplyError || importApply?.insertedCount !== 1) {
-      throw new Error("Legacy attachment import did not insert its metadata row");
-    }
-    metadataIds.add(legacyId);
-    const { data: importedRow, error: importedReadError } = await admin
-      .from("attachment_read_model")
-      .select("id, business_module, business_record_id, reference_status, upload_user_id")
-      .eq("id", legacyId)
-      .single();
-    if (
-      importedReadError ||
-      importedRow?.id !== legacyId ||
-      importedRow?.business_module !== "PROJECT" ||
-      importedRow?.business_record_id !== null ||
-      importedRow?.reference_status !== 1 ||
-      importedRow?.upload_user_id !== superAdmin.id
-    ) {
-      throw new Error("Legacy attachment metadata did not preserve its source fields");
-    }
-
-    const { data: retriedImport, error: retryError } = await admin.rpc(
-      "import_legacy_attachments",
-      { p_rows: [legacyRow], p_apply: true }
-    );
-    if (retryError || retriedImport?.alreadyPresentCount !== 1 || retriedImport?.insertedCount !== 0) {
-      throw new Error("Legacy attachment import was not idempotent");
-    }
-
-    const { data: importedFile, error: importedDownloadError } = await operatorClient
-      .storage.from("admin-attachments").download(legacyStoragePath);
-    if (
-      importedDownloadError ||
-      !importedFile ||
-      Buffer.from(await importedFile.arrayBuffer()).compare(legacyBytes) !== 0
-    ) {
-      throw new Error("OPERATOR could not read a migrated private object through Storage RLS");
-    }
-
-    console.log("Private Storage roles and legacy attachment import/idempotency passed");
+    console.log("Private Storage role checks passed");
   } finally {
-    const paths = [storagePath, legacyStoragePath].filter(Boolean);
+    const paths = [storagePath].filter(Boolean);
     if (paths.length) {
       await admin.storage.from("admin-attachments").remove(paths);
     }
@@ -1556,12 +1394,12 @@ try {
   fixtureSetupStarted = true;
   await ensureFixtures(admin);
   await ensureMessageFixtures(admin);
+  await ensureOrganizationFixtures(admin);
 
   const testRun = runSupabase(["test", "db", "--local"], { inherit: true });
   if (testRun.status !== 0) exitCode = testRun.status ?? 1;
   if (exitCode === 0) {
     await testForcedResetEmail(localUrl, publishableKey, admin);
-    await testLegacyMessageImport(admin);
     await testAttachmentStorageAccess(localUrl, publishableKey, admin);
   }
 } catch (error) {

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const frontendRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const repositoryRoot = resolve(frontendRoot, "..");
+const repositoryRoot = resolve(process.env.SUPABASE_PROJECT_ROOT ?? resolve(frontendRoot, ".."));
 const supabaseCli = resolve(frontendRoot, "node_modules/.bin/supabase");
 const result = spawnSync(
   supabaseCli,
@@ -32,7 +32,7 @@ if (result.error || result.status !== 0) {
   const publishableKey = status?.PUBLISHABLE_KEY ?? status?.ANON_KEY;
   if (
     typeof apiUrl !== "string" ||
-    !/^http:\/\/(127\.0\.0\.1|localhost):54321$/.test(apiUrl) ||
+    !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(apiUrl) ||
     typeof publishableKey !== "string" || !publishableKey
   ) {
     process.stderr.write("The browser test accepts only this project's local Supabase URL and publishable key.\n");

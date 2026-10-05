@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MenuCatalogSchema, ManagedMenuSchema, ManagedRouteKeySchema, SaveMenuRequestSchema } from "../../contracts/menu-management";
-import { ManagedRoleSchema, ReplaceRolePermissionsRequestSchema, RoleCatalogSchema } from "../../contracts/role-management";
+import { MenuCatalogSchema, ManagedMenuSchema, ManagedRouteKeySchema, SaveMenuRequestSchema } from "@template/contracts/menu-management";
+import {
+  ManagedRoleSchema,
+  ReplaceRoleAuthorizationRequestSchema,
+  RoleCatalogSchema
+} from "@template/contracts/role-management";
 
 const roleRow = {
   id: "9223372036854775807",
@@ -39,19 +43,29 @@ describe("role and menu management contracts", () => {
     expect(ManagedMenuSchema.safeParse({ ...menu, parentId: 9007199254740993 }).success).toBe(false);
   });
 
-  it("requires unique permission keys and accepts a complete role catalog", () => {
+  it("accepts a server-paginated catalog and rejects duplicate or overlapping authorization keys", () => {
     expect(
       RoleCatalogSchema.parse({
         roles: [roleRow],
-        permissions: [{ key: "communication.messages.read", description: "读取消息" }]
+        permissions: [{ key: "communication.messages.read", description: "读取消息" }],
+        menus: [],
+        total: 1,
+        page: 1,
+        pageSize: 10
       }).roles[0]?.id
     ).toBe(roleRow.id);
     expect(
-      ReplaceRolePermissionsRequestSchema.safeParse({
+      ReplaceRoleAuthorizationRequestSchema.safeParse({
         roleId: roleRow.id,
-        permissionKeys: ["communication.messages.read", "communication.messages.read"]
+        menuPermissionKeys: ["communication.messages.read", "communication.messages.read"],
+        actionPermissionKeys: []
       }).success
     ).toBe(false);
+    expect(ReplaceRoleAuthorizationRequestSchema.safeParse({
+      roleId: roleRow.id,
+      menuPermissionKeys: ["communication.messages.read"],
+      actionPermissionKeys: ["communication.messages.read"]
+    }).success).toBe(false);
   });
 
   it("restricts route keys to the closed component registry and rejects component paths", () => {

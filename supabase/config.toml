@@ -31,9 +31,10 @@ enable_signup = false
 jwt_expiry = 3600
 
 [auth.email]
-# Existing users use this provider through the server-side login_name mapping
-# and password recovery. New Auth users are provisioned by trusted migrations.
-enable_signup = false
+# Keep the email/password provider enabled for existing-account login and
+# recovery. The global auth.enable_signup flag above remains false, so clients
+# cannot create accounts; trusted admin workflows create Auth users.
+enable_signup = true
 enable_confirmations = true
 
 [auth.sms]

@@ -1,5 +1,5 @@
 import { RouterView, type RouteRecordRaw } from "vue-router";
-import type { MenuEntry } from "@/contracts/menu";
+import type { MenuEntry } from "@template/contracts/menu";
 import { resolveMenuRouteComponent } from "./menu-routes.registry";
 
 type NavigationNode = MenuEntry & { children: NavigationNode[] };

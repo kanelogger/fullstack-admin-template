@@ -1,12 +1,12 @@
-import App from "./App.vue";
+import App from "./app/App.vue";
 import router from "./router";
-import { setupStore } from "@/store";
+import { setupStore } from "@/stores";
 import { getConfig, getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
 import { createApp, type Directive } from "vue";
 import { injectResponsiveStorage } from "@/utils/responsive";
-import { getSupabaseClientIfConfigured } from "@/shared/supabase/client";
-import { useUserStoreHook } from "@/store/modules/user";
+import { getSupabaseClientIfConfigured } from "@/lib/supabase/client";
+import { useSessionStoreHook } from "@/stores/modules/session";
 
 // Tailwind 先声明样式层，基础重置随后进入 base 层，utility 类可以覆盖原生控件重置。
 import "./style/tailwind.css";
@@ -31,18 +31,6 @@ app.component("IconifyIconOffline", IconifyIconOffline);
 app.component("IconifyIconOnline", IconifyIconOnline);
 app.component("FontIcon", FontIcon);
 
-// 全局注册按钮级别权限组件
-import { Auth } from "@/components/ReAuth";
-import { Perms } from "@/components/RePerms";
-app.component("Auth", Auth);
-app.component("Perms", Perms);
-
-// 全局注册vue-tippy
-import "tippy.js/dist/tippy.css";
-import "tippy.js/themes/light.css";
-import VueTippy from "vue-tippy";
-app.use(VueTippy);
-
 getPlatformConfig(app).then(async () => {
   const platformConfig = getConfig();
   const configuredPrimary = platformConfig.PrimaryColor;
@@ -57,12 +45,60 @@ getPlatformConfig(app).then(async () => {
   }
 
   setupStore(app);
+  const userStore = useSessionStoreHook();
   const supabase = getSupabaseClientIfConfigured();
-  supabase?.auth.onAuthStateChange(event => {
+  supabase?.auth.onAuthStateChange((event, authSession) => {
     if (event === "SIGNED_OUT") {
-      useUserStoreHook().clearLocalSession();
+      userStore.clearLocalSession();
+      if (
+        router.currentRoute.value.path !== "/login" &&
+        router.currentRoute.value.path !== "/reset-password"
+      ) {
+        void router.replace("/login");
+      }
+      return;
+    }
+
+    const accountChangedInAnotherTab = event === "SIGNED_IN" &&
+      ((userStore.isAuthenticated && authSession?.user.id !== userStore.authUserId) ||
+        userStore.isLogoutPendingForAnotherAccount(authSession?.user.id));
+    if (accountChangedInAnotherTab) userStore.cancelPendingLogoutForAccountSwitch();
+    const signedInSessionNeedsRestore = event === "SIGNED_IN" &&
+      Boolean(authSession) &&
+      userStore.authReady &&
+      !userStore.isLogoutPendingForAccount(authSession?.user.id) &&
+      (!userStore.isAuthenticated || authSession?.user.id !== userStore.authUserId);
+    if (
+      event === "TOKEN_REFRESHED" ||
+      event === "USER_UPDATED" ||
+      accountChangedInAnotherTab ||
+      signedInSessionNeedsRestore
+    ) {
+      // Supabase Auth callbacks run under an internal lock. Defer follow-up
+      // Auth/PostgREST requests until the callback has returned.
+      window.setTimeout(() => {
+        if (
+          event === "SIGNED_IN" &&
+          authSession &&
+          userStore.isAuthenticated &&
+          userStore.authUserId === authSession.user.id
+        ) return;
+        void userStore.refreshAuthorization(true);
+      }, 0);
     }
   });
+
+  const refreshVisibleSession = (forceRefresh: boolean) => {
+    if (
+      document.visibilityState !== "visible" ||
+      !userStore.isAuthenticated
+    ) return;
+    void userStore.refreshAuthorization(forceRefresh, forceRefresh);
+  };
+  document.addEventListener("visibilitychange", () => refreshVisibleSession(true));
+  window.addEventListener("focus", () => refreshVisibleSession(true));
+  window.setInterval(() => refreshVisibleSession(false), 60_000);
+
   app.use(router);
   await router.isReady();
   injectResponsiveStorage(app, platformConfig);

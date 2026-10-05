@@ -1,56 +1,13 @@
-# 全栈管理后台目标架构与迁移规范
+# PC 浏览器管理后台目标架构
 
-> **状态**：迁移中  
-> **文档职责**：定义最终架构、迁移约束与验收标准。当前已实现的架构和接口事实以 [`specs/architecture.md`](../../specs/architecture.md) 为准。  
-> **配图**：[`architecture.svg`](./architecture.svg)  
-> **独立性原则**：外部项目只提供功能启发，不作为源码、依赖、路径、构建脚本或运行环境依赖。
+> **状态**：已实施，本机完整隔离验收通过；GitHub Actions 等待首次远程运行。
+> **适用范围**：桌面浏览器端管理后台；不要求移动端布局和移动浏览器验收。
+> **当前事实**：以 [`specs/architecture.md`](../../specs/architecture.md)、源码和验证结果为准。
+> **架构图**：[`architecture.svg`](./architecture.svg)
 
-## 1. 需求简报
+## 1. 技术栈
 
-1. **解决的问题**：当前部分后台功能设计参考了外部模板，但实际开发环境无法稳定读取该模板源码，需要将功能要求、架构边界和验收标准固化到本项目中。
-2. **本期范围**：基于现有 Vue 3 管理后台，完善应用壳、路由守卫、状态划分、动态权限、核心管理模块，并逐步迁移到 `Zod + Supabase` 架构。
-3. **暂不做**：不复制外部模板的 React、Redux、Ant Design 实现；不保留 Fastify/MySQL 作为最终架构；不在本需求中覆盖多租户、SSO、原生移动端和生产部署。
-
-## 2. 一张图读懂
-
-```
-          ┌──────────────────────────────────────┐
-          │ Build & Language · 构建与语言        │
-          │ TypeScript / Vite / pnpm             │
-          └──────────────────────────────────────┘
-                             │
-                             │ 构建
-┌────────────────────────────────────────────────────────────┐
-│ Application · 前端应用                                     │
-│                                                            │
-│ Vue 3 SPA · 应用外壳 · Composition API                     │
-│ Vue Router · Pinia · shadcn-vue · Tailwind CSS v4 · VueUse │
-└────────────────────────────────────────────────────────────┘
-                             │
-                             │ 类型安全的 API 调用
-┌────────────────────────────────────────────────────────────┐
-│ Contract · Zod · Shared Schema / Runtime Validation        │
-└────────────────────────────────────────────────────────────┘
-                             │
-┌────────────────────────────────────────────────────────────┐
-│ Backend Platform · Supabase                                │
-│ PostgreSQL · Auth · Storage · Realtime · Edge Functions    │
-└────────────────────────────────────────────────────────────┘
-                              ▲ Realtime 推送（WebSocket 反向回推前端）
-                   ▲                                       ▲
-           迁移 / 浏览器测试                           驱动开发
-┌────────────────────────────────────┐  ┌────────────────────────────────────┐
-│ Quality · 质量保障                 │  │ AI Engineering · AI 工程           │
-│ Vitest / Type Check / 迁移校验     │  │ Codex / OMP / Pi / Herdr 代理      │
-│ Browser Test · Playwright 工具链   │  │ AGENTS.md · Skills 技能包          │
-└────────────────────────────────────┘  └────────────────────────────────────┘
-```
-
-目标状态下，构建工具链产出前端应用；应用代码经由 Zod 契约层访问 Supabase 平台。迁移期间仍可能存在旧链路，具体实现状态以 [`specs/architecture.md`](../../specs/architecture.md) 为准。
-
-## 3. 分层清单
-
-```
+```text
 Application
 ├── Vue 3
 ├── Vue Router
@@ -77,460 +34,122 @@ Contract
 
 Quality
 ├── Vitest
-├── Ego lite / BrowserSkill / Playwright
 ├── Type Check
 ├── Migration Check
-└── Browser Test
-
-AI Engineering
-├── Codex / OMP / Pi / Herdr
-├── AGENTS.md
-└── Skills
+└── Browser Test（PC Chromium / Playwright）
 ```
 
-## 4. 目标架构与关键链路
-
-### 4.1 最终拓扑
+## 2. 运行拓扑
 
 ```text
-Vue 3 SPA
-  → Vue Router / Pinia / shadcn-vue / Tailwind CSS / VueUse
-  → Zod Contract
-  → Supabase Client / RPC / Edge Functions
-  → PostgreSQL / Auth / Storage / Realtime
+PC Chromium
+  → Vue 3 SPA（Vue Router / Pinia / shadcn-vue / Tailwind CSS v4 / VueUse）
+  → feature service
+  → Zod contract
+  → Supabase JS / RPC / Edge Functions
+  → PostgreSQL + Auth + Storage + Realtime
 ```
 
-要求：
+构建与验证由根 pnpm workspace 执行。PostgreSQL schema 和初始种子数据由 Supabase migrations 与 `seed.sql` 管理。项目无需独立 Node API 服务或 MySQL。
 
-- 前端使用 Vue 3、TypeScript、Vite、pnpm。
-- 路由使用 Vue Router。
-- 全局状态使用 Pinia。
-- UI 逐步迁移到 shadcn-vue，迁移期间允许保留 Element Plus。
-- 所有跨边界数据使用 Zod Schema 校验。
-- 数据库变更使用 Supabase migrations。
-- 数据访问权限由 PostgreSQL RLS 强制执行。
-- 复杂事务和管理员操作使用 RPC 或 Edge Functions。
-- Supabase `service_role` 密钥只能存在于服务端，禁止进入浏览器。
-- AI 工具和 Agent Skills 只能作为开发辅助工具，不属于运行时依赖。
-
-### 4.2 调用链
-
-Vue 3 SPA 通过 Zod Schema 收口输入、输出和 TypeScript 类型，再访问 Supabase Client、RPC 或 Edge Function。表单提交前和外部服务返回后都必须校验；Schema 变更必须同步更新调用方与服务端实现。
-
-Zod 只提供客户端和契约层的运行时校验，不能阻止绕过浏览器的请求，也不能替代 RLS、数据库约束或服务端校验。
-
-### 4.3 认证链路
-
-应用唯一登录入口为 `login_name` + 密码。浏览器经受控 Edge Function 建立 Supabase Auth Session；服务端登记有效会话，RLS 与迁移期兼容 Token bridge 同时检查已登记的 Session 和 JWT `amr=password`。邮箱只用于密码重置。完整约束见 [认证需求](#9-认证需求)。
-
-## 5. 独立性要求
-
-### 5.1 构建和运行独立
-
-项目必须满足：
-
-- 删除、移动或不可访问外部参考项目后，仍能完成安装、类型检查、构建和启动。
-- 源码、配置、脚本、测试和 CI 不得 import、读取或执行外部项目文件。
-- 不得依赖外部项目的别名、目录结构、mock API、静态资源或运行端口。
-- 外部模板路径不得出现在生产代码、构建配置和运行时配置中。
-- 所有必要的组件、页面、路由、类型、数据模型和测试必须位于当前仓库。
-
-### 5.2 功能独立
-
-需求不得以“参考项目中的某个文件或组件”为验收依据，必须以以下可观察行为为依据：
-
-- 用户能否登录和退出。
-- 用户能否看到自己有权限的菜单。
-- 用户能否访问和操作授权模块。
-- 未授权用户是否被阻止。
-- 数据增删改查、文件上传、消息实时更新是否正确。
-- 页面刷新、Token 过期、权限变化后是否保持正确状态。
-
-## 6. 应用壳与页面组织
-
-### 6.1 应用壳
-
-必须提供：
-
-- 登录页。
-- 主布局。
-- 侧边栏菜单。
-- 顶部栏。
-- 面包屑。
-- 多标签页。
-- 页面内容区域。
-- 403、404、500 等错误页。
-- 移动端和窄屏布局。
-- 全局加载、空数据、请求失败和权限不足状态。
-
-主布局不得重复写入业务页面。业务页面只负责自己的查询、展示和操作。
-
-### 6.2 页面目录边界
-
-页面组织按业务域划分：
+## 3. 仓库目录
 
 ```text
 frontend/src/
-  app/
-  layouts/
-  router/
-  stores/
-  features/
-    auth/
-    system/users/
-    system/roles/
-    system/menus/
-    organization/
-    operation/
-    logs/
-    profile/
-  components/
-  lib/
-  contracts/
+  app/                 # Vue 根组件
+  layouts/             # 后台壳、导航、标签和通知
+  router/              # 静态路由、动态 RouteKey 与守卫
+  stores/              # session / permission / ui / tabs / notification
+  features/            # 按业务域组织页面、组件和服务
+  components/          # 跨业务组件与 shadcn-vue 源码
+  lib/supabase/        # Supabase JS client
+  utils/               # 纯前端通用工具
+supabase/
+  migrations/          # 数据库结构、RLS、RPC、约束和安全策略
+  functions/           # Deno Edge Functions
+    _shared/contracts/ # 前后端共用的 @template/contracts Zod 包
+  tests/               # pgTAP 数据库权限与行为测试
+  seed.sql             # 本地/测试基础数据
+scripts/               # 本地开发、首次管理员和验收入口
 ```
 
-要求：
+页面不直接发起 Supabase 请求；数据访问经所属业务域的 feature service。
 
-- `layouts/` 只负责全局布局。
-- `router/` 只负责路由配置和导航流程。
-- `stores/` 只负责跨页面状态。
-- `features/` 负责业务页面、业务组件和业务服务。
-- `components/` 只放跨业务复用组件。
-- 页面不得直接调用 `supabase.from()`、`supabase.rpc()` 或 Edge Function。
-- 所有数据访问必须经过 feature service 或 repository。
+## 4. 前后端契约
 
-## 7. 路由与路由守卫
+- `@template/contracts` 是唯一 Zod schema 与 TypeScript 类型来源，前端和 Deno Edge Functions 从 workspace 同包读取。
+- 调用前验证表单和 Edge/RPC 输入；接收服务端返回后验证输出。
+- Zod 负责边界格式，Postgres 约束、Edge 校验和 RLS 负责真实数据安全；客户端校验不能替代服务端权限。
+- BIGINT 业务 ID 在网络和 JSON 合同中作为十进制字符串，避免 JavaScript `Number` 精度损失。
 
-### 7.1 路由分类
+## 5. 身份、权限与路由
 
-路由必须分为：
+- 唯一登录方式为 `login_name + 密码`。`session-login` Edge Function 负责账号映射、Auth 密码验证与应用 Session 登记；邮箱只用于密码恢复，公共注册关闭。
+- 登出等待 `revoke_account_password_session()` 返回已撤销，再清除本地 Auth Session。服务器错误或超时仍会结束本地会话，并显示服务端撤销未确认的提示。
+- Supabase Auth 持久化 Session。Session Store 保存当前 Profile 身份；Permission Store 内存保存当前角色码与权限键。用户切换、退出和权限变化会清理旧状态。
+- RLS/RPC/Edge Functions 是服务端安全边界。客户端守卫提供导航体验，按钮权限只控制界面展示。
+- `current_navigation()` 在服务端按授权过滤菜单；数据库只返回固定 RouteKey。前端静态 registry 决定可装载 Vue 页面，不执行数据库提供的任意路径或组件。
+- Auth 状态改变后在回调之外刷新授权与导航。其他标签退出后登录了不同账号时，本页恢复新账号的权限和菜单；尚未完成的旧账号登出不能清除新 Session。页面恢复焦点及定期轮询同步 Session；延迟结果使用身份与操作版本校验，不能覆盖已退出或新账号。
+- 首位管理员由 `pnpm setup:admin` 在本机 Supabase Local 初始化，再通过 Mailpit 重置邮件设定密码；随机初始密码不会被输出。
 
-1. **公开路由**：登录页、错误页等。
-2. **静态受保护路由**：用户登录后始终存在的基础页面。
-3. **动态权限路由**：根据当前用户角色和菜单权限加载。
-4. **外部链接或特殊路由**：不参与普通菜单渲染。
+## 6. 应用壳与业务范围
 
-### 7.2 路由元数据
+PC 应用提供登录、主布局、侧栏、顶栏、面包屑、多标签、搜索、通知、403/404/500 错误页、请求加载/空态/错误态和授权提示。布局只负责应用级行为，业务页面归属 `features/`。
 
-路由元数据至少支持：
+当前业务模块包括 Profile、消息中心、用户、角色、菜单、部门与岗位、字典、系统配置、附件、三类审计日志和 Dashboard。Dashboard 的待办就是当前用户未读消息，不另建任务域。附件使用私有 Storage；消息变化由 Realtime 推送。
 
-```ts
-{
-  title: string;
-  requiresAuth: boolean;
-  permission?: string;
-  roles?: string[];
-  keepAlive?: boolean;
-  showLink?: boolean;
-  icon?: string;
-  rank?: number;
-}
-```
-
-元数据必须能够驱动：
-
-- 页面标题。
-- 菜单显示。
-- 面包屑。
-- 标签页。
-- 页面缓存。
-- 路由访问权限。
-- 按钮权限关联。
-
-### 7.3 守卫流程
-
-全局路由守卫必须按以下顺序执行：
-
-1. 公开路由直接放行。
-2. 恢复或读取 Supabase Session。
-3. 无 Session 时跳转登录页。
-4. 当前 Session 未加载权限时，只请求一次用户权限和菜单。
-5. 根据路由权限判断是否允许访问。
-6. 无权限时跳转 403。
-7. 未匹配路由时跳转 404。
-8. 退出登录时清空动态路由、菜单、权限、标签页和相关缓存。
-
-路由守卫只负责前端导航体验，不能替代数据库 RLS、Edge Function 或 RPC 的服务端权限校验。
-
-### 7.4 动态组件安全
-
-数据库保存的动态路由必须使用受控的 `route_key` 或组件标识，不得直接执行任意文件路径。
-
-前端必须维护静态组件映射：
-
-```text
-route_key → import.meta.glob() 中的已知组件
-```
-
-找不到组件时显示统一占位页或错误页，不得执行未经允许的动态路径。
-
-## 8. 状态管理
-
-Pinia 至少拆分为以下 Store：
+## 7. 状态管理
 
 | Store | 职责 |
 | --- | --- |
-| `session` | 当前用户、Session、登录状态、退出登录 |
-| `permission` | 角色、按钮权限、菜单、动态路由、加载状态 |
-| `ui` | 主题、侧边栏、布局、语言、组件偏好 |
-| `tabs` | 多标签页、固定标签、缓存页面 |
-| `notification` | 未读消息数和通知状态 |
+| `session` | 当前身份、Session 恢复、登录、退出和会话竞态 |
+| `permission` | 角色码、权限键、RLS 菜单、动态路由与缓存页 |
+| `ui` | 侧栏、布局主题和窗口尺寸 |
+| `tabs` | 多标签和页面缓存偏好 |
+| `notification` | 当前 Profile 未读数、Realtime 订阅和通知状态 |
 
-要求：
+Supabase Auth 是持久 Session 唯一来源；权限快照、菜单、路由和按钮能力不长期持久化。服务端权限只有一份事实源，前端 Store 是其当前会话缓存。
 
-- Session 数据和 UI 偏好不得混在同一个 Store。
-- 服务端权限数据必须只有一个事实来源。
-- 菜单、允许访问路由和按钮权限应从权限数据派生，避免维护多份独立副本。
-- 角色、菜单和权限数据不得无限期持久化。
-- 切换用户、退出登录和权限变化后必须清理旧用户数据。
-- Supabase Auth 自己负责 Session 持久化时，前端不得重复实现另一套 Token 持久化协议。
+## 8. 数据平台边界
 
-## 9. 认证需求
+- PostgreSQL 结构只通过新的 migration 修改；已应用 migration 不回写、不删除。
+- 初始菜单与角色由 seed 建立；重复执行 seed 的结果必须稳定。
+- 受保护数据表启用 RLS；复杂多表写入使用事务 RPC 或 Edge Function。
+- Storage 使用私有 bucket，数据库元数据与对象读写策略互相约束。
+- Auth、用户管理 Edge 操作、关键数据更改写入受限审计表。
+- 目标为全新模板，不包含历史 MySQL 数据迁移器。当前 Postgres 代码仍依赖的安全函数、事务行为和排序语义保留在 schema 中。
 
-必须支持：
+## 9. 验证层
 
-- 登录。
-- 登出。
-- Session 恢复。
-- Token 自动刷新。
-- 登录失败提示。
-- Session 失效后的统一处理。
-- 当前用户信息查询。
-- 个人信息修改。
-- 修改密码。
-- 管理员重置用户密码。
+- `pnpm typecheck`：前端 Vue/TypeScript、共享合同和三个 Deno Edge Functions。
+- `pnpm test:unit`：Vitest 与本地脚本 helper 测试。
+- `pnpm test:e2e:mock`：PC Chromium 隔离 fixture 浏览器测试，含授权页面和延迟刷新退出竞态。
+- `pnpm test:e2e:local`：Mailpit 恢复、PC 浏览器登录、字典类型真实 CRUD、消息 Realtime 收件、刷新恢复、越权路由拒绝、登出及旧 access token 的 RLS 拒绝。
+- `pnpm test:db`：本地 Supabase pgTAP、RLS、Edge、Storage、Realtime 和审计集成检查。
+- `pnpm check:migrations`：在独立临时 Supabase project/动态端口从空库重放 migrations 和 seed，检查重复 seed、DB lint/advisors、Auth bootstrap 并发、pgTAP、服务集成与本地 Auth 浏览器流，并回收该临时栈。
+- GitHub Actions 对 push 与 pull request 运行冻结安装、类型检查、生产构建、Vitest、PC Chromium 和隔离迁移校验。
 
-默认要求：
-
-- 用户密码只能由 Supabase Auth 管理。
-- 业务用户资料与 Auth 用户身份分离保存。
-- 当前的 MD5 密码不能作为最终密码方案。
-- 登录只支持 `login_name` + 密码；邮箱只用于密码重置，不作为登录标识或另一种登录方式。
-- 不提供短信验证码、邮箱验证码/魔法链接登录、OAuth、SSO、Passkey 等其他登录方式。
-- Supabase Email Provider 底层仍包含 OTP 能力；本地 Auth 的全局及 email provider 公共注册均关闭。浏览器必须经 `login_name` + 密码 Edge Function 获取 Session，Edge Function 将其登记到服务端私有白名单；业务数据的 RLS 和兼容 API Token bridge 必须拒绝未登记或 JWT `amr` 不含 `password` 的 Session。邮件恢复 OTP 标记为 `amr=otp`，只有 Auth 密码哈希相对私有快照确实变化后，才能完成本人重置；它不能读取业务数据或换取应用 Token。
-- 用户名解析和管理员重置密码必须通过服务端受控逻辑完成，浏览器不得查询密码数据。
-- 旧账号迁移必须采用强制重置或一次性兼容迁移，迁移完成后移除旧密码校验逻辑。
-
-## 10. 权限与动态菜单
-
-系统必须支持：
-
-- 用户。
-- 角色。
-- 用户与角色关联。
-- 菜单和路由。
-- 角色与菜单关联。
-- 按钮级权限。
-- 菜单排序。
-- 菜单显隐。
-- 菜单启停。
-- 超级管理员。
-- 未授权访问拦截。
-
-服务端要求：
-
-- 所有受保护表启用 RLS。
-- RLS 必须覆盖查询、插入、更新和删除。
-- 管理员写操作必须经过权限检查。
-- 多表权限变更必须使用事务性 RPC 或 Edge Function。
-- 前端隐藏按钮不能作为安全控制。
-- 必须提供“用户 A 不能读取或修改用户 B 数据”的负向测试。
-
-## 11. 核心业务模块
-
-| 模块 | 必须支持的功能 |
-| --- | --- |
-| 用户管理 | 分页查询、创建、编辑、启停、删除、角色分配、重置密码 |
-| 角色管理 | 分页查询、创建、编辑、启停、删除、菜单授权、用户列表 |
-| 菜单管理 | 树形查询、创建、编辑、启停、删除、排序、角色授权 |
-| 组织管理 | 部门和岗位的查询、创建、编辑、启停、删除、选项数据 |
-| 数据字典 | 字典类型、字典项、排序、启停、选项数据 |
-| 系统配置 | 配置查询、创建、编辑、启停、按编码读取、删除 |
-| 个人中心 | 查询资料、修改资料、修改密码 |
-| 消息中心 | 消息列表、详情、未读数量、单条已读、批量已读 |
-| 附件管理 | 上传、列表、预览、下载、删除、引用状态 |
-| 日志审计 | 登录日志、操作日志、异常日志、分页查询、详情 |
-| 首页仪表盘 | 统计概览、待处理事项、最近消息和基础指标 |
-| 动态路由 | 登录后按权限加载菜单和路由，刷新后恢复 |
-
-## 12. 数据与 Supabase 能力
-
-### 12.1 PostgreSQL
-
-- 所有表结构必须由 migration 管理。
-- 初始数据必须由 seed 管理。
-- 禁止只在 Supabase 控制台手工修改生产结构。
-- 数据库约束必须覆盖唯一性、外键、状态值和必要的非空字段。
-- Auth 用户关联必须使用 `auth.users.id`。
-- 非身份业务表可以保留现有数值型业务 ID，具体转换策略必须在 migration 设计中固定。
-
-### 12.2 Storage
-
-附件必须使用 Supabase Storage：
-
-- 文件元数据与 Storage 对象关联。
-- 上传、读取、删除都必须经过权限策略。
-- 用户只能访问被授权的文件。
-- 文件名、大小、MIME 类型和扩展名必须校验。
-- 不再依赖本地 `uploads/` 目录作为最终存储。
-
-### 12.3 Realtime
-
-第一期至少支持消息中心的实时更新：
-
-- 新消息到达时更新未读数量。
-- 消息被标记为已读时同步页面状态。
-- 页面卸载、退出登录和切换用户时取消订阅。
-- Realtime 事件不能绕过 RLS。
-
-### 12.4 审计
-
-以下操作必须记录审计信息：
-
-- 登录成功和失败。
-- 创建、更新、删除。
-- 权限和角色变更。
-- 文件上传和删除。
-- 管理员重置密码。
-- 关键配置变更。
-
-## 13. Zod 契约层
-
-必须建立统一契约层，建议位置：
-
-```text
-packages/contracts/
-```
-
-或在单体阶段使用：
-
-```text
-frontend/src/contracts/
-```
-
-契约至少覆盖：
-
-- 登录输入和输出。
-- Session 和用户资料。
-- 路由和菜单。
-- 用户、角色、组织、字典、配置。
-- 分页请求和分页响应。
-- 文件元数据。
-- 消息和日志。
-- RPC、Edge Function 的输入输出。
-- 统一错误结构。
-
-要求：
-
-- 表单提交前使用 Zod 校验。
-- 调用外部服务后使用 Zod 校验响应。
-- 由 Schema 推导 TypeScript 类型，避免重复维护接口类型。
-- Zod 校验不能替代 RLS、数据库约束和服务端校验。
-- 业务页面不得自行定义与公共契约冲突的响应类型。
-
-## 14. 质量要求
-
-必须建立以下验证能力：
-
-- TypeScript 类型检查。
-- Vitest 单元测试。
-- Supabase migration 校验。
-- RLS 权限测试。
-- Playwright 浏览器测试。
-- 真实登录流程测试。
-- 动态菜单和 403 流程测试。
-- 用户、角色和菜单核心 CRUD 测试。
-- 文件上传和权限访问测试。
-- 消息 Realtime 测试。
-- Token 失效和退出登录测试。
-
-最低浏览器验收路径：
+PC 浏览器最低验收路径固定为：
 
 ```text
 登录
-→ 加载当前用户权限
-→ 显示动态菜单
-→ 访问授权页面
-→ 拒绝未授权页面
-→ 完成一次核心 CRUD
-→ 接收一条实时消息
-→ 刷新页面恢复状态
-→ 退出登录并清理缓存
+→ 恢复权限并显示 RLS 过滤的动态菜单
+→ 访问授权页面并拒绝未授权页面
+→ 执行真实 Supabase 核心 CRUD
+→ 接收真实 Realtime 消息
+→ 刷新后恢复 Session、菜单与消息状态
+→ 退出并验证旧 access token 被 RLS 拒绝
 ```
 
-## 15. 迁移阶段
+该路径由本地 Supabase/Playwright 浏览器测试覆盖；mock 页面测试与独立 pgTAP 测试不能替代它。
 
-### 阶段一：独立基础
+## 10. 当前实施边界
 
-- 固化目录、路由、Store、契约层边界。
-- 建立 Supabase 本地开发环境。
-- 建立 migrations、seed 和环境变量约定。
-- 当前 Fastify/MySQL 暂时保留作为运行基线。
+应用、合同包、Supabase migration/RLS/Auth/Storage/Realtime/Edge 入口及根开发命令均切到上述栈；本机最终版本已通过 `pnpm typecheck`、`pnpm build`、`pnpm test:unit`、PC mock 浏览器测试和包含上述完整浏览器路径的 `pnpm check:migrations`。GitHub Actions 文件已创建在当前工作区，首次远程运行结果尚未取得。生产部署、真实远程项目连接与移动端不属于本模板验收范围。
 
-### 阶段二：认证和权限
+## 11. 原则
 
-- 建立 Supabase Auth。
-- 完成用户资料、角色、菜单和 RLS。
-- 实现登录、Session 恢复、退出和动态路由。
-- 完成权限负向测试。
-
-### 阶段三：核心模块
-
-按以下顺序迁移：
-
-```text
-个人资料
-→ 消息中心
-→ 用户管理
-→ 角色管理
-→ 菜单管理
-→ 组织管理
-→ 字典和配置
-→ 附件和日志
-→ 首页仪表盘
-```
-
-每个模块必须先完成契约、数据迁移、RLS、页面和浏览器验收，再迁移下一个模块。
-
-### 阶段四：切换和清理
-
-- 确认所有前端调用已经切换到 Supabase 契约层。
-- 确认没有模块继续依赖 Fastify/MySQL。
-- 删除旧 API、旧 Token、旧密码校验和旧数据库访问代码。
-- 最终前端只依赖 Supabase 平台，不要求启动 Fastify 和 MySQL。
-- 更新 README、架构文档、环境说明和测试说明。
-
-## 16. 最终验收标准
-
-以下条件必须全部满足：
-
-1. 外部参考项目不可访问时，本项目仍能安装、构建、启动和测试。
-2. 源码和配置中没有外部项目运行时依赖。
-3. 前端具备模块化路由、统一路由元数据和全局路由守卫。
-4. Session、权限、UI、标签页状态职责清晰。
-5. 登录、登出、Session 恢复和 Token 失效流程完整。
-6. 动态菜单和按钮权限按用户权限生成。
-7. 未授权用户无法通过页面或直接请求访问受保护数据。
-8. 核心管理模块具备真实 CRUD 能力。
-9. 文件使用 Supabase Storage，消息支持 Realtime。
-10. 所有核心调用经过 Zod 契约层。
-11. Supabase migrations、seed、RLS 和浏览器测试可重复执行。
-12. 最终运行不要求外部模板、Fastify 或 MySQL。
-
-## 17. 明确排除
-
-本需求不包含：
-
-- 复制外部模板源码。
-- React、Redux、Ant Design 的迁移。
-- 外部 mock 服务。
-- 多租户。
-- SSO、LDAP、OAuth 企业集成。
-- 原生移动端。
-- 微前端。
-- 生产部署和域名配置。
-- 继续使用 MD5 密码。
-- 仅通过前端隐藏按钮实现权限控制。
-- 将 AI Agent 作为应用运行时依赖。
-
-**核心原则：当前项目独立实现完整功能，外部模板最多提供功能列表和交互启发；任何后续开发者只阅读本目标架构与迁移规范、当前仓库代码和 Supabase 官方文档，也必须能够完成实现。**
+- 所有运行依赖都保存在当前仓库；不依赖外部参考模板路径。
+- Supabase `service_role` 与 secret key 仅用于本地 Node 脚本或 Edge Function 服务端，不进入前端 bundle。
+- 迁移与 seed 可从空库重复执行；验证只操作确认的本地测试栈。
+- 真实 Auth、RLS、浏览器和 migration replay 按各自证据分别报告。

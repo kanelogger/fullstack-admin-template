@@ -10,8 +10,8 @@ import {
   type MessageListItem,
   type MessageListRequest,
   type MessagePage
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type QueryRow = Record<string, unknown>;
 
@@ -146,8 +146,10 @@ export async function markMessagesRead(input: unknown): Promise<{ count: number 
   return { count: data?.length ?? 0 };
 }
 
-export async function getUnreadMessageCount(): Promise<number> {
-  const receiverId = await getCurrentMessageReceiverId();
+export async function getUnreadMessageCount(receiverIdInput?: unknown): Promise<number> {
+  const receiverId = receiverIdInput === undefined
+    ? await getCurrentMessageReceiverId()
+    : BusinessIdSchema.parse(receiverIdInput);
   const { count, error } = await getSupabaseClient()
     .from("messages")
     .select("id", { count: "exact", head: true })

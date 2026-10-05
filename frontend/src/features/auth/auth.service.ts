@@ -9,8 +9,8 @@ import {
   type LoginOutcome,
   type PasswordResetResponse,
   type Session
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentSession } from "@/features/profile/profile.service";
 import {
   beginAuthOperation,
@@ -23,6 +23,61 @@ function failure(code: string, message: string): LoginOutcome {
     success: false,
     error: { code, message }
   });
+}
+
+function isRecoveryAccessToken(accessToken: string): boolean {
+  try {
+    const encodedPayload = accessToken.split(".")[1];
+    if (!encodedPayload) return false;
+    const base64 = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
+    return Array.isArray(claims.amr) && claims.amr.some(
+      (entry: { method?: unknown }) => entry?.method === "recovery" || entry?.method === "otp"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function recoveryTokensFromHash(hash: string) {
+  const callbackSeparator = hash.indexOf("#", 1);
+  if (
+    callbackSeparator < 0 ||
+    hash.slice(0, callbackSeparator).split("?")[0] !== "#/reset-password"
+  ) return null;
+
+  const parameters = new URLSearchParams(hash.slice(callbackSeparator + 1));
+  if (parameters.get("type") !== "recovery" || parameters.get("token_type") !== "bearer") {
+    return null;
+  }
+  const accessToken = parameters.get("access_token");
+  const refreshToken = parameters.get("refresh_token");
+  return accessToken && refreshToken && isRecoveryAccessToken(accessToken)
+    ? { access_token: accessToken, refresh_token: refreshToken }
+    : null;
+}
+
+/** Restore and validate a password-recovery-only Auth session from the SPA callback. */
+export async function restorePasswordRecoverySession(hash: string): Promise<{
+  available: boolean;
+  scrubCallback: boolean;
+}> {
+  const client = getSupabaseClient();
+  const callbackSession = recoveryTokensFromHash(hash);
+  const { data, error } = await client.auth.getSession();
+  if (!error && data.session && isRecoveryAccessToken(data.session.access_token)) {
+    return { available: true, scrubCallback: Boolean(callbackSession) };
+  }
+
+  if (!callbackSession) return { available: false, scrubCallback: false };
+  const { data: restored, error: restoreError } = await client.auth.setSession(callbackSession);
+  const validRecoverySession = !restoreError && Boolean(
+    restored.session && isRecoveryAccessToken(restored.session.access_token)
+  );
+  return {
+    available: validRecoverySession,
+    scrubCallback: validRecoverySession
+  };
 }
 
 async function edgeFunctionError(error: unknown): Promise<AppError | null> {

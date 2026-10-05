@@ -6,7 +6,6 @@
     "strict": false,
     "strictFunctionTypes": false,
     "noImplicitThis": true,
-    "jsx": "preserve",
     "importHelpers": true,
     "experimentalDecorators": true,
     "skipLibCheck": true,
@@ -17,6 +16,7 @@
     "sourceMap": true,
     "allowJs": false,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "lib": [
       "ESNext",
@@ -38,7 +38,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx",
     "src/**/*.vue",
     "types/*.d.ts",
     "vite.config.ts"

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ExceptionLog, LoginLog, OperationLog } from "@/contracts";
+import type { ExceptionLog, LoginLog, OperationLog } from "@template/contracts";
 import {
   getExceptionLog,
   getExceptionLogs,

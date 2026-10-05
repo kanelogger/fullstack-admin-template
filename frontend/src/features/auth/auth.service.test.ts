@@ -13,14 +13,18 @@ const mocks = vi.hoisted(() => ({
   getCurrentSession: vi.fn()
 }));
 
-vi.mock("@/shared/supabase/client", () => ({
+vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: () => mocks.client
 }));
 vi.mock("@/features/profile/profile.service", () => ({
   getCurrentSession: mocks.getCurrentSession
 }));
 
-import { loginWithSupabase, restoreSupabaseSession } from "./auth.service";
+import {
+  loginWithSupabase,
+  restorePasswordRecoverySession,
+  restoreSupabaseSession
+} from "./auth.service";
 import { invalidateAuthOperations } from "./session-generation";
 
 const aliceAuthId = "11111111-1111-4111-8111-111111111111";
@@ -50,6 +54,11 @@ function supabaseAuthSession(authUserId: string) {
     refresh_token: `refresh-${authUserId}`,
     user: { id: authUserId }
   };
+}
+
+function accessTokenWithAmr(method: string): string {
+  const payload = Buffer.from(JSON.stringify({ amr: [{ method }] })).toString("base64url");
+  return `header.${payload}.signature`;
 }
 
 describe("Supabase Auth application session", () => {
@@ -107,5 +116,37 @@ describe("Supabase Auth application session", () => {
     resolveProfile(session(aliceAuthId, "alice"));
 
     await expect(pending).resolves.toBeNull();
+  });
+
+  it("restores only a recovery Auth callback and keeps token parsing in the auth service", async () => {
+    const accessToken = accessTokenWithAmr("recovery");
+    mocks.client.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    mocks.client.auth.setSession.mockResolvedValue({
+      data: { session: { access_token: accessToken } },
+      error: null
+    });
+    const hash = `#/reset-password#type=recovery&token_type=bearer&access_token=${accessToken}&refresh_token=recovery-refresh`;
+
+    await expect(restorePasswordRecoverySession(hash)).resolves.toEqual({
+      available: true,
+      scrubCallback: true
+    });
+    expect(mocks.client.auth.setSession).toHaveBeenCalledWith({
+      access_token: accessToken,
+      refresh_token: "recovery-refresh"
+    });
+  });
+
+  it("does not turn a normal password Auth Session into a recovery session", async () => {
+    mocks.client.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: accessTokenWithAmr("password") } },
+      error: null
+    });
+
+    await expect(restorePasswordRecoverySession("#/reset-password")).resolves.toEqual({
+      available: false,
+      scrubCallback: false
+    });
+    expect(mocks.client.auth.setSession).not.toHaveBeenCalled();
   });
 });

@@ -15,8 +15,8 @@ import {
   type LoginLogPage,
   type OperationLog,
   type OperationLogPage
-} from "@/contracts";
-import { getSupabaseClient } from "@/shared/supabase/client";
+} from "@template/contracts";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type Row = Record<string, unknown>;
 
