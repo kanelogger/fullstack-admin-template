@@ -19,9 +19,11 @@
 
 - 登录只接受 `login_name + 密码`；浏览器通过 `session-login` Edge Function 获取 Session，不直接执行密码登录。
 - Supabase Session 只由 Auth client 持久化。业务资料存在 `profiles`；权限在 Pinia permission Store 的内存快照中；Session Store 不持久化角色/权限。
-- Auth 状态变更后在回调之外刷新权限和导航；登出、账号切换时清理标签、路由、权限和通知。临时网络错误保留已验证的 UI 状态，RLS 仍在服务端拒绝过期权限。
+- Session Store 保存当前应用身份和非持久 `session_id`；Permission Store 保存授权快照。协调器只维护操作版本、加载去重和待登出归属，不复制身份或权限。
+- 同一 `auth_user_id` 的新 `session_id` 是新 Session。登录、登出和恢复按 Session ID 与操作版本丢弃旧结果；应用发起的 `setSession` / `signOut` 用跨标签 Web Lock。登出撤销使用捕获 Session 的 token，仅在当前 Session ID 仍匹配时执行本地 `signOut`。
+- Auth 状态变更后在回调之外刷新权限和导航；登出、账号或 Session 切换时清理标签、路由、权限和通知。动态路由安装前核对捕获的 `auth_user_id + session_id` 和操作版本。资料接口明确拒绝当前 Session 时清理本地登录状态；临时网络错误保留已验证的 UI 状态，RLS 仍在服务端拒绝过期权限。
 - `.env.example` 和 `.env.development.example` 只包含本地 URL、端口和 publishable key 样例；严禁将 service-role/secret key 放入 `VITE_*`。
 
 ## 命令
 
-从仓库根目录运行 `pnpm dev`、`pnpm check:routes`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`。完整 migration replay 与真实本地浏览器链路使用 `pnpm check:migrations`。仅面向 PC Chromium 验收，不定义移动端适配要求。
+从仓库根目录运行 `pnpm dev`、`pnpm check:docs`、`pnpm check:routes`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`、`pnpm check:migrations` 与 `pnpm check:migration-upgrades`。仅面向 PC Chromium 验收，不定义移动端适配要求。

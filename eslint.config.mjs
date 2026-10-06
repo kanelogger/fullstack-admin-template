@@ -37,8 +37,8 @@ export default tseslint.config(
         caughtErrorsIgnorePattern: "^_",
         varsIgnorePattern: "^_"
       }],
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unsafe-function-type": "warn"
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unsafe-function-type": "error"
     }
   },
   {

@@ -3,14 +3,16 @@ import { getConfig } from "@/config";
 import { useMultiFrame } from "@/layouts/hooks/useMultiFrame";
 import { useTabsStoreHook } from "@/stores/modules/tabs";
 import { type Component, shallowRef, watch, computed } from "vue";
-import { type RouteRecordRaw, RouteLocationNormalizedLoaded } from "vue-router";
+import { type RouteLocationNormalizedLoaded } from "vue-router";
+import type { RouteConfigs } from "@/layouts/types";
+import type { MultiFrameEntry } from "@/layouts/hooks/useMultiFrame";
 
 const props = defineProps<{
   currRoute: RouteLocationNormalizedLoaded;
   currComp: Component;
 }>();
 
-const compList = shallowRef([]);
+const compList = shallowRef<MultiFrameEntry[]>([]);
 const { setMap, getMap, MAP, delMap } = useMultiFrame();
 
 const keep = computed(() => {
@@ -23,7 +25,7 @@ const keep = computed(() => {
 // 避免重新渲染 LayFrame
 const normalComp = computed(() => !keep.value && props.currComp);
 
-watch(useTabsStoreHook().multiTags, (tags: any) => {
+watch(useTabsStoreHook().multiTags, (tags: RouteConfigs[]) => {
   if (!Array.isArray(tags) || !keep.value) {
     return;
   }
@@ -42,7 +44,7 @@ watch(useTabsStoreHook().multiTags, (tags: any) => {
 watch(
   () => props.currRoute.fullPath,
   path => {
-    const multiTags = useTabsStoreHook().multiTags as RouteRecordRaw[];
+    const multiTags = useTabsStoreHook().multiTags as RouteConfigs[];
     const iframeTags = multiTags.filter(i => i.meta?.frameSrc);
     if (keep.value) {
       if (iframeTags.length !== MAP.size) {

@@ -7,6 +7,7 @@ import { createApp } from "vue";
 import { injectResponsiveStorage } from "@/utils/responsive";
 import { getSupabaseClientIfConfigured } from "@/lib/supabase/client";
 import { useSessionStoreHook } from "@/stores/modules/session";
+import { getAuthSessionIdentity } from "@/features/auth/session-identity";
 
 // Tailwind 先声明样式层，基础重置随后进入 base 层，utility 类可以覆盖原生控件重置。
 import "./style/tailwind.css";
@@ -43,29 +44,39 @@ getPlatformConfig(app).then(async () => {
   const supabase = getSupabaseClientIfConfigured();
   supabase?.auth.onAuthStateChange((event, authSession) => {
     if (event === "SIGNED_OUT") {
-      userStore.clearLocalSession();
-      if (
-        router.currentRoute.value.path !== "/login" &&
-        router.currentRoute.value.path !== "/reset-password"
-      ) {
-        void router.replace("/login");
-      }
+      window.setTimeout(() => {
+        void supabase.auth.getSession().then(({ data, error }) => {
+          if (error) return;
+          const currentIdentity = getAuthSessionIdentity(data.session);
+          if (currentIdentity) {
+            userStore.observeAuthSession(currentIdentity);
+            void userStore.refreshAuthorization(true);
+            return;
+          }
+          if (userStore.isAuthenticated || !userStore.authReady) userStore.clearLocalSession();
+          if (
+            router.currentRoute.value.path !== "/login" &&
+            router.currentRoute.value.path !== "/reset-password"
+          ) {
+            void router.replace("/login");
+          }
+        }).catch(() => undefined);
+      }, 0);
       return;
     }
 
-    const accountChangedInAnotherTab = event === "SIGNED_IN" &&
-      ((userStore.isAuthenticated && authSession?.user.id !== userStore.authUserId) ||
-        userStore.isLogoutPendingForAnotherAccount(authSession?.user.id));
-    if (accountChangedInAnotherTab) userStore.cancelPendingLogoutForAccountSwitch();
+    const identity = getAuthSessionIdentity(authSession);
+    const sessionChanged = identity && userStore.authReady
+      ? userStore.observeAuthSession(identity)
+      : false;
     const signedInSessionNeedsRestore = event === "SIGNED_IN" &&
-      Boolean(authSession) &&
+      Boolean(identity) &&
       userStore.authReady &&
-      !userStore.isLogoutPendingForAccount(authSession?.user.id) &&
-      (!userStore.isAuthenticated || authSession?.user.id !== userStore.authUserId);
+      !userStore.isAuthenticated;
     if (
       event === "TOKEN_REFRESHED" ||
       event === "USER_UPDATED" ||
-      accountChangedInAnotherTab ||
+      sessionChanged ||
       signedInSessionNeedsRestore
     ) {
       // Supabase Auth callbacks run under an internal lock. Defer follow-up
@@ -73,9 +84,10 @@ getPlatformConfig(app).then(async () => {
       window.setTimeout(() => {
         if (
           event === "SIGNED_IN" &&
-          authSession &&
+          identity &&
           userStore.isAuthenticated &&
-          userStore.authUserId === authSession.user.id
+          userStore.authUserId === identity.authUserId &&
+          userStore.authSessionId === identity.sessionId
         ) return;
         void userStore.refreshAuthorization(true);
       }, 0);

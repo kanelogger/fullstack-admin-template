@@ -201,7 +201,7 @@ test("user administration manages accounts and sends password resets", async ({ 
   await dialog.getByRole("checkbox").first().check();
   await dialog.getByRole("button", { name: "保存" }).click();
   await expect(page.getByText("员工一百零一", { exact: true })).toBeVisible();
-  await expect(page.getByText("用户已创建，密码重置邮件已发送")).toBeVisible();
+  await expect(page.getByRole("status").getByText("用户已创建，密码重置邮件已发送", { exact: true })).toBeVisible();
 
   const createdRow = page.getByRole("row").filter({ hasText: "员工一百零一" });
   await createdRow.getByRole("button", { name: "编辑" }).click();
@@ -214,7 +214,7 @@ test("user administration manages accounts and sends password resets", async ({ 
   await updatedRow.getByRole("button", { name: "停用" }).click();
   await expect(updatedRow.getByText("停用", { exact: true })).toBeVisible();
   await updatedRow.getByRole("button", { name: "重置密码" }).click();
-  await expect(page.getByText("密码重置邮件已发送")).toBeVisible();
+  await expect(page.getByRole("status").getByText("密码重置邮件已发送", { exact: true })).toBeVisible();
   await updatedRow.getByRole("button", { name: "删除" }).click();
   await expect(page.getByText("员工一百零一（更新）", { exact: true })).toHaveCount(0);
   expect(actions).toContain("reset-password");

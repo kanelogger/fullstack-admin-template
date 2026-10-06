@@ -8,7 +8,7 @@ declare module "vue" {
     /** 文本复制指令（默认双击复制） */
     vCopy: Directive<CopyEl, string>;
     /** 长按指令 */
-    vLongpress: Directive<HTMLElement, Function>;
+    vLongpress: Directive<HTMLElement, (...args: never[]) => unknown>;
     /** 防抖、节流指令 */
     vOptimize: Directive<HTMLElement, OptimizeOptions>;
     /** 按钮权限指令（根据登录接口返回的`permissions`字段进行判断）*/

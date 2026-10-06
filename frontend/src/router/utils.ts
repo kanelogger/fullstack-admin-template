@@ -1,8 +1,6 @@
 import {
-  type Router,
   type RouterHistory,
   type RouteRecordRaw,
-  type RouteComponent,
   createWebHistory,
   createWebHashHistory
 } from "vue-router";
@@ -22,8 +20,14 @@ import { useTabsStoreHook } from "@/stores/modules/tabs";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
 import { getCurrentNavigation } from "@/features/menus/menus.service";
 import { buildNavigationRoutes } from "@/features/menus/navigation-routes";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  commitForCurrentAuthSession,
+  type AuthSessionCommitGuard
+} from "@/features/auth/session-generation";
+import { getAuthSessionIdentity } from "@/features/auth/session-identity";
 
-function handRank(routeInfo: any) {
+function handRank(routeInfo: RouteRecordRaw & { parentId?: unknown }) {
   const { name, path, parentId, meta } = routeInfo;
   return isAllEmpty(parentId)
     ? isAllEmpty(meta?.rank) ||
@@ -34,35 +38,33 @@ function handRank(routeInfo: any) {
 }
 
 /** 按照路由中meta下的rank等级升序来排序路由 */
-function ascending(arr: any[]) {
+function ascending(arr: RouteRecordRaw[]) {
   arr.forEach((v, index) => {
     // 当rank不存在时，根据顺序自动创建，首页路由永远在第一位
     if (handRank(v)) v.meta.rank = index + 2;
   });
   return arr.sort(
-    (a: { meta: { rank: number } }, b: { meta: { rank: number } }) => {
-      return a?.meta.rank - b?.meta.rank;
+    (a, b) => {
+      return (a.meta?.rank ?? 0) - (b.meta?.rank ?? 0);
     }
   );
 }
 
 /** 过滤meta中showLink为false的菜单 */
-function filterTree(data: RouteComponent[]) {
-  const newTree = cloneDeep(data).filter(
-    (v: { meta: { showLink: boolean } }) => v.meta?.showLink !== false
-  );
-  newTree.forEach(
-    (v: { children }) => v.children && (v.children = filterTree(v.children))
-  );
+function filterTree(data: RouteRecordRaw[]) {
+  const newTree = cloneDeep(data).filter(v => v.meta?.showLink !== false);
+  newTree.forEach(v => {
+    if (v.children) v.children = filterTree(v.children);
+  });
   return newTree;
 }
 
 /** 过滤children长度为0的的目录，当目录下没有菜单时，会过滤此目录，目录没有赋予roles权限，当目录下只要有一个菜单有显示权限，那么此目录就会显示 */
-function filterChildrenTree(data: RouteComponent[]) {
-  const newTree = cloneDeep(data).filter((v: any) => v?.children?.length !== 0);
-  newTree.forEach(
-    (v: { children }) => v.children && (v.children = filterTree(v.children))
-  );
+function filterChildrenTree(data: RouteRecordRaw[]) {
+  const newTree = cloneDeep(data).filter(v => v.children?.length !== 0);
+  newTree.forEach(v => {
+    if (v.children) v.children = filterTree(v.children);
+  });
   return newTree;
 }
 
@@ -76,7 +78,7 @@ function isOneOfArray(a: Array<string>, b: Array<string>) {
 }
 
 /** Supabase current_navigation 已按当前用户的 RLS 权限过滤动态菜单。 */
-function filterNoPermissionTree(data: RouteComponent[]) {
+function filterNoPermissionTree(data: RouteRecordRaw[]) {
   return filterChildrenTree(cloneDeep(data));
 }
 
@@ -148,10 +150,16 @@ function handleAsyncRoutes(routeList) {
 }
 
 /** 初始化动态路由；请求或路由处理失败时将拒绝 Promise，由调用方恢复状态。 */
-async function initRouter(): Promise<Router> {
+async function initRouter(guard: AuthSessionCommitGuard): Promise<boolean> {
   const entries = await getCurrentNavigation();
-  handleAsyncRoutes(buildNavigationRoutes(entries));
-  return router;
+  const routes = buildNavigationRoutes(entries);
+  const { data, error } = await getSupabaseClient().auth.getSession();
+  if (error) throw error;
+  return commitForCurrentAuthSession(
+    guard,
+    getAuthSessionIdentity(data.session),
+    () => handleAsyncRoutes(routes)
+  );
 }
 
 /**
@@ -199,7 +207,10 @@ function formatTwoStageRoutes(routesList: RouteRecordRaw[]) {
 }
 
 /** 处理缓存路由（添加、删除、刷新） */
-function handleAliveRoute({ name }: ToRouteType, mode?: string) {
+function handleAliveRoute(
+  { name }: Pick<import("vue-router").RouteLocationNormalizedLoaded, "name">,
+  mode?: string
+) {
   switch (mode) {
     case "add":
       usePermissionStoreHook().cacheOperate({

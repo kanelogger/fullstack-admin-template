@@ -5,10 +5,12 @@ PC 浏览器端管理后台模板，运行栈为 Vue 3、Vue Router、Pinia、sh
 ## 工具与验证
 
 - 在仓库根目录执行 `pnpm install`；根 `pnpm-lock.yaml` 管理整个 workspace。
+- 全新项目首次启动 Supabase Local 前，先选择 migration 轨道并运行模板初始化命令；现有项目保留原 migration 账本。状态或 Docker 数据卷无法核实时命令会拒绝修改。
 - 本地开发：先启动 OrbStack/Docker-compatible runtime，再运行 `pnpm supabase:start` 和 `pnpm dev`。Vite 使用 8848 端口；Supabase Local 服务端口见 `supabase/config.toml`。
-- 全栈 TypeScript 与 Deno Edge Function 检查：`pnpm typecheck`；生产构建：`pnpm build`；单元测试：`pnpm test:unit`。
+- 文档引用检查：`pnpm check:docs`；全栈 TypeScript 与 Deno Edge Function 检查：`pnpm typecheck`；源码与 Deno lint 必须零 warning：`pnpm lint`；生产构建：`pnpm build`；单元测试：`pnpm test:unit`。
 - PC Chromium 浏览器 mock 测试：`pnpm test:e2e:mock`；本地 Supabase Auth 邮件恢复浏览器流程：`pnpm test:e2e:local`；本机栈数据库/Storage/Auth 集成：`pnpm test:db`。
 - 完整隔离迁移验收：`pnpm check:migrations`。它复制 Supabase 配置到临时目录、使用唯一 project ID 和动态端口，从空库重放 migration 与 seed，再运行 pgTAP、服务检查及 PC 浏览器测试；只清理它创建的临时栈。
+- Migration 双轨升级验收：`pnpm check:migration-upgrades`。它用历史流和临时旧 cutoff 基线各自保留数据升级最近三个真实 migration，并单独验收固定发布基线；升级阶段不重置数据库，探针不入 ledger 且比较前清理。
 
 ## 仓库级约束
 
@@ -21,6 +23,7 @@ PC 浏览器端管理后台模板，运行栈为 Vue 3、Vue Router、Pinia、sh
 ## 稳定领域约定
 
 - 登录唯一使用 `login_name + 密码`，前端经 `session-login` Edge Function 建立已登记 Supabase Auth Session；邮箱只用于密码恢复。
+- 同账号不同登录仍是不同 Session。协调器按操作版本及 `auth_user_id + session_id` 决定转换；Session Store 保存身份，Permission Store 保存授权快照。登出撤销使用捕获 Session 的 token，跨标签 Auth 写入由 Web Locks 串行化。
 - PostgreSQL RLS 是数据访问边界。前端动态菜单来自 `current_navigation()`，只通过固定 RouteKey registry 装载页面；按钮权限来自当前 Session 的权限键。
 - 所有跨前后端输入/输出契约位于 `@template/contracts`，由前端与 Deno Edge Functions 共用 Zod schema。
 - 角色的页面授权与已有权限键映射，不维护第二套 role-menu 关系。Dashboard 待办为当前用户未读消息。

@@ -57,7 +57,9 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
   };
 
   for (const envName of Object.keys(envConf)) {
-    let realName = envConf[envName].replace(/\\n/g, "\n");
+    const envValue = envConf[envName];
+    if (typeof envValue !== "string") continue;
+    let realName: string | number | boolean = envValue.replace(/\\n/g, "\n");
     realName =
       realName === "true" ? true : realName === "false" ? false : realName;
 

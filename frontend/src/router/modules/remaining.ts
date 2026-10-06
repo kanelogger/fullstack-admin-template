@@ -1,6 +1,8 @@
+import type { RouteRecordRaw } from "vue-router";
+
 const Layout = () => import("@/layouts/index.vue");
 
-export default [
+const remainingRoutes: RouteRecordRaw[] = [
   {
     path: "/reset-password",
     name: "ResetPassword",
@@ -63,4 +65,6 @@ export default [
       }
     ]
   }
-] satisfies Array<RouteConfigsTable>;
+];
+
+export default remainingRoutes;

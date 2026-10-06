@@ -6,6 +6,22 @@ import {
   type Session
 } from "@template/contracts";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  AuthSessionRejectedError,
+  isExplicitAuthRejection
+} from "@/features/auth/session-errors";
+
+export class ProfileServiceError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(sourceError: { message: string; code?: string }, status: number) {
+    super(sourceError.message, { cause: sourceError });
+    this.name = "ProfileServiceError";
+    this.code = sourceError.code ?? "";
+    this.status = status;
+  }
+}
 
 function toSession(value: unknown): Session {
   if (!value || typeof value !== "object") {
@@ -23,8 +39,14 @@ function toSession(value: unknown): Session {
 }
 
 export async function getCurrentSession(): Promise<Session> {
-  const { data, error } = await getSupabaseClient().rpc("current_profile");
-  if (error) throw new Error("个人资料读取失败，请重新登录后重试");
+  const { data, error, status } = await getSupabaseClient().rpc("current_profile");
+  if (error) {
+    if (isExplicitAuthRejection(error, status)) {
+      throw new AuthSessionRejectedError("当前登录状态已被资料接口拒绝", { cause: error });
+    }
+    throw new ProfileServiceError(error, status);
+  }
+  if (data == null) throw new AuthSessionRejectedError("当前登录没有可用的个人资料");
   return toSession(data);
 }
 

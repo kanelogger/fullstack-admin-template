@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "cutoff": "20261005084413",
+  "migration": "migrations/20261005084413_template_baseline.sql",
+  "sha256": "1e11af1a108b6c2e6722821c434aba1712442e10523c9bdbbb3efce1957f0617"
+}

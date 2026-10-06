@@ -1,5 +1,6 @@
 import type { iconType } from "./types";
 import { h, defineComponent, type Component } from "vue";
+import type { IconifyIcon as IconifyIconData } from "@iconify/vue/dist/offline";
 import { FontIcon, IconifyIconOnline, IconifyIconOffline } from "../index";
 
 /**
@@ -9,11 +10,11 @@ import { FontIcon, IconifyIconOnline, IconifyIconOffline } from "../index";
  * @param attrs 可选 iconType 属性
  * @returns Component
  */
-export function useRenderIcon(icon: any, attrs?: iconType): Component {
+export function useRenderIcon(icon: string | Component | IconifyIconData, attrs?: iconType): Component {
   // iconfont
   const ifReg = /^IF-/;
   // typeof icon === "function" 属于SVG
-  if (ifReg.test(icon)) {
+  if (typeof icon === "string" && ifReg.test(icon)) {
     // iconfont
     const name = icon.split(ifReg)[1];
     const iconName = name.slice(
@@ -31,25 +32,24 @@ export function useRenderIcon(icon: any, attrs?: iconType): Component {
         });
       }
     });
-  } else if (typeof icon === "function" || typeof icon?.render === "function") {
-    // svg
-    return attrs ? h(icon, { ...attrs }) : icon;
-  } else if (typeof icon === "object") {
+  } else if (typeof icon === "object" && icon !== null && "body" in icon) {
     return defineComponent({
       name: "OfflineIcon",
       render() {
-        return h(IconifyIconOffline, {
-          icon: icon,
-          ...attrs
-        });
+        return h(IconifyIconOffline, { icon, ...attrs });
       }
     });
+  } else if (typeof icon === "function" || typeof icon === "object") {
+    // svg
+    const component = icon as Component;
+    return attrs ? defineComponent({ render: () => h(component, { ...attrs }) }) : component;
   } else {
     // 通过是否存在 : 符号来判断是在线还是本地图标，存在即是在线图标，反之
     return defineComponent({
       name: "Icon",
       render() {
         if (!icon) return;
+        if (typeof icon !== "string") return;
         const IconifyIcon = icon.includes(":")
           ? IconifyIconOnline
           : IconifyIconOffline;

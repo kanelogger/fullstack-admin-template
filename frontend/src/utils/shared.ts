@@ -61,7 +61,7 @@ export function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-export function isFunction(value: unknown): value is (...args: any[]) => any {
+export function isFunction(value: unknown): value is (...args: never[]) => unknown {
   return typeof value === "function";
 }
 
@@ -156,7 +156,7 @@ export function cloneDeep<T>(value: T, seen = new WeakMap<object, unknown>()): T
   return result as T;
 }
 
-export function debounce<T extends (...args: any[]) => void>(
+export function debounce<T extends (...args: never[]) => unknown>(
   callback: T,
   delay = 200,
   immediate = false
@@ -173,7 +173,7 @@ export function debounce<T extends (...args: any[]) => void>(
   };
 }
 
-export function throttle<T extends (...args: any[]) => void>(
+export function throttle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay = 1000
 ): (...args: Parameters<T>) => void {

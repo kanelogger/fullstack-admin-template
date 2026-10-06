@@ -39,12 +39,7 @@ function init() {
   nextTick(() => {
     const iframe = unref(frameRef);
     if (!iframe) return;
-    const _frame = iframe as any;
-    if (_frame.attachEvent) {
-      _frame.attachEvent("onload", hideLoading);
-    } else {
-      iframe.onload = hideLoading;
-    }
+    iframe.onload = hideLoading;
   });
 }
 

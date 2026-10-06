@@ -4,7 +4,7 @@ import type { menuType } from "@/layouts/types";
 
 const props = defineProps<{ to: menuType }>();
 const href = computed(() => {
-  const value = props.to.name ?? props.to.path ?? "";
+  const value = String(props.to.name ?? props.to.path ?? "");
   return /^https?:\/\//i.test(value) ? value : "";
 });
 </script>

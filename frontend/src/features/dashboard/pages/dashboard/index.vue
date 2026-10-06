@@ -59,13 +59,17 @@ const adminMetrics = computed(() => {
   ].filter(metric => metric.value !== null);
 });
 
-function resolveError(error: any, fallback: string) {
-  return (
-    error?.response?.data?.error?.message ??
-    error?.error?.message ??
-    error?.message ??
-    fallback
-  );
+function resolveError(error: unknown, fallback: string): string {
+  const record = (value: unknown): Record<string, unknown> | undefined =>
+    typeof value === "object" && value !== null
+      ? value as Record<string, unknown>
+      : undefined;
+  const outer = record(error);
+  const response = record(outer?.response);
+  const responseData = record(response?.data);
+  const apiError = record(responseData?.error) ?? record(outer?.error);
+  const message = apiError?.message ?? outer?.message;
+  return typeof message === "string" && message.length > 0 ? message : fallback;
 }
 
 function messageTypeText(type: string) {

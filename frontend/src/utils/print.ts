@@ -1,8 +1,8 @@
 interface PrintFunction {
-  extendOptions: Function;
-  getStyle: Function;
-  setDomHeight: Function;
-  toPrint: Function;
+  extendOptions<T extends object>(target: Record<string, unknown>, values: T): T;
+  getStyle(): string;
+  setDomHeight(selectors: string[]): void;
+  toPrint(frameWindow: Window): void;
 }
 
 const Print = function (dom, options?: object): PrintFunction {
@@ -102,14 +102,11 @@ Print.prototype = {
 
     for (let k3 = 0; k3 < selects.length; k3++) {
       if (selects[k3].type == "select-one") {
-        const child = selects[k3].children;
-        for (const i in child) {
-          if (child[i].tagName == "OPTION") {
-            if ((child[i] as any).selected == true) {
-              child[i].setAttribute("selected", "selected");
-            } else {
-              child[i].removeAttribute("selected");
-            }
+        for (const option of Array.from(selects[k3].options)) {
+          if (option.selected) {
+            option.setAttribute("selected", "selected");
+          } else {
+            option.removeAttribute("selected");
           }
         }
       }
@@ -174,7 +171,7 @@ Print.prototype = {
   /**
     Print
   */
-  toPrint: function (frameWindow): void {
+  toPrint: function (frameWindow: Window): void {
     try {
       setTimeout(function () {
         frameWindow.focus();
@@ -208,11 +205,12 @@ Print.prototype = {
    * Set the height of the specified dom element by getting the existing height of the dom element and setting
    * @param {Array} arr
    */
-  setDomHeight(arr) {
+  setDomHeight(arr: string[]) {
     if (arr && arr.length) {
       arr.forEach(name => {
         const domArr = document.querySelectorAll(name);
         domArr.forEach(dom => {
+          if (!(dom instanceof HTMLElement)) return;
           dom.style.height = dom.offsetHeight + "px";
         });
       });

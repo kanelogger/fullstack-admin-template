@@ -5,7 +5,7 @@ import { ref, reactive } from "vue";
 import { getConfig } from "@/config";
 import { useSessionStoreHook } from "@/stores/modules/session";
 import { requestPasswordReset } from "@/features/auth/auth.service";
-import { initRouter, getTopMenu } from "@/router/utils";
+import { getTopMenu } from "@/router/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,10 +39,20 @@ const ruleForm = reactive({
 });
 
 /** 根据后端返回的错误码/信息，映射为对用户友好的提示 */
-function resolveLoginError(res: any): string {
-  const error = res?.error ?? res?.response?.data?.error ?? {};
-  const msg = error?.message ?? res?.message ?? "";
-  const code = error?.code ?? res?.code ?? res?.status;
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function resolveLoginError(res: unknown): string {
+  const response = asRecord(asRecord(res)?.response);
+  const responseData = asRecord(response?.data);
+  const result = asRecord(res);
+  const error = asRecord(result?.error) ?? asRecord(responseData?.error) ?? {};
+  const msgValue = error.message ?? result?.message ?? "";
+  const msg = typeof msgValue === "string" ? msgValue : "";
+  const code = error.code ?? result?.code ?? result?.status;
 
   const codeMsgMap: Record<number | string, string> = {
     BAD_REQUEST: "请求参数有误，请检查输入",
@@ -62,7 +72,9 @@ function resolveLoginError(res: any): string {
     504: "请求超时，请检查网络后重试"
   };
 
-  if (code && codeMsgMap[code]) return codeMsgMap[code];
+  if ((typeof code === "string" || typeof code === "number") && codeMsgMap[code]) {
+    return codeMsgMap[code];
+  }
 
   if (msg) {
     if (/账号不存在|用户不存在|user not found/i.test(msg))
@@ -102,17 +114,21 @@ async function onRequestPasswordReset() {
 }
 
 /** 提取网络/HTTP 错误信息 */
-function resolveNetworkError(error: any): string {
-  if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
+function resolveNetworkError(error: unknown): string {
+  const result = asRecord(error);
+  const response = asRecord(result?.response);
+  const responseData = asRecord(response?.data);
+  const apiError = asRecord(responseData?.error);
+  const status = response?.status;
+
+  if (result?.code === "ERR_CANCELED" || result?.name === "CanceledError") {
     return "请求已取消";
   }
 
-  const status = error?.response?.status;
-  const apiError = error?.response?.data?.error;
   if (apiError?.message || apiError?.code) {
     return resolveLoginError({ error: apiError, status });
   }
-  if (status) {
+  if (typeof status === "number") {
     const statusMap: Record<number, string> = {
       400: "请求参数有误",
       401: "账号或密码错误",
@@ -129,9 +145,10 @@ function resolveNetworkError(error: any): string {
     return `服务器错误（${status}），请稍后重试`;
   }
 
-  if (error?.code === "ECONNABORTED" || error?.message?.includes("timeout"))
+  const errorMessage = typeof result?.message === "string" ? result.message : "";
+  if (result?.code === "ECONNABORTED" || errorMessage.includes("timeout"))
     return "请求超时，请检查网络后重试";
-  if (error?.message?.includes("Network Error") || !error?.response)
+  if (errorMessage.includes("Network Error") || !response)
     return "网络异常，请检查网络连接";
 
   return "网络异常，请稍后重试";
@@ -142,6 +159,7 @@ async function onLogin() {
 
   loading.value = true;
   let loginSucceeded = false;
+  let loginIdentity: { authUserId: string; sessionId: string } | null = null;
   try {
     const res = await userStore.loginByUsername({
       username: ruleForm.username,
@@ -154,19 +172,30 @@ async function onLogin() {
     }
 
     loginSucceeded = true;
-    await initRouter();
+    const expectedIdentity = {
+      authUserId: res.data.profile.authUserId,
+      sessionId: res.authSessionId
+    };
+    loginIdentity = expectedIdentity;
+    if (!await userStore.initSessionNavigation(expectedIdentity)) return;
+    if (!await userStore.isCurrentPersistedAuthSession(expectedIdentity)) return;
     disabled.value = true;
     try {
-      const landingMenu = getTopMenu(true);
+      const landingMenu = getTopMenu();
       if (!landingMenu?.path) throw new Error("当前账号没有可访问菜单");
+      if (!await userStore.isCurrentPersistedAuthSession(expectedIdentity)) return;
       await router.push(landingMenu.path);
       message("登录成功", { type: "success" });
     } finally {
       disabled.value = false;
     }
   } catch (error) {
-    if (loginSucceeded) {
-      userStore.logOut();
+    if (loginSucceeded && loginIdentity) {
+      const logout = await userStore.logOut(loginIdentity).catch(() => ({
+        serverSessionRevoked: false,
+        ignored: true
+      }));
+      if (logout.ignored) return;
       message("登录成功，但菜单权限加载失败，请检查服务后重试", {
         type: "error"
       });

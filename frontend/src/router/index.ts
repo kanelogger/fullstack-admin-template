@@ -5,12 +5,12 @@ import remainingRouter from "./modules/remaining";
 import { useTabsStoreHook } from "@/stores/modules/tabs";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
 import { useSessionStoreHook } from "@/stores/modules/session";
+import { isTransientAuthSessionError } from "@/features/auth/session-errors";
 import { findRegisteredMenuRouteByPath } from "@/features/menus/menu-routes.registry";
 import { openLink, cloneDeep } from "@/utils/shared";
 import {
   ascending,
   getTopMenu,
-  initRouter,
   isOneOfArray,
   getHistoryMode,
   findRouteByPath,
@@ -20,7 +20,6 @@ import {
 } from "./utils";
 import {
   type RouteRecordRaw,
-  type RouteComponent,
   type Router,
   createRouter
 } from "vue-router";
@@ -29,7 +28,7 @@ import {
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
  * 如何排除文件请看：https://cn.vitejs.dev/guide/features.html#negative-patterns
  */
-const modules: Record<string, any> = import.meta.glob(
+const modules = import.meta.glob<{ default: RouteRecordRaw }>(
   ["./modules/**/*.ts", "!./modules/**/remaining.ts"],
   {
     eager: true
@@ -37,7 +36,7 @@ const modules: Record<string, any> = import.meta.glob(
 );
 
 /** 原始静态路由（未做任何处理） */
-const routes = [];
+const routes: RouteRecordRaw[] = [];
 
 Object.keys(modules).forEach(key => {
   routes.push(modules[key].default);
@@ -52,19 +51,18 @@ export const constantRoutes: Array<RouteRecordRaw> = formatTwoStageRoutes(
 const initConstantRoutes: Array<RouteRecordRaw> = cloneDeep(constantRoutes);
 
 /** 用于渲染菜单，保持原始层级 */
-export const constantMenus: Array<RouteComponent> = ascending(
-  routes.flat(Infinity)
-).concat(...remainingRouter);
+export const constantMenus: RouteRecordRaw[] = [
+  ...ascending(routes.flat(Infinity)),
+  ...remainingRouter
+];
 
 /** 不参与菜单的路由 */
-export const remainingPaths = Object.keys(remainingRouter).map(v => {
-  return remainingRouter[v].path;
-});
+export const remainingPaths = remainingRouter.map(route => route.path);
 
 /** 创建路由实例 */
 export const router: Router = createRouter({
   history: getHistoryMode(import.meta.env.VITE_ROUTER_HISTORY),
-  routes: constantRoutes.concat(...(remainingRouter as any)),
+  routes: [...constantRoutes, ...remainingRouter],
   strict: true,
   scrollBehavior(to, from, savedPosition) {
     return new Promise(resolve => {
@@ -92,7 +90,7 @@ export function resetLoadedPaths() {
 /** 重置路由 */
 export function resetRouter() {
   router.clearRoutes();
-  for (const route of initConstantRoutes.concat(...(remainingRouter as any))) {
+  for (const route of [...initConstantRoutes, ...remainingRouter]) {
     router.addRoute(route);
   }
   router.options.routes = formatTwoStageRoutes(
@@ -136,10 +134,15 @@ router.beforeEach(async (to: ToRouteType, from) => {
     !findRegisteredMenuRouteByPath(to.path);
 
   let hasSession = false;
+  const sessionStore = useSessionStoreHook();
   try {
-    hasSession = await useSessionStoreHook().restoreSession();
-  } catch {
-    useSessionStoreHook().clearLocalSession(false);
+    hasSession = await sessionStore.restoreSession();
+  } catch (error) {
+    if (sessionStore.isAuthenticated && isTransientAuthSessionError(error)) {
+      hasSession = true;
+    } else {
+      sessionStore.clearLocalSession(false);
+    }
   }
   if (!hasSession) {
     if (whiteList.includes(to.path)) return true;
@@ -153,7 +156,7 @@ router.beforeEach(async (to: ToRouteType, from) => {
 
   if (unknownPath) {
     try {
-      await initRouter();
+      if (!await useSessionStoreHook().initSessionNavigation()) return false;
     } catch {
       return { path: "/server-error" };
     }
@@ -181,10 +184,14 @@ router.beforeEach(async (to: ToRouteType, from) => {
   }
 
   if (to.path === "/login" || (from.name === undefined && permissionStore.wholeMenus.length === 0)) {
+    const sessionStore = useSessionStoreHook();
+    const expectedIdentity = sessionStore.isAuthenticated
+      ? { authUserId: sessionStore.authUserId, sessionId: sessionStore.authSessionId }
+      : null;
     try {
-      await initRouter();
+      if (!expectedIdentity || !await sessionStore.initSessionNavigation(expectedIdentity)) return false;
     } catch {
-      useSessionStoreHook().logOut();
+      if (expectedIdentity) await sessionStore.logOut(expectedIdentity);
       return { path: "/login" };
     }
 

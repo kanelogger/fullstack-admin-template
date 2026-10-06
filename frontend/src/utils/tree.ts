@@ -1,188 +1,146 @@
-/**
- * @description 提取菜单树中的每一项uniqueId
- * @param tree 树
- * @returns 每一项uniqueId组成的数组
- */
-export const extractPathList = (tree: any[]): any => {
+type TreeShape = {
+  children?: TreeShape[];
+  uniqueId?: number | string;
+  id?: number;
+  parentId?: number | string | null;
+  pathList?: Array<number | string>;
+};
+
+function treeShape<T extends object>(node: T): T & TreeShape {
+  return node as T & TreeShape;
+}
+
+/** Extract each node's uniqueId in the current tree level. */
+export const extractPathList = <T extends object>(tree: T[]): Array<number | string | undefined> => {
   if (!Array.isArray(tree)) {
     console.warn("tree must be an array");
     return [];
   }
-  if (!tree || tree.length === 0) return [];
-  const expandedPaths: Array<number | string> = [];
-  for (const node of tree) {
-    const hasChildren = node.children && node.children.length > 0;
-    if (hasChildren) {
-      extractPathList(node.children);
-    }
+  if (tree.length === 0) return [];
+  const expandedPaths: Array<number | string | undefined> = [];
+  for (const item of tree) {
+    const node = treeShape(item);
+    if (node.children?.length) extractPathList(node.children);
     expandedPaths.push(node.uniqueId);
   }
   return expandedPaths;
 };
 
-/**
- * @description 如果父级下children的length为1，删除children并自动组建唯一uniqueId
- * @param tree 树
- * @param pathList 每一项的id组成的数组
- * @returns 组件唯一uniqueId后的树
- */
-export const deleteChildren = (tree: any[], pathList = []): any => {
+/** Remove single-child arrays and populate each node's hierarchy metadata. */
+export const deleteChildren = <T extends object>(
+  tree: T[],
+  pathList: Array<number | string> = []
+): T[] => {
   if (!Array.isArray(tree)) {
     console.warn("menuTree must be an array");
     return [];
   }
-  if (!tree || tree.length === 0) return [];
-  for (const [key, node] of tree.entries()) {
-    if (node.children && node.children.length === 1) delete node.children;
+  for (const [key, item] of tree.entries()) {
+    const node = treeShape(item);
+    if (node.children?.length === 1) delete node.children;
     node.id = key;
     node.parentId = pathList.length ? pathList[pathList.length - 1] : null;
     node.pathList = [...pathList, node.id];
-    node.uniqueId =
-      node.pathList.length > 1 ? node.pathList.join("-") : node.pathList[0];
-    const hasChildren = node.children && node.children.length > 0;
-    if (hasChildren) {
-      deleteChildren(node.children, node.pathList);
-    }
+    node.uniqueId = node.pathList.length > 1 ? node.pathList.join("-") : node.pathList[0];
+    if (node.children?.length) deleteChildren(node.children, node.pathList);
   }
   return tree;
 };
 
-/**
- * @description 创建层级关系
- * @param tree 树
- * @param pathList 每一项的id组成的数组
- * @returns 创建层级关系后的树
- */
-export const buildHierarchyTree = (tree: any[], pathList = []): any => {
+/** Populate id, parentId and pathList for each node. */
+export const buildHierarchyTree = <T extends object>(
+  tree: T[],
+  pathList: Array<number | string> = []
+): T[] => {
   if (!Array.isArray(tree)) {
-    console.warn("tree must be an array");
+    console.warn("menuTree must be an array");
     return [];
   }
-  if (!tree || tree.length === 0) return [];
-  for (const [key, node] of tree.entries()) {
+  for (const [key, item] of tree.entries()) {
+    const node = treeShape(item);
     node.id = key;
     node.parentId = pathList.length ? pathList[pathList.length - 1] : null;
     node.pathList = [...pathList, node.id];
-    const hasChildren = node.children && node.children.length > 0;
-    if (hasChildren) {
-      buildHierarchyTree(node.children, node.pathList);
-    }
+    if (node.children?.length) buildHierarchyTree(node.children, node.pathList);
   }
   return tree;
 };
 
-/**
- * @description 广度优先遍历，根据唯一uniqueId找当前节点信息
- * @param tree 树
- * @param uniqueId 唯一uniqueId
- * @returns 当前节点信息
- */
-export const getNodeByUniqueId = (
-  tree: any[],
+/** Find a node by uniqueId using a breadth-first traversal. */
+export const getNodeByUniqueId = <T extends object>(
+  tree: T[],
   uniqueId: number | string
-): any => {
+): T | [] | undefined => {
   if (!Array.isArray(tree)) {
     console.warn("menuTree must be an array");
     return [];
   }
-  if (!tree || tree.length === 0) return [];
-  const item = tree.find(node => node.uniqueId === uniqueId);
+  if (!tree.length) return [];
+  const item = tree.find(node => treeShape(node).uniqueId === uniqueId);
   if (item) return item;
-  const childrenList = tree
-    .filter(node => node.children)
-    .map(i => i.children)
-    .flat(1) as unknown;
-  return getNodeByUniqueId(childrenList as any[], uniqueId);
+  const children = tree.flatMap(node => treeShape(node).children ?? []);
+  return getNodeByUniqueId(children as unknown as T[], uniqueId);
 };
 
-/**
- * @description 向当前唯一uniqueId节点中追加字段
- * @param tree 树
- * @param uniqueId 唯一uniqueId
- * @param fields 需要追加的字段
- * @returns 追加字段后的树
- */
-export const appendFieldByUniqueId = (
-  tree: any[],
+/** Append fields to the node whose uniqueId matches. */
+export const appendFieldByUniqueId = <T extends object>(
+  tree: T[],
   uniqueId: number | string,
-  fields: object
-): any => {
+  fields: Record<string, unknown>
+): T[] => {
   if (!Array.isArray(tree)) {
     console.warn("menuTree must be an array");
     return [];
   }
-  if (!tree || tree.length === 0) return [];
-  for (const node of tree) {
-    const hasChildren = node.children && node.children.length > 0;
+  for (const item of tree) {
+    const node = treeShape(item);
     if (
       node.uniqueId === uniqueId &&
       Object.prototype.toString.call(fields) === "[object Object]"
-    )
+    ) {
       Object.assign(node, fields);
-    if (hasChildren) {
-      appendFieldByUniqueId(node.children, uniqueId, fields);
     }
+    if (node.children?.length) appendFieldByUniqueId(node.children, uniqueId, fields);
   }
   return tree;
 };
 
-/**
- * @description 构造树型结构数据
- * @param data 数据源
- * @param id id字段 默认id
- * @param parentId 父节点字段，默认parentId
- * @param children 子节点字段，默认children
- * @returns 追加字段后的树
- */
-export const handleTree = (
-  data: any[],
-  id?: string,
-  parentId?: string,
-  children?: string
-): any => {
+/** Build a hierarchy from a flat list using configurable id fields. */
+export const handleTree = <T extends object>(
+  data: T[],
+  id = "id",
+  parentId = "parentId",
+  children = "children"
+): T[] => {
   if (!Array.isArray(data)) {
     console.warn("data must be an array");
     return [];
   }
-  const config = {
-    id: id || "id",
-    parentId: parentId || "parentId",
-    childrenList: children || "children"
-  };
+  const childrenByParent = new Map<string, T[]>();
+  const nodesById = new Set<string>();
+  const read = (item: T, key: string) => (item as Record<string, unknown>)[key];
+  const keyOf = (value: unknown) => String(value);
 
-  const childrenListMap: any = {};
-  const nodeIds: any = {};
-  const tree = [];
-
-  for (const d of data) {
-    const parentId = d[config.parentId];
-    if (childrenListMap[parentId] == null) {
-      childrenListMap[parentId] = [];
-    }
-    nodeIds[d[config.id]] = d;
-    childrenListMap[parentId].push(d);
+  for (const item of data) {
+    const parentKey = keyOf(read(item, parentId));
+    const childrenForParent = childrenByParent.get(parentKey) ?? [];
+    childrenForParent.push(item);
+    childrenByParent.set(parentKey, childrenForParent);
+    nodesById.add(keyOf(read(item, id)));
   }
 
-  for (const d of data) {
-    const parentId = d[config.parentId];
-    if (nodeIds[parentId] == null) {
-      tree.push(d);
-    }
-  }
-
-  for (const t of tree) {
-    adaptToChildrenList(t);
-  }
-
-  function adaptToChildrenList(o: Record<string, any>) {
-    if (childrenListMap[o[config.id]] !== null) {
-      o[config.childrenList] = childrenListMap[o[config.id]];
-    }
-    if (o[config.childrenList]) {
-      for (const c of o[config.childrenList]) {
-        adaptToChildrenList(c);
+  const roots = data.filter(item => !nodesById.has(keyOf(read(item, parentId))));
+  const attachChildren = (item: T) => {
+    const record = item as Record<string, unknown>;
+    const childrenForNode = childrenByParent.get(keyOf(record[id]));
+    if (childrenForNode) record[children] = childrenForNode;
+    const nested = record[children];
+    if (Array.isArray(nested)) {
+      for (const child of nested) {
+        if (typeof child === "object" && child !== null) attachChildren(child as T);
       }
     }
-  }
-  return tree;
+  };
+  for (const root of roots) attachChildren(root);
+  return roots;
 };

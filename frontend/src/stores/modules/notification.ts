@@ -43,7 +43,10 @@ export const useNotificationStore = defineStore("notification", {
         }
       }
     },
-    async startMessageUpdates(expectedReceiverId?: string) {
+    async startMessageUpdates(
+      expectedReceiverId?: string,
+      isExpectedSessionCurrent?: () => boolean
+    ) {
       const startRevision = subscriptionRevision;
       let receiverId: string;
       let messageService: typeof import("@/features/messages/messages.service");
@@ -56,7 +59,7 @@ export const useNotificationStore = defineStore("notification", {
         }
         return;
       }
-      if (startRevision !== subscriptionRevision) return;
+      if (startRevision !== subscriptionRevision || isExpectedSessionCurrent?.() === false) return;
       if (expectedReceiverId && receiverId !== expectedReceiverId) return;
 
       if (stopMessageSubscription && subscribedReceiverId === receiverId) {
@@ -74,7 +77,8 @@ export const useNotificationStore = defineStore("notification", {
         () => {
           if (
             currentSubscriptionRevision !== subscriptionRevision ||
-            subscribedReceiverId !== receiverId
+            subscribedReceiverId !== receiverId ||
+            isExpectedSessionCurrent?.() === false
           ) return;
           this.messageRevision += 1;
           void this.refreshUnreadMessageCount(receiverId);
@@ -82,7 +86,8 @@ export const useNotificationStore = defineStore("notification", {
         (status, detail) => {
           if (
             currentSubscriptionRevision !== subscriptionRevision ||
-            subscribedReceiverId !== receiverId
+            subscribedReceiverId !== receiverId ||
+            isExpectedSessionCurrent?.() === false
           ) return;
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             this.loadError = detail ?? "消息实时连接暂不可用";

@@ -32,7 +32,7 @@ const icon = computed(() =>
     : undefined
 );
 const externalUrl = computed(() => {
-  const value = displayItem.value.name ?? itemPath.value;
+  const value = String(displayItem.value.name ?? itemPath.value);
   return /^https?:\/\//i.test(value) ? value : "";
 });
 

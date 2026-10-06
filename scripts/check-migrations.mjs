@@ -5,9 +5,9 @@ import { access, appendFile, cp, link, mkdir, mkdtemp, readFile, readdir, rm, wr
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+export const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sourceSupabaseRoot = join(projectRoot, "supabase");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -51,7 +51,7 @@ async function validateMigrationInventory() {
   console.log(`Checked ${entries.length} migration files and the repeatable seed layout.`);
 }
 
-async function reservePorts(count) {
+export async function reservePorts(count) {
   const servers = [];
   try {
     for (let index = 0; index < count; index += 1) {
@@ -97,7 +97,7 @@ function isolatedConfig(config, projectId, ports) {
   return updated;
 }
 
-async function createIsolatedProject(tempRoot, projectId, ports) {
+export async function createIsolatedProject(tempRoot, projectId, ports) {
   await mkdir(tempRoot, { recursive: true });
   const isolatedRoot = join(tempRoot, "project");
   const isolatedSupabase = join(isolatedRoot, "supabase");
@@ -137,7 +137,7 @@ async function assertPathDoesNotExist(path) {
   throw new Error("Baseline output already exists; choose a new path to avoid overwriting a file");
 }
 
-async function captureBaseline(workdir, isolatedRoot, baselineCandidate) {
+export async function captureBaseline(workdir, isolatedRoot, baselineCandidate) {
   run([...workdir, "db", "dump", "--local", "--schema", "public,app_private", "--file", baselineCandidate]);
   await appendFile(baselineCandidate, `
 
@@ -391,7 +391,10 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.message : "Migration validation failed");
-  process.exitCode = 1;
-});
+const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
+if (invokedPath === import.meta.url) {
+  main().catch(error => {
+    console.error(error instanceof Error ? error.message : "Migration validation failed");
+    process.exitCode = 1;
+  });
+}

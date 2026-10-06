@@ -155,7 +155,7 @@ declare global {
       multiTagsCache?: boolean;
       stretch?: boolean | number;
     };
-    tags?: Array<any>;
+    tags?: Array<Record<string, unknown>>;
   }
 
   /**

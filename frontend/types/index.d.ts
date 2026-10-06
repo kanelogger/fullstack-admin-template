@@ -2,7 +2,7 @@
 
 type RefType<T> = T | null;
 
-type EmitType = (event: string, ...args: any[]) => void;
+type EmitType = (event: string, ...args: unknown[]) => void;
 
 type TargetContext = "_self" | "_blank";
 
@@ -15,7 +15,7 @@ type ForDataType<T> = {
   [P in T]?: ForDataType<T[P]>;
 };
 
-type AnyFunction<T> = (...args: any[]) => T;
+type AnyFunction<T> = (...args: never[]) => T;
 
 type PropType<T> = VuePropType<T>;
 
@@ -27,13 +27,13 @@ type Nullable<T> = T | null;
 
 type NonNullable<T> = T extends null | undefined ? never : T;
 
-type Recordable<T = any> = Record<string, T>;
+type Recordable<T = unknown> = Record<string, T>;
 
-type ReadonlyRecordable<T = any> = {
+type ReadonlyRecordable<T = unknown> = {
   readonly [key: string]: T;
 };
 
-type Indexable<T = any> = {
+type Indexable<T = unknown> = {
   [key: string]: T;
 };
 
@@ -63,11 +63,11 @@ interface ImportMetaEnv extends ViteEnv {
   __: unknown;
 }
 
-interface Fn<T = any, R = T> {
+interface Fn<T = unknown, R = T> {
   (...arg: T[]): R;
 }
 
-interface PromiseFn<T = any, R = T> {
+interface PromiseFn<T = unknown, R = T> {
   (...arg: T[]): Promise<R>;
 }
 

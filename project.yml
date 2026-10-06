@@ -61,6 +61,10 @@ commands:
       command_ref: "package.json#scripts.build"
       side_effects: [frontend/dist]
   test:
+    docs:
+      command: "pnpm check:docs"
+      cwd: .
+      command_ref: "package.json#scripts.check:docs"
     unit:
       command: "pnpm test:unit"
       cwd: .
@@ -89,6 +93,12 @@ commands:
       command_ref: "package.json#scripts.check:migrations"
       requires: [workspace-dependencies, docker-compatible-runtime, pc-chromium]
       side_effects: [temporary-project-directory, unique-supabase-project, unique-service-ports, temporary-containers-and-volume]
+    migration_upgrades:
+      command: "pnpm check:migration-upgrades"
+      cwd: .
+      command_ref: "package.json#scripts.check:migration-upgrades"
+      requires: [workspace-dependencies, docker-compatible-runtime]
+      side_effects: [temporary-project-directory, unique-supabase-projects, unique-service-ports, temporary-containers-and-volumes, temporary-upgrade-fixtures]
   supabase:
     local_start:
       command: "pnpm supabase:start"
@@ -108,6 +118,24 @@ commands:
       command_ref: "package.json#scripts.supabase:db:reset"
       requires: [docker-compatible-runtime, confirmed-disposable-local-project, human-approval]
       side_effects: [drop-and-recreate-current-local-database]
+  template:
+    initialize:
+      command: "pnpm template:init -- --project-id <id> --title <title>"
+      cwd: .
+      command_ref: "package.json#scripts.template:init"
+      requires: [docker-compatible-runtime, no-local-supabase-state, first-initialization]
+      side_effects: [project-config-files, project-initialization-marker]
+    select_migration_track:
+      command: "pnpm template:select-migrations -- --track <history|baseline>"
+      cwd: .
+      command_ref: "package.json#scripts.template:select-migrations"
+      requires: [docker-compatible-runtime, no-local-supabase-state, before-first-database-start]
+      side_effects: [active-migration-directory, archived-history, migration-track-marker]
+    sync_migrations:
+      command: "pnpm template:sync-migrations"
+      cwd: .
+      command_ref: "package.json#scripts.template:sync-migrations"
+      side_effects: [baseline-incremental-migration-copies]
   lint:
     command: "pnpm lint"
     cwd: .
@@ -161,11 +189,11 @@ permissions:
 
 freshness:
   scope: "repository source manifests, Supabase config/migrations, CI and test scripts"
-  evidence: [package.json, pnpm-lock.yaml, frontend/package.json, supabase/config.toml, supabase/migrations/, supabase/functions/, supabase/tests/, .github/workflows/ci.yml, .gitignore]
-  verified_at: "2026-10-05"
+  evidence: [package.json, pnpm-lock.yaml, frontend/package.json, supabase/config.toml, supabase/migrations/, supabase/baselines/, supabase/functions/, supabase/tests/, scripts/check-docs.mjs, scripts/check-migration-upgrades.mjs, .github/workflows/ci.yml, .gitignore]
+  verified_at: "2026-10-06"
   owner: template-maintainer
   status: verified-static
   refresh_triggers: [toolchain-change, dependency-change, workflow-change, permission-change, service-configuration-change]
 
 completion:
-  definition: "final source passes typecheck, build, unit tests, PC browser tests and disposable migration replay; report any unrun or failed checks"
+  definition: "final source passes docs, zero-warning lint, typecheck, build, unit tests, PC browser tests, historical empty replay and retained-data dual-track migration upgrades; report actual incremental count and any unrun or failed checks"

@@ -8,6 +8,7 @@ export interface MockProfile {
   roles: string[];
   permissions: string[];
   email?: string;
+  sessionId?: string;
 }
 
 /** Seed Supabase Auth storage for isolated UI specs; each spec mocks its own data services. */
@@ -19,8 +20,10 @@ export async function installSupabaseSessionMock(
   const supabaseUrl = process.env.VITE_SUPABASE_URL ?? "http://127.0.0.1:54321";
   const storageKey = `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
   const fixtureMarker = `${storageKey}-playwright-initialized`;
+  const sessionId = profile.sessionId ?? `00000000-0000-4000-8000-${profile.authUserId.replaceAll("-", "").slice(-12)}`;
   const encodedPayload = Buffer.from(JSON.stringify({
     sub: profile.authUserId,
+    session_id: sessionId,
     aud: "authenticated",
     role: "authenticated",
     exp: expiresAt,

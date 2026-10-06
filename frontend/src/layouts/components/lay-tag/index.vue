@@ -70,11 +70,11 @@ function navigateTo(item?: RouteConfigs | null) {
   if (item.name) {
     void router.push({
       name: item.name,
-      query: item.query as any,
-      params: item.params as any
+      query: item.query,
+      params: item.params
     });
   } else {
-    void router.push({ path: item.path, query: item.query as any });
+    void router.push({ path: item.path, query: item.query });
   }
 }
 
@@ -85,7 +85,7 @@ async function perform(action: TagAction, target: RouteConfigs | null = activeTa
     NProgress.start();
     const current = route;
     await router.replace({ path: `/redirect${current.fullPath}` });
-    handleAliveRoute(current as any, "refresh");
+    handleAliveRoute(current, "refresh");
     NProgress.done();
     return;
   }
@@ -94,7 +94,7 @@ async function perform(action: TagAction, target: RouteConfigs | null = activeTa
     const keep = fixedTags.value.length ? fixedTags.value : firstFixed ? [firstFixed] : [];
     tagStore.handleTags("equal", keep);
     navigateTo(keep.at(-1));
-    handleAliveRoute(route as any);
+    handleAliveRoute(route);
     return;
   }
 
@@ -124,7 +124,7 @@ async function perform(action: TagAction, target: RouteConfigs | null = activeTa
   if ((action === "current" && isCurrent(target, route.path, route.query, route.params)) || !targetStillExists) {
     navigateTo(nextTags.at(-1) ?? fixedTags.value.at(-1));
   }
-  handleAliveRoute(route as any);
+  handleAliveRoute(route);
 }
 
 function openContext(item: RouteConfigs, event: MouseEvent) {

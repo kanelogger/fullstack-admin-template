@@ -1,4 +1,4 @@
-import type { RouteRecordName } from "vue-router";
+import type { LocationQueryRaw, RouteParamsRaw, RouteRecordName, RouteMeta } from "vue-router";
 
 export type cacheType = {
   mode: string;
@@ -25,9 +25,9 @@ export type uiType = {
 export type tabType = {
   path: string;
   name: string;
-  meta: any;
-  query?: object;
-  params?: object;
+  meta: RouteMeta;
+  query?: LocationQueryRaw;
+  params?: RouteParamsRaw;
 };
 
 export type sessionType = {
@@ -36,6 +36,7 @@ export type sessionType = {
   nickname?: string;
   userId?: string;
   authUserId?: string;
+  authSessionId?: string;
   isAuthenticated?: boolean;
   authReady?: boolean;
   mustResetPassword?: boolean;

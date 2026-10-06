@@ -7,8 +7,8 @@
 | Node / pnpm | Node `>=22.13.0`、pnpm `>=9`；锁定 24.18.0 / 12.3.4 | 同版本，使用 frozen lockfile | 不适用 |
 | 数据库 | Supabase Local / Postgres 17 | `check:migrations` 动态创建隔离本地 Supabase project | 不适用 |
 | Browser | PC Chromium / Playwright | 安装 Chromium 与系统依赖 | 不适用 |
-| 质量步骤 | typecheck、build、unit、mock/local Auth、db 集成 | 冻结安装、typecheck、build、unit、PC mock、完整隔离 migration check | 不适用 |
+| 质量步骤 | typecheck、build、unit、mock/local Auth、db 集成 | 冻结安装、docs/route 检查、零 warning lint、typecheck、build、unit、PC mock、历史 replay、双轨升级 | 不适用 |
 
-CI workflow 已创建在当前工作区，尚未暂存或提交；尚无 CI 运行结果的静态文件不能证明远端 job 已通过。push / pull_request job 若因容器权限、端口、系统依赖或运行时差异失败，分别记录为 CI 结果。
+CI 的静态步骤以仓库中的 workflow 文件为准；远程执行状态只由对应 GitHub Actions run 证明。维护本文时更新运行环境和步骤配置，不记录易过期的分支、提交或最近一次运行状态。
 
 当前没有发布或生产部署配置，不推断生产域名、密钥、数据库、备份或发布命令。

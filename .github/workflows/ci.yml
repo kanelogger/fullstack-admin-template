@@ -24,6 +24,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check route registry
         run: pnpm check:routes
+      - name: Check documentation references
+        run: pnpm check:docs
       - name: Lint
         run: pnpm lint
       - name: Install PC Chromium
@@ -36,5 +38,17 @@ jobs:
         run: pnpm test:unit
       - name: PC browser tests
         run: pnpm test:e2e:mock
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-mock-diagnostics
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Disposable Supabase migration and integration checks
         run: pnpm check:migrations
+      - name: Migration track upgrade checks
+        run: pnpm check:migration-upgrades

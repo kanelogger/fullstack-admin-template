@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import type { RouteConfigs } from "@/layouts/types";
 import { Button } from "@/components/ui/button";
 import { getConfig } from "@/config";
-import { initRouter } from "@/router/utils";
 import { emitter } from "@/utils/mitt";
 import { useUiStoreHook } from "@/stores/modules/ui";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
+import { useSessionStoreHook } from "@/stores/modules/session";
 import SidebarItem from "./components/SidebarItem.vue";
 import SidebarLogo from "./components/SidebarLogo.vue";
 import SidebarLeftCollapse from "./components/SidebarLeftCollapse.vue";
@@ -15,6 +16,7 @@ import SidebarCenterCollapse from "./components/SidebarCenterCollapse.vue";
 const route = useRoute();
 const appStore = useUiStoreHook();
 const permissionStore = usePermissionStoreHook();
+const sessionStore = useSessionStoreHook();
 const menuError = ref("");
 const loadState = ref<"loading" | "ready" | "empty" | "error">("loading");
 const isHovered = ref(false);
@@ -61,7 +63,7 @@ async function retryMenus() {
   loadState.value = "loading";
   menuError.value = "";
   try {
-    await initRouter();
+    if (!await sessionStore.initSessionNavigation()) return;
     loadState.value = permissionStore.wholeMenus.length ? "ready" : "empty";
     if (!permissionStore.wholeMenus.length) {
       menuError.value = "服务器没有返回可用菜单，请检查当前账号的菜单授权。";
@@ -77,7 +79,7 @@ function toggleSidebar() {
   void appStore.toggleSideBar();
 }
 
-function getParentPath(path: string, menus: any[], parents: string[] = []): string[] {
+function getParentPath(path: string, menus: RouteConfigs[], parents: string[] = []): string[] {
   for (const menu of menus) {
     const fullPath = resolvePath("", menu.path ?? "");
     if (fullPath === path || path.startsWith(`${fullPath}/`)) {
@@ -90,7 +92,7 @@ function getParentPath(path: string, menus: any[], parents: string[] = []): stri
   return parents;
 }
 
-function findByPath(path: string, menus: any[]): any | undefined {
+function findByPath(path: string, menus: RouteConfigs[]): RouteConfigs | undefined {
   for (const menu of menus) {
     if (resolvePath("", menu.path ?? "") === path) return menu;
     const nested = menu.children?.length ? findByPath(path, menu.children) : undefined;

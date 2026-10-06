@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import type { RouteConfigs, routeMetaType } from "@/layouts/types";
 import { match } from "pinyin-pro";
 import Sortable from "sortablejs";
 import { useEventListener } from "@vueuse/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getConfig } from "@/config";
-import { initRouter } from "@/router/utils";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
+import { useSessionStoreHook } from "@/stores/modules/session";
 import { Star, X } from "@lucide/vue";
 import SearchFooter from "./SearchFooter.vue";
 
@@ -16,13 +17,14 @@ type MenuOption = {
   path: string;
   name?: string;
   type?: "history" | "collect";
-  meta?: { title?: string; icon?: string };
+  meta?: { title?: string; icon?: routeMetaType["icon"] };
 };
 
 const props = defineProps<{ value: boolean }>();
 const emit = defineEmits<{ (event: "update:value", value: boolean): void }>();
 const router = useRouter();
 const permissionStore = usePermissionStoreHook();
+const sessionStore = useSessionStoreHook();
 const dialog = ref<HTMLDialogElement | null>(null);
 const favoritesList = ref<HTMLElement | null>(null);
 const keyword = ref("");
@@ -39,12 +41,12 @@ const historyLimit = Number(getConfig().MenuSearchHistory ?? 6);
 
 const menuOptions = computed<MenuOption[]>(() => {
   const result: MenuOption[] = [];
-  const visit = (items: any[]) => {
+  const visit = (items: RouteConfigs[]) => {
     for (const item of items) {
       if (item.meta?.title && item.meta?.showLink !== false) {
         result.push({
           path: String(item.path ?? ""),
-          name: item.name,
+          ...(typeof item.name === "string" ? { name: item.name } : {}),
           meta: { title: String(item.meta.title), icon: item.meta.icon }
         });
       }
@@ -217,7 +219,7 @@ async function retryMenus() {
   menuLoading.value = true;
   menuError.value = "";
   try {
-    await initRouter();
+    if (!await sessionStore.initSessionNavigation()) return;
     if (!permissionStore.wholeMenus.length) {
       menuError.value = "账号没有已授权的可搜索菜单。";
     }

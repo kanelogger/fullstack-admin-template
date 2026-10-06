@@ -7,12 +7,14 @@
 - `pnpm typecheck`：检查 Vue/TypeScript、共享 Zod 合同与三个 Deno Edge Function 入口。
 - `pnpm lint`：检查 Vue、TypeScript、共享合同、仓库脚本与 Deno Edge Functions。
 - `pnpm check:routes`：核对 RouteKey 合同、页面注册、唯一默认路径、有效权限键及导入文件存在且不被 Git 忽略；CI 还要求导入文件已跟踪。
+- `pnpm check:docs`：核对活动 Markdown 的本地链接与 workspace 脚本引用；历史工作流记录不作为当前命令源。
 - `pnpm build`：生成生产前端包。
 - `pnpm test:unit`：运行前端逻辑、合同、Edge helper 和本地脚本测试。
-- `pnpm test:e2e:mock`：用隔离响应启动 Vite 与 PC Chromium，验证路由、主要页面、授权 UI、延迟 Session 刷新/退出竞态，以及另一标签切换账号时保留新 Session。
+- `pnpm test:e2e:mock`：用隔离响应启动 Vite 与 PC Chromium，验证路由、主要页面、授权 UI、延迟 Session 刷新/退出竞态，以及另一标签切换账号或同账号创建新 Session 时保留新 Session。
 - `pnpm test:e2e:local`：连接本机 Supabase/Mailpit，由真实 PC Chromium 验证恢复、登录、字典 CRUD、Realtime 收件、刷新恢复、COMMON_USER 越权拒绝、登出与旧 token 的 RLS 拒绝。
 - `pnpm test:db`：在已启动的当前 Supabase Local 数据库运行 pgTAP，并创建/清理 Auth、RLS、Storage、Realtime 与 Edge 集成数据；它不会重建数据库。
 - `pnpm check:migrations`：复制 Supabase 配置到临时目录，用唯一 project ID 和动态端口从空库重放 migrations/seed、二次执行 seed、运行 DB lint/advisors、pgTAP、Edge/Storage/Auth 检查、管理员 bootstrap 并发测试和本地 Auth 浏览器流程。脚本结束时只停止并删除自己创建的临时 Supabase 项目。
+- `pnpm check:migration-upgrades`：在隔离数据库由历史流生成最近三条真实增量前的临时基线，并分别对历史库和临时基线库保留测试数据、应用同一组增量、验证数据/授权/ledger；另验固定发布基线。最终比较 RLS/ACL、函数安全属性、Storage、Realtime、seed 和完整 schema。探针不进 migration ledger，比较前清理；升级阶段不调用 `db reset`。
 
 PC 浏览器最低验收路径固定为“登录 → 动态菜单 → 授权访问/拒绝越权 → 真实核心 CRUD → Realtime 收件 → 刷新恢复 → 登出并验证服务端拒绝旧 access token”。该路径由本地 Supabase 的 `test:e2e:local` 覆盖；mock E2E 和分层 pgTAP 测试不能替代该门槛。
 

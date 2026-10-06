@@ -1,4 +1,5 @@
 import type { FunctionalComponent } from "vue";
+import type { LocationQueryRaw, RouteParamsRaw, RouteRecordName } from "vue-router";
 
 /** Supabase navigation is session-scoped; no legacy route tags survive logout. */
 export const routerArrays: Array<RouteConfigs> = [];
@@ -10,15 +11,30 @@ export type routeMetaType = {
   savedPosition?: boolean;
   auths?: Array<string>;
   fixedTag?: boolean;
+  rank?: number;
+  frameSrc?: string;
+  frameLoading?: boolean;
+  keepAlive?: boolean;
+  showParent?: boolean;
+  hiddenTag?: boolean;
+  dynamicLevel?: number;
+  activePath?: string;
+  backstage?: boolean;
+  extraIcon?: string | FunctionalComponent;
 };
 
 export type RouteConfigs = {
   path?: string;
-  query?: object;
-  params?: object;
+  query?: LocationQueryRaw;
+  params?: RouteParamsRaw;
   meta?: routeMetaType;
   children?: RouteConfigs[];
-  name?: string;
+  name?: RouteRecordName;
+  redirect?: string;
+  id?: number;
+  parentId?: number | null;
+  pathList?: Array<number | string>;
+  value?: unknown;
 };
 
 export type multiTagsType = {
@@ -33,24 +49,9 @@ export type tagsViewsType = {
   show: boolean;
 };
 
-export type menuType = {
-  id?: number;
-  name?: string;
-  path?: string;
+export type menuType = RouteConfigs & {
   noShowingChildren?: boolean;
-  children?: menuType[];
-  value: unknown;
-  meta?: {
-    icon?: string;
-    title?: string;
-    rank?: number;
-    showParent?: boolean;
-    extraIcon?: string;
-  };
   showTooltip?: boolean;
-  parentId?: number;
-  pathList?: number[];
-  redirect?: string;
 };
 
 export interface scrollbarDomType extends HTMLElement {

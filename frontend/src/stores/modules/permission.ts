@@ -1,4 +1,6 @@
 import { defineStore } from "pinia";
+import type { RouteRecordRaw } from "vue-router";
+import type { RouteConfigs } from "@/layouts/types";
 import { cloneDeep } from "@/utils/shared";
 import {
   type cacheType,
@@ -19,9 +21,9 @@ export const usePermissionStore = defineStore("permission", {
     // 静态路由生成的菜单
     constantMenus,
     // 整体路由生成的菜单（静态、动态）
-    wholeMenus: [],
+    wholeMenus: [] as RouteConfigs[],
     // 整体路由（一维数组格式）
-    flatteningRoutes: [],
+    flatteningRoutes: [] as RouteConfigs[],
     // 缓存页面keepAlive
     cachePageList: []
   }),
@@ -37,13 +39,17 @@ export const usePermissionStore = defineStore("permission", {
       this.cachePageList = [];
     },
     /** 组装整体路由生成的菜单 */
-    handleWholeMenus(routes: any[]) {
+    handleWholeMenus(routes: RouteRecordRaw[]) {
+      // Pinia unwraps the static route component union in state; restore the
+      // Vue Router contract at this boundary before traversing route records.
+      const staticRoutes = this.constantMenus as unknown as RouteRecordRaw[];
+      const allRoutes: RouteRecordRaw[] = [...staticRoutes, ...routes];
       this.wholeMenus = filterNoPermissionTree(
-        filterTree(ascending(this.constantMenus.concat(routes)))
-      );
+        filterTree(ascending(allRoutes))
+      ) as unknown as RouteConfigs[];
       this.flatteningRoutes = formatFlatteningRoutes(
-        cloneDeep(this.constantMenus.concat(routes)) as any
-      );
+        cloneDeep(allRoutes)
+      ) as unknown as RouteConfigs[];
     },
     /** 监听缓存页面是否存在于标签页，不存在则删除 */
     clearCache() {

@@ -12,13 +12,13 @@ declare global {
     // eslint-disable-next-line
     interface ElementClass extends Vue {}
     interface ElementAttributesProperty {
-      $props: any;
+      $props: Record<string, unknown>;
     }
     interface IntrinsicElements {
-      [elem: string]: any;
+      [elem: string]: Record<string, unknown>;
     }
     interface IntrinsicAttributes {
-      [elem: string]: any;
+      [elem: string]: Record<string, unknown>;
     }
   }
 }
