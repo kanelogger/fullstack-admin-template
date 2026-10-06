@@ -26,4 +26,4 @@
 
 ## 命令
 
-从仓库根目录运行 `pnpm dev`、`pnpm check:docs`、`pnpm check:routes`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test:unit`、`pnpm test:e2e:mock`、`pnpm test:e2e:local`、`pnpm test:db`、`pnpm check:migrations` 与 `pnpm check:migration-upgrades`。仅面向 PC Chromium 验收，不定义移动端适配要求。
+命令、前置条件与副作用见根 `AGENTS.md` 与 `docs/agent-environment/commands.md`，从仓库根目录运行。仅面向 PC Chromium 验收，不定义移动端适配要求。
