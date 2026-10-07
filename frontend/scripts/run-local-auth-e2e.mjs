@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { playwrightArtifactEnvironment } from "../../scripts/playwright-artifacts.mjs";
 
 const frontendRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repositoryRoot = resolve(process.env.SUPABASE_PROJECT_ROOT ?? resolve(frontendRoot, ".."));
@@ -50,7 +51,7 @@ if (result.error || result.status !== 0) {
         cwd: frontendRoot,
         stdio: "inherit",
         env: {
-          ...process.env,
+          ...playwrightArtifactEnvironment(process.env, "local-auth"),
           E2E_LOCAL_AUTH: "1",
           VITE_SUPABASE_URL: apiUrl,
           VITE_SUPABASE_PUBLISHABLE_KEY: publishableKey,

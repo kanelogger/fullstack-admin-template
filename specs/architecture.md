@@ -36,5 +36,6 @@
 
 - Node `>=22.13.0`、pnpm `>=9`，项目固定 Node 24.18.0 / pnpm 12.3.4；Postgres Local major version 为 17。
 - `pnpm supabase:start/status/stop` 管理本地栈；`pnpm dev` 同时启动 Edge Functions 与 Vite (`127.0.0.1:8848`)。Auth 邮件由本地 Mailpit 捕获。
-- `pnpm check:docs` 检查活动 Markdown 本地链接和命令；`pnpm check:routes` 检查 RouteKey 合同、菜单元数据、权限键与可跟踪页面；`pnpm lint` 要求 Vue/TypeScript、共享合同、脚本和 Deno Edge Functions 零 warning。`pnpm typecheck` 检查全栈类型；`pnpm test:unit` 跑 Vitest/helper；`pnpm test:e2e:mock` 覆盖 PC UI 与 Session 竞态；`pnpm test:e2e:local` 覆盖本地 Supabase 浏览器链路；`pnpm test:db` 跑本地 pgTAP 与服务集成；`pnpm check:migrations` 验证历史空库重放；`pnpm check:migration-upgrades` 验证历史与临时基线的真实增量升级及固定基线、数据保留、账本、权限和完整 schema manifest。
+- `pnpm check:docs` 检查活动 Markdown 本地链接和命令；`pnpm check:routes` 检查 RouteKey 合同、菜单元数据、权限键与可跟踪页面；`pnpm lint` 要求 Vue/TypeScript、共享合同、脚本和 Deno Edge Functions 零 warning。`pnpm typecheck` 检查全栈类型；`pnpm test:unit` 聚合 Node Vitest、jsdom Vue 组件、共享合同与脚本测试；`pnpm test:visual` 在固定容器比较确定性基线；`pnpm test:agent:start` 在指定 BrowserSkill 实例中验收真实 Dashboard 会话；`pnpm test:e2e:mock` 覆盖 PC UI 与 Session 竞态；`pnpm test:e2e:local` 覆盖本地 Supabase 浏览器链路；`pnpm test:db` 跑本地 pgTAP 与服务集成；`pnpm check:migrations` 验证历史空库重放；`pnpm check:migration-upgrades` 验证历史与临时基线的真实增量升级及固定基线、数据保留、账本、权限和完整 schema manifest。
+- Playwright Mock、Local Auth 和 Visual 套件分别写入 `test-results/{mock,local-auth,visual}/` 及 `playwright-report/{mock,local-auth,visual}/`；CI 在各自门禁完成后收集这些诊断目录。Dashboard Agent 报告将产品状态、资源清理状态和证据完整性分开保存；未完成必需证据时产品结果不能记为 `Pass`。
 - GitHub Actions 在 push/pull_request 上执行冻结安装、路由检查、源码 lint、类型检查、构建、单测、PC mock 浏览器测试和隔离 migration check。无生产部署配置。

@@ -37,14 +37,18 @@ pnpm check:docs
 pnpm check:routes
 pnpm build
 pnpm test:unit
+pnpm test:components
 pnpm test:e2e:mock
+pnpm test:visual
 pnpm test:e2e:local
 pnpm test:db
 pnpm check:migrations
 pnpm check:migration-upgrades
 ```
 
-`test:e2e:mock` 使用隔离服务响应，覆盖 PC 浏览器壳、权限路由、核心管理页面、延迟刷新/登出，以及跨标签同账号重登和账号切换。CI 保留重试用于诊断，但 flaky 结果仍使 CI 失败，并上传限期 trace/report。`test:e2e:local` 使用本地 Supabase/Mailpit 验证恢复登录、字典 CRUD、Realtime、刷新、越权和旧 token 的 RLS 拒绝。`check:migrations` 验证历史流空库重放；`check:migration-upgrades` 在历史流和临时基线两边保留数据并应用最近三条真实增量，另外验收固定发布基线，比较权限、账本与完整 schema manifest。
+`test:e2e:mock` 使用隔离服务响应，覆盖 PC 浏览器壳、权限路由、核心管理页面、延迟刷新/登出，以及跨标签同账号重登和账号切换。CI 保留重试用于诊断，但 flaky 结果仍使 CI 失败，并上传限期 trace/report。Mock、Local Auth、Visual 的 Playwright 报告分别保存在 `playwright-report/{mock,local-auth,visual}/` 与 `test-results/{mock,local-auth,visual}/`，不会互相清理。`test:e2e:local` 使用本地 Supabase/Mailpit 验证恢复登录、字典 CRUD、Realtime、刷新、越权和旧 token 的 RLS 拒绝。`check:migrations` 验证历史流空库重放；`check:migration-upgrades` 在历史流和临时基线两边保留数据并应用最近三条真实增量，另外验收固定发布基线，比较权限、账本与完整 schema manifest。
+
+Dashboard 视觉基线在固定 Playwright Linux 容器中比较；更新时运行 `pnpm test:visual:update` 并审阅差异。真实 Dashboard BrowserSkill 试点可通过 `pnpm test:agent:start -- --scenario dashboard --browser <instance-id>` 启动；它只在独立临时栈内运行 `pnpm setup:admin` 并生成 run 专属消息/操作 fixture，完成后使用对应 run ID 清理环境。报告分别记录产品结果、资源清理和证据完整性；stop 未确认时保留临时项目目录，缺少必需截图或调试导出会把 `Pass` 降为 `Unknown`。
 
 ## 架构资料
 

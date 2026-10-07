@@ -29,14 +29,24 @@ Supabase seed 不含公开默认管理员。`pnpm setup:admin` 只连接本机 S
 | 用途 | 命令 | 说明 |
 | --- | --- | --- |
 | 单元 | `pnpm test:unit` | Vitest 与本地 helper 测试 |
-| PC 浏览器 mock | `pnpm test:e2e:mock` | Playwright Chromium；隔离服务 fixture，不需要 Supabase 数据库 |
-| 本地 PC 浏览器全链路 | `pnpm test:e2e:local` | 本地 Supabase/Mailpit 上真实验证 Auth、字典 CRUD、Realtime、刷新、越权拒绝和退出后的旧 token RLS 拒绝 |
+| Vue 组件 | `pnpm test:components` | 单独 jsdom 配置运行 `*.component.test.ts`；根 `test:unit` 已包含它 |
+| PC 浏览器 mock | `pnpm test:e2e:mock` | Playwright Chromium；隔离服务 fixture；产物位于 `test-results/mock/` 与 `playwright-report/mock/` |
+| 视觉基线 | `pnpm test:visual` | 固定 Playwright 1.63.0 Linux amd64 容器；产物在 `visual/` 子目录；需要 Docker-compatible runtime |
+| 更新视觉基线 | `pnpm test:visual:update` | 同一容器生成 PNG 候选，审阅差异后再入库 |
+| Dashboard Agent 环境 | `pnpm test:agent:start -- --scenario dashboard --browser <instance-id>` | 先检查指定浏览器实例、扩展及 debug 能力，再在唯一临时 Supabase 项目运行受支持的 `setup:admin`，由前台 supervisor 管理临时 Vite/Edge |
+| 填充 Agent 凭据 | `pnpm test:agent:fill -- --run-id <id> --session <session-id> --ref <snapshot-ref-or-css-selector> --field loginName|password` | 校验 run 与 BrowserSkill Session 归属，从私有运行文件读取字段值；selector 仅在语义控件不可观察且 DOM 已核实时使用 |
+| 清理 Agent 环境 | `pnpm test:agent:cleanup -- --run-id <id> [--browser-page-visited true] [--product-status Pass|Fail|Unknown] [--reason <text>]` | 共用正常/孤儿清理流程，验证进程退出；Supabase stop 失败时保留临时项目目录和诊断路径；产品、资源清理和证据完整性分别记录，缺少必需证据会将 Pass 降为 Unknown |
+| 本地 PC 浏览器全链路 | `pnpm test:e2e:local` | 本地 Supabase/Mailpit 上真实验证 Auth、字典 CRUD、Realtime、刷新、越权拒绝和退出后的旧 token RLS 拒绝；产物位于 `test-results/local-auth/` 与 `playwright-report/local-auth/` |
 | 当前本地数据库 | `pnpm test:db` | pgTAP/Auth/Edge/Storage/Realtime fixtures；清理测试记录，不重置数据库 |
 | 完整空库验收 | `pnpm check:migrations` | 唯一临时 project ID 和动态端口，空库 replay、重复 seed、lint/advisors、pgTAP、服务集成、管理员并发、默认凭据创建与 PC 浏览器登录 |
 | 双轨数据保留升级 | `pnpm check:migration-upgrades` | 临时基线在最近三条真实增量前生成；历史库和临时基线库保留 SQL fixture、应用同一增量并检查数据/授权/账本/schema manifest。固定发布基线另行验收 |
 | 新项目 schema 基线导出 | `pnpm check:migrations -- --baseline-output /private/tmp/template-baseline.sql` | 从完整历史验收库导出候选 SQL，再在第二个隔离空库只重放该 SQL 并完成数据库、Auth、Storage、Realtime 与浏览器验收；全部通过后才原子发布到不存在的目标路径，失败会清理候选文件，不修改当前数据库 |
 
 `check:migrations` 使用临时工作目录并在结束时停止自己创建的栈；它不访问当前 Supabase 项目。测试产生失败时检查 project ID 与 cleanup 结果，不要停止其他容器。
+
+`test:visual` 和 `test:visual:update` 在系统临时目录创建源码副本后运行固定容器，不复用宿主 `node_modules` 或已有 Vite 服务。Agent 验收只运行在命令中指定且仍连接的 BrowserSkill 实例；调用者权限探针使用真实 `session-login` Session，`setup:admin` 只作用于 run 专属临时项目，消息与操作记录按 run ID 隔离。
+
+Mock、Local Auth 和 Visual 三套 Playwright 诊断使用独立子目录；CI 的最终 artifact 步骤上传这三个目录的父目录，任一套报告不会覆盖另一套。
 
 `check:migration-upgrades` 用 `20261004231856` 作为本轮升级演练起点，验证最近 3 个真实增量同时适用于历史库和临时生成基线库；此外从固定发布 cutoff `20261005084413` 验收当前基线。probe 来自独立 fixture，不登记 migration 版本，并在最终 schema 比较前删除。固定基线当前无 cutoff 后增量，随着未来 migration 加入，两轨都会自动应用并比较。
 

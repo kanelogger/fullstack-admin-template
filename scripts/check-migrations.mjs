@@ -86,18 +86,69 @@ function replacePort(config, section, property, value) {
   return lines.join("\n");
 }
 
-function isolatedConfig(config, projectId, ports) {
+function replaceTomlValue(config, section, property, value) {
+  const lines = config.split("\n");
+  let inSection = false;
+  let replaced = false;
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const header = line.match(/^\[([^\]]+)\]$/);
+    if (header) inSection = header[1] === section;
+    if (inSection && new RegExp(`^\\s*${escapedProperty}\\s*=`).test(line)) {
+      const replacesMultilineArray = /^\s*[^=]+\s*=\s*\[/.test(line) && !line.includes("]");
+      lines[index] = `${property} = ${value}`;
+      if (replacesMultilineArray) {
+        while (index + 1 < lines.length) {
+          const continuation = lines.splice(index + 1, 1)[0];
+          if (continuation.includes("]")) break;
+        }
+      }
+      replaced = true;
+      break;
+    }
+  }
+  if (!replaced) throw new Error(`Could not find [${section}].${property} in supabase/config.toml`);
+  return lines.join("\n");
+}
+
+function validateAppOrigin(appOrigin) {
+  const url = new URL(appOrigin);
+  if (
+    url.protocol !== "http:" ||
+    url.hostname !== "127.0.0.1" ||
+    url.port === "" ||
+    url.pathname !== "/" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Error("Agent testing only accepts a plain 127.0.0.1 HTTP origin with an explicit port");
+  }
+  return url.origin;
+}
+
+export function isolatedConfig(config, projectId, ports, appOrigin) {
   let updated = config.replace(/^project_id\s*=.*$/m, `project_id = "${projectId}"`);
   updated = replacePort(updated, "api", "port", ports.api);
   updated = replacePort(updated, "db", "port", ports.db);
   updated = replacePort(updated, "db", "shadow_port", ports.shadow);
   updated = replacePort(updated, "studio", "port", ports.studio);
+  if (appOrigin) {
+    const origin = validateAppOrigin(appOrigin);
+    updated = replaceTomlValue(updated, "auth", "site_url", JSON.stringify(origin));
+    updated = replaceTomlValue(
+      updated,
+      "auth",
+      "additional_redirect_urls",
+      JSON.stringify([`${origin}/**`])
+    );
+  }
   updated += `\n[analytics]\nport = ${ports.analytics}\nvector_port = ${ports.vector}\n`;
   updated += `\n[inbucket]\nenabled = true\nport = ${ports.mailpit}\nsmtp_port = ${ports.smtp}\npop3_port = ${ports.pop3}\n`;
   return updated;
 }
 
-export async function createIsolatedProject(tempRoot, projectId, ports) {
+export async function createIsolatedProject(tempRoot, projectId, ports, options = {}) {
   await mkdir(tempRoot, { recursive: true });
   const isolatedRoot = join(tempRoot, "project");
   const isolatedSupabase = join(isolatedRoot, "supabase");
@@ -110,7 +161,7 @@ export async function createIsolatedProject(tempRoot, projectId, ports) {
   });
   const configPath = join(isolatedSupabase, "config.toml");
   const config = await readFile(configPath, "utf8");
-  await writeFile(configPath, isolatedConfig(config, projectId, ports));
+  await writeFile(configPath, isolatedConfig(config, projectId, ports, options.appOrigin));
   return isolatedRoot;
 }
 

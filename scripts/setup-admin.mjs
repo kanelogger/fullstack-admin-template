@@ -9,14 +9,8 @@ import {
   isEmailConflict,
   matchesBootstrapMarker
 } from "./bootstrap-admin-helpers.mjs";
+import { initialAdmin, initialAdminPassword } from "./initial-admin-credentials.mjs";
 import { getLocalSupabaseStatus, projectRoot } from "./local-supabase.mjs";
-
-const initialAdmin = {
-  loginName: "admin",
-  displayName: "Administrator",
-  email: "admin@example.test"
-};
-const initialPassword = "admin123456";
 
 async function findBootstrapUser(admin, input) {
   for (let page = 1; page <= 1000; page += 1) {
@@ -58,7 +52,7 @@ async function setup(input) {
   if (!authUser) {
     const { data, error } = await admin.auth.admin.createUser({
       email: input.email,
-      password: initialPassword,
+      password: initialAdminPassword,
       email_confirm: true,
       app_metadata: {
         [BOOTSTRAP_METADATA_KEY]: bootstrapMarker(input)

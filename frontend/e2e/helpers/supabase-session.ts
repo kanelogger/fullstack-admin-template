@@ -9,6 +9,7 @@ export interface MockProfile {
   permissions: string[];
   email?: string;
   sessionId?: string;
+  sessionTime?: number;
 }
 
 /** Seed Supabase Auth storage for isolated UI specs; each spec mocks its own data services. */
@@ -16,7 +17,7 @@ export async function installSupabaseSessionMock(
   page: Page,
   profile: MockProfile
 ): Promise<void> {
-  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+  const expiresAt = Math.floor((profile.sessionTime ?? Date.now()) / 1000) + 3600;
   const supabaseUrl = process.env.VITE_SUPABASE_URL ?? "http://127.0.0.1:54321";
   const storageKey = `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
   const fixtureMarker = `${storageKey}-playwright-initialized`;

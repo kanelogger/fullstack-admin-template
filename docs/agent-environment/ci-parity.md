@@ -6,7 +6,10 @@
 | 系统 | 当前开发机，以本轮能力探测为准 | GitHub Actions `ubuntu-latest` | 不适用 |
 | Node / pnpm | Node `>=22.13.0`、pnpm `>=9`；锁定 24.18.0 / 12.3.4 | 同版本，使用 frozen lockfile | 不适用 |
 | 数据库 | Supabase Local / Postgres 17 | `check:migrations` 动态创建隔离本地 Supabase project | 不适用 |
-| Browser | PC Chromium / Playwright | 安装 Chromium 与系统依赖 | 不适用 |
+| Mock browser | PC Chromium / Playwright，产物 `test-results/mock` 与 `playwright-report/mock` | 安装 Chromium 与系统依赖，诊断单独上传 | 确定性交互与 Session 竞态门禁 |
+| Local Auth browser | 本地 Supabase/Mailpit，产物位于 `local-auth` 子目录 | 临时迁移栈检查后独立上传 | 恢复、真实登录、CRUD、Realtime、刷新与旧 token RLS 拒绝 |
+| Visual baseline | Linux amd64 Playwright 1.63.0 Noble container, pinned by image digest；产物位于 `visual` 子目录 | 固定容器与浏览器版本，诊断单独上传 | 登录和 Dashboard 四状态截图比较；CI 不更新基线 |
+| Dashboard Agent pilot | Explicit connected BrowserSkill instance plus isolated Supabase project | Docker-compatible runtime, BrowserSkill daemon and extension | Developer acceptance only; never silently falls back to another browser |
 | 质量步骤 | typecheck、build、unit、mock/local Auth、db 集成 | 冻结安装、docs/route 检查、零 warning lint、typecheck、build、unit、PC mock、历史 replay、双轨升级 | 不适用 |
 
 CI 的静态步骤以仓库中的 workflow 文件为准；远程执行状态只由对应 GitHub Actions run 证明。维护本文时更新运行环境和步骤配置，不记录易过期的分支、提交或最近一次运行状态。

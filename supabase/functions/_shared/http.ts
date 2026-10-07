@@ -3,15 +3,14 @@ const localOrigins = new Set([
   "http://127.0.0.1:8848"
 ]);
 
-function allowedOrigins() {
-  const configured = Deno.env.get("APP_ALLOWED_ORIGINS");
+function allowedOrigins(configured = Deno.env.get("APP_ALLOWED_ORIGINS")) {
   if (!configured) return localOrigins;
   return new Set(configured.split(",").map(origin => origin.trim()).filter(Boolean));
 }
 
-export function corsHeaders(request: Request): HeadersInit {
+export function corsHeaders(request: Request, configuredOrigins?: string): HeadersInit {
   const origin = request.headers.get("origin");
-  const allowed = allowedOrigins();
+  const allowed = allowedOrigins(configuredOrigins);
 
   return {
     "Access-Control-Allow-Origin": origin && allowed.has(origin) ? origin : "null",
@@ -25,18 +24,19 @@ export function corsHeaders(request: Request): HeadersInit {
 export function jsonResponse(
   request: Request,
   status: number,
-  body: unknown
+  body: unknown,
+  configuredOrigins?: string
 ): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders(request),
+      ...corsHeaders(request, configuredOrigins),
       "Content-Type": "application/json; charset=utf-8"
     }
   });
 }
 
-export function handlePreflight(request: Request): Response | null {
+export function handlePreflight(request: Request, configuredOrigins?: string): Response | null {
   if (request.method !== "OPTIONS") return null;
-  return new Response("ok", { headers: corsHeaders(request) });
+  return new Response("ok", { headers: corsHeaders(request, configuredOrigins) });
 }

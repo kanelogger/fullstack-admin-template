@@ -69,18 +69,48 @@ commands:
       command: "pnpm test:unit"
       cwd: .
       command_ref: "package.json#scripts.test:unit"
+    components:
+      command: "pnpm test:components"
+      cwd: .
+      command_ref: "package.json#scripts.test:components"
+      requires: [workspace-dependencies]
+      side_effects: [vitest-jsdom-process]
+    visual_baselines:
+      command: "pnpm test:visual"
+      cwd: .
+      command_ref: "package.json#scripts.test:visual"
+      requires: [docker-compatible-runtime, pinned-playwright-visual-image]
+      side_effects: [temporary-source-copy, temporary-visual-container, playwright-report/visual, test-results/visual]
+    visual_baseline_update:
+      command: "pnpm test:visual:update"
+      cwd: .
+      command_ref: "package.json#scripts.test:visual:update"
+      requires: [docker-compatible-runtime, pinned-playwright-visual-image, explicit-baseline-review]
+      side_effects: [temporary-source-copy, visual-snapshot-png-files]
+    dashboard_agent:
+      command: "pnpm test:agent:start -- --scenario dashboard --browser <instance-id>"
+      cwd: .
+      command_ref: "package.json#scripts.test:agent:start"
+      requires: [docker-compatible-runtime, connected-explicit-browser-skill-instance, browser-skill-extension, browser-skill-debug-capability]
+      side_effects: [unique-temporary-supabase-project, unique-service-ports, temporary-dashboard-fixtures, vite-process, edge-function-process, browser-skill-session]
+    dashboard_agent_cleanup:
+      command: "pnpm test:agent:cleanup -- --run-id <id>"
+      cwd: .
+      command_ref: "package.json#scripts.test:agent:cleanup"
+      requires: [dashboard-agent-run-id]
+      side_effects: [export-browser-evidence, verify-required-evidence, downgrade-pass-when-evidence-missing, stop-recorded-browser-session, stop-and-verify-owned-processes, stop-owned-temporary-supabase-stack, preserve-project-directory-on-stack-stop-failure, remove-temporary-credentials]
     browser_mock:
       command: "pnpm test:e2e:mock"
       cwd: .
       command_ref: "package.json#scripts.test:e2e:mock"
       requires: [workspace-dependencies, pc-chromium]
-      side_effects: [vite-test-server, playwright-report, test-results]
+      side_effects: [vite-test-server, playwright-report/mock, test-results/mock]
     browser_local_auth:
       command: "pnpm test:e2e:local"
       cwd: .
       command_ref: "package.json#scripts.test:e2e:local"
       requires: [local-supabase, local-mailpit, pc-chromium]
-      side_effects: [edge-function-server, vite-test-server, temporary-auth-fixtures, temporary-mailpit-message]
+      side_effects: [edge-function-server, vite-test-server, temporary-auth-fixtures, temporary-mailpit-message, playwright-report/local-auth, test-results/local-auth]
     local_database:
       command: "pnpm test:db"
       cwd: .
