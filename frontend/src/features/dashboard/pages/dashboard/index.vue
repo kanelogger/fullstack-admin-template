@@ -120,8 +120,8 @@ watch(
 </script>
 
 <template>
-  <main class="space-y-6 p-4 md:p-6" :aria-busy="loading">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+  <main class="dashboard-page" :aria-busy="loading">
+    <header class="dashboard-header">
       <div>
         <p class="text-sm font-medium text-primary">工作台</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight text-foreground">系统概览</h1>
@@ -133,7 +133,7 @@ watch(
       </Button>
     </header>
 
-    <section v-if="loading && !overview" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="正在加载概览">
+    <section v-if="loading && !overview" class="dashboard-metric-grid" aria-label="正在加载概览">
       <div v-for="item in 4" :key="item" class="h-32 animate-pulse rounded-xl border border-border bg-card" />
     </section>
 
@@ -147,14 +147,14 @@ watch(
       </CardContent>
     </Card>
 
-    <div v-if="overview" class="space-y-6">
+    <div v-if="overview" class="dashboard-overview">
       <Card v-if="loadError" role="status" class="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
         <CardContent class="p-4 text-sm">
           刷新失败：{{ loadError }}。当前显示上一次成功加载的数据。
         </CardContent>
       </Card>
 
-      <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="数据概览">
+      <section class="dashboard-metric-grid" aria-label="数据概览">
         <Card v-for="metric in metrics" :key="metric.label" class="min-w-0">
           <CardContent class="flex items-start justify-between gap-4 p-5">
             <div class="min-w-0">
@@ -169,7 +169,7 @@ watch(
         </Card>
       </section>
 
-      <section v-if="adminMetrics.length" class="grid gap-4 sm:grid-cols-3" aria-label="管理数据">
+      <section v-if="adminMetrics.length" class="dashboard-admin-grid" aria-label="管理数据">
         <Card v-for="metric in adminMetrics" :key="metric.label">
           <CardContent class="flex items-center justify-between p-5">
             <span class="text-sm text-muted-foreground">{{ metric.label }}</span>
@@ -178,7 +178,7 @@ watch(
         </Card>
       </section>
 
-      <section class="grid gap-4 xl:grid-cols-2">
+      <section class="dashboard-detail-grid">
       <Card>
         <CardHeader class="border-b border-border/70 pb-4">
           <CardTitle>待处理消息</CardTitle>
@@ -245,3 +245,68 @@ watch(
     </div>
   </main>
 </template>
+
+<style scoped>
+.dashboard-page {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.dashboard-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1rem;
+}
+
+.dashboard-overview {
+  display: grid;
+  min-width: 0;
+  gap: 1.5rem;
+}
+
+.dashboard-metric-grid,
+.dashboard-admin-grid,
+.dashboard-detail-grid {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 40rem) {
+  .dashboard-page {
+    padding: 1.5rem;
+  }
+
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-admin-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 39.999rem) {
+  .dashboard-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .dashboard-header > button {
+    justify-self: start;
+  }
+}
+
+@media (min-width: 80rem) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>

@@ -18,6 +18,7 @@ const TimestampSchema = z.string().datetime({ offset: true });
 export const DepartmentSchema = z
   .object({
     id: BusinessIdSchema,
+    parentId: BusinessIdSchema.nullable(),
     deptCode: CodeSchema,
     deptName: NameSchema,
     status: OrganizationStatusSchema,
@@ -64,6 +65,7 @@ export const PostListRequestSchema = z
 export const SaveDepartmentRequestSchema = z
   .object({
     id: BusinessIdSchema.optional(),
+    parentId: BusinessIdSchema.nullable().optional(),
     deptCode: CodeSchema,
     deptName: NameSchema,
     status: OrganizationStatusSchema.default(1),

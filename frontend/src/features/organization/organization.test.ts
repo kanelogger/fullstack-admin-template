@@ -14,6 +14,7 @@ describe("organization contracts and read-model mapping", () => {
   it("keeps department and post BIGINT IDs as exact decimal strings", () => {
     const department = mapDepartmentRow({
       id: "9223372036854775807",
+      parent_id: "9007199254740993",
       dept_code: "HQ",
       dept_name: "总部",
       status: 1,
@@ -32,6 +33,7 @@ describe("organization contracts and read-model mapping", () => {
     });
 
     expect(department.id).toBe("9223372036854775807");
+    expect(department.parentId).toBe("9007199254740993");
     expect(post.id).toBe("9007199254740993");
     expect(() => mapDepartmentRow({ id: Number("9007199254740993") })).toThrow();
     expect(() => mapPostRow({ id: "9223372036854775808" })).toThrow();
@@ -54,6 +56,16 @@ describe("organization contracts and read-model mapping", () => {
     expect(
       SaveDepartmentRequestSchema.parse({ deptCode: " OPS ", deptName: " 运营部 ", description: "  " })
     ).toMatchObject({ deptCode: "OPS", deptName: "运营部", status: 1, description: null });
+    expect(SaveDepartmentRequestSchema.parse({
+      parentId: "9007199254740993",
+      deptCode: "OPS-CHILD",
+      deptName: "运营子部门"
+    }).parentId).toBe("9007199254740993");
+    expect(SaveDepartmentRequestSchema.safeParse({
+      parentId: 42,
+      deptCode: "OPS-CHILD",
+      deptName: "运营子部门"
+    }).success).toBe(false);
     expect(
       SavePostRequestSchema.parse({
         id: "9007199254740993",
@@ -83,6 +95,7 @@ describe("organization contracts and read-model mapping", () => {
       DepartmentPageSchema.safeParse({
         items: [{
           id: Number("9007199254740993"),
+          parentId: null,
           deptCode: "HQ",
           deptName: "总部",
           status: 1,

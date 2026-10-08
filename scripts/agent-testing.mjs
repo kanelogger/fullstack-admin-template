@@ -1,22 +1,26 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, cp, lstat, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { DashboardOverviewSchema, SessionLoginResponseSchema } from "@template/contracts";
 import { isDebugCaptureActive, mergeBrowserPageVisited, mergeProductStatus } from "./agent-testing-helpers.mjs";
 import { addRequiredEvidence, enforceEvidenceGate, hasBrowserDebugCapture, updateEvidenceState } from "./agent-testing-evidence.mjs";
 import {
+  browserExecutionInputsMatch,
   cleanupOwnedResources,
   createStartupLifecycle,
+  listTemporaryDockerResources,
   ownerMarkersMatch,
   runCancellableStartupChecks,
   startOwnedStack,
   startupCheckpoint,
   startupStage,
+  stopAndVerifyTemporaryStack,
+  temporarySupabaseProjectId,
   supervisorCleanupMode,
   terminateVerifiedProcess,
   viteListenerOwnerMarkers,
@@ -24,6 +28,13 @@ import {
 } from "./agent-testing-lifecycle.mjs";
 import { initialAdmin, initialAdminPassword } from "./initial-admin-credentials.mjs";
 import { createIsolatedProject, reservePorts } from "./check-migrations.mjs";
+import {
+  copyFixedWorkspace,
+  initializeScenarioReport,
+  loadArchitectureRules,
+  summarizeInputs,
+  summarizeSnapshotInputs
+} from "./test-architecture.mjs";
 
 export const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const frontendRoot = join(projectRoot, "frontend");
@@ -143,7 +154,6 @@ function preflightBrowser(browserId) {
   }), "BrowserSkill status");
   const browser = status.browsers?.find(instance => instance.instance_id === browserId);
   if (!browser || browser.unresponsive) throw new Error(`BrowserSkill instance ${browserId} is not connected and responsive`);
-
   const listed = parseJson(runSync("bsk", ["browsers", "--json"], {
     timeout: 10_000,
     env: { BSK_AUTO_START: "0" }
@@ -158,9 +168,8 @@ function preflightBrowser(browserId) {
   }), "BrowserSkill session start");
   if (session.browser_instance_id !== browserId || typeof session.session_id !== "string") {
     if (typeof session.session_id === "string") stopBrowserSession(session.session_id);
-    throw new Error("BrowserSkill started a session on an unexpected browser instance");
+    throw new Error("BrowserSkill started a session on an unexpected instance");
   }
-
   try {
     const capabilities = parseJson(runSync("bsk", ["debug", "capabilities", "--session", session.session_id], {
       timeout: 20_000,
@@ -175,10 +184,11 @@ function preflightBrowser(browserId) {
       sessionId: session.session_id,
       daemonVersion: status.daemon_version ?? null,
       browserVersion: browser.browser_version ?? null,
-      extensionVersion: browser.extension_version ?? null
+      extensionVersion: browser.extension_version ?? null,
+      driver: "cli"
     };
   } catch (error) {
-    try { stopBrowserSession(session.session_id); } catch { /* preserve the original preflight failure */ }
+    try { stopBrowserSession(session.session_id); } catch { /* preserve the preflight failure */ }
     throw error;
   }
 }
@@ -384,7 +394,7 @@ function assertLocalStatus(values) {
   return { apiUrl, publishableKey, serviceRoleKey };
 }
 
-async function provisionAgentFixture(admin, runId, credentials) {
+async function provisionAgentFixture(admin, runId, scenario, credentials) {
   const { data: profile, error: profileError } = await admin.from("profiles")
     .select("id,auth_user_id,login_name,email")
     .eq("login_name", initialAdmin.loginName)
@@ -393,24 +403,25 @@ async function provisionAgentFixture(admin, runId, credentials) {
   credentials.profileId = String(profile.id);
   credentials.authUserId = profile.auth_user_id;
 
-  const messageMarker = `__AGENT_${runId}`;
+  const messageMarker = `__AGENT_${runId}_${scenario.toUpperCase()}`;
   const { data: message, error: messageError } = await admin.from("messages").insert({
     receiver_id: profile.id,
     title: `${messageMarker}_TODO`,
-    summary: "Disposable unread Dashboard pilot task",
-    content: `Disposable agent test fixture ${runId}`,
+    summary: `Disposable unread ${scenario} BrowserSkill fixture`,
+    content: `Disposable BrowserSkill fixture ${runId} for ${scenario}`,
     message_type: "NOTICE",
     read_status: false,
     created_by: profile.id
   }).select("id").single();
   if (messageError || !message) throw new Error("Could not create the temporary unread message");
   credentials.messageId = String(message.id);
+  credentials.messageTitle = `${messageMarker}_TODO`;
 
   const operationMarker = `${messageMarker}_OPERATION`;
   const { data: operation, error: operationError } = await admin.from("operation_logs").insert({
     operator_id: profile.id,
     operator_name: operationMarker,
-    module_code: "DASHBOARD_PILOT",
+    module_code: `BROWSER_${scenario.toUpperCase()}`,
     operation_type: "VERIFY",
     request_method: "GET",
     request_path: `/agent-testing/${runId}`,
@@ -478,7 +489,7 @@ async function verifyCallerAccess({ apiUrl, publishableKey, origin, credentials,
 
     const rawOverview = await callerRequest(apiUrl, publishableKey, origin, accessToken, "/rest/v1/rpc/dashboard_overview", {});
     const overview = DashboardOverviewSchema.parse(rawOverview);
-    if (!overview.todoMessages.some(message => message.id === credentials.messageId && message.title === `__AGENT_${credentials.runId}_TODO`)) {
+    if (!overview.todoMessages.some(message => message.id === credentials.messageId && message.title === credentials.messageTitle)) {
       throw new Error("The caller-scoped Dashboard RPC did not return its unread message fixture");
     }
     if (!overview.recentOperations.some(operation => operation.id === credentials.operationId && operation.operatorName === credentials.operationMarker)) {
@@ -529,26 +540,50 @@ function reportPath(runId) {
 async function publishReport(record) {
   const target = reportPath(record.runId);
   await mkdir(dirname(target), { recursive: true });
+  let previous;
+  try {
+    previous = JSON.parse(await readFile(target, "utf8"));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  const checkpoints = previous?.schemaVersion === 2 && previous.runId === record.runId
+    ? previous.checkpoints
+    : record.checkpoints ?? {};
   await atomicJson(target, {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    purpose: "browser",
     runId: record.runId,
     scenario: record.scenario,
     commit: record.commit,
+    rulesVersion: record.rulesVersion ?? null,
+    rulesSha256: record.rulesSha256 ?? null,
+    inputSha256AtStart: record.inputSha256AtStart ?? null,
+    inputSha256InSnapshot: record.inputSha256InSnapshot ?? null,
+    inputSha256AtEnd: record.inputSha256AtEnd ?? null,
+    inputSha256InSnapshotAtEnd: record.inputSha256InSnapshotAtEnd ?? null,
+    inputSummary: record.inputSummary ?? null,
+    snapshotSummary: record.snapshotSummary ?? null,
+    inputSummaryAtEnd: record.inputSummaryAtEnd ?? null,
+    snapshotSummaryAtEnd: record.snapshotSummaryAtEnd ?? null,
+    checkpoints,
     browser: record.browser,
+    browserSessionStopped: record.browser?.driver === "harness" ? record.browserSessionStopped === true : undefined,
     appOrigin: record.appOrigin,
     startedAt: record.startedAt,
-    finishedAt: new Date().toISOString(),
+    finishedAt: record.finishedAt ?? null,
     productStatus: record.productStatus ?? "Unknown",
     productReason: record.productReason ?? null,
-    cleanupStatus: record.cleanupFailures?.length ? "Failed" : "Succeeded",
+    cleanupStatus: record.cleanupStatus ?? (record.cleanupFailures?.length ? "Failed" : "Pending"),
     cleanupFailures: record.cleanupFailures ?? [],
     cleanupHistory: record.cleanupHistory ?? [],
     retainedProjectRoot: record.retainedProjectRoot ?? null,
+    retainedWorkspaceRoot: record.cleanupStatus === "Failed" ? record.workspaceRoot ?? null : null,
     stackMayExist: record.stackMayExist === true || record.stackStarted === true,
     evidenceStatus: record.evidenceStatus ?? "Unknown",
     requiredEvidence: record.requiredEvidence ?? [],
     evidenceFailures: record.evidenceFailures ?? [],
     evidenceHistory: record.evidenceHistory ?? [],
+    readinessEvidence: record.readinessEvidence ?? [],
     evidence: record.evidence ?? []
   });
 }
@@ -609,7 +644,41 @@ export async function bestEffortBrowserCleanup(record, cleanupFailures = [], ope
   const evidenceFailures = [];
   const sessionId = record.browser?.sessionId;
   const evidenceDirectory = join(reportsRoot, record.runId, "evidence");
-  if (record.browserPageVisited) addRequiredEvidence(record, "evidence/dashboard-final.png");
+  if (record.browserPageVisited) addRequiredEvidence(record, "evidence/final.png");
+
+  if (record.browser?.driver === "harness") {
+    let unknownReason;
+    if (record.browserSessionStopped !== true) {
+      const failure = "Harness-managed BrowserSkill Session stop was not confirmed";
+      cleanupFailures.push(failure);
+      unknownReason = failure;
+    }
+    if (record.externalEvidenceSource) {
+      try {
+        const sourceRoot = resolve(record.externalEvidenceSource);
+        const sourceRootInfo = await lstat(sourceRoot);
+        if (!sourceRootInfo.isDirectory() || sourceRootInfo.isSymbolicLink()) throw new Error("Evidence source must be a real directory");
+        await makeDirectory(evidenceDirectory, { recursive: true });
+        for (const name of ["final.png", "browser-debug.json"]) {
+          const source = join(sourceRoot, name);
+          const sourceInfo = await lstat(source);
+          if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() || sourceInfo.size === 0) {
+            throw new Error(`Required Harness evidence is not a nonempty regular file: ${name}`);
+          }
+          await cp(source, join(evidenceDirectory, name));
+        }
+      } catch (error) {
+        const failure = `Harness evidence import failed: ${error instanceof Error ? error.message : String(error)}`;
+        evidenceFailures.push(failure);
+        unknownReason ??= failure;
+      }
+    } else {
+      unknownReason ??= "Harness evidence source was not supplied";
+    }
+    await verifySavedEvidence(record, evidenceDirectory, unknownReason, evidenceFailures, operations);
+    return;
+  }
+
   if (!sessionId) {
     const unknownReason = record.browserPageVisited
       ? "BrowserSkill session is unavailable before required evidence could be collected"
@@ -644,7 +713,7 @@ export async function bestEffortBrowserCleanup(record, cleanupFailures = [], ope
   if (record.browserPageVisited) {
     try {
       await makeDirectory(evidenceDirectory, { recursive: true });
-      const screenshot = join(evidenceDirectory, "dashboard-final.png");
+      const screenshot = join(evidenceDirectory, "final.png");
       run("bsk", ["screenshot", "--session", sessionId, "--full-page", "--out", screenshot], { timeout: 30_000 });
     } catch (error) {
       evidenceFailures.push(`BrowserSkill screenshot: ${error instanceof Error ? error.message : String(error)}`);
@@ -752,23 +821,38 @@ async function cleanupOwnedRun(record, children) {
       const expected = join(record.tempRoot, "project");
       if (
         !record.projectRoot || record.projectRoot !== expected ||
-        !record.projectId?.startsWith("agent-dashboard-")
+        !record.projectId?.startsWith("agent-")
       ) {
         throw new Error("Temporary project ownership did not match the recorded run");
       }
-      projectCli(record.projectRoot, ["stop", "--project-id", record.projectId, "--no-backup"], { timeout: 90_000 });
+      await stopAndVerifyTemporaryStack(record.projectId,
+        () => projectCli(record.projectRoot, ["stop", "--project-id", record.projectId, "--no-backup"], {
+          cwd: record.workspaceRoot ?? projectRoot,
+          timeout: 90_000
+        }),
+        listTemporaryDockerResources);
     },
     removeProject: async () => {
       if (!record.tempRoot && !record.projectRoot) return;
       if (!record.tempRoot || record.projectRoot !== join(record.tempRoot, "project")) {
         throw new Error("Temporary project directory ownership did not match the recorded run");
       }
+      const expectedWorkspace = join(record.stateRoot, "workspace");
+      if (record.workspaceRoot !== expectedWorkspace) throw new Error("Fixed workspace ownership did not match the recorded run");
+      if (record.inputSha256AtEnd == null || record.inputSha256InSnapshotAtEnd == null) {
+        await verifyRunInputs(record);
+        await atomicJson(join(record.stateRoot, "run.json"), record);
+      }
       await rm(record.tempRoot, { recursive: true, force: true });
+      await rm(record.workspaceRoot, { recursive: true, force: true });
     },
     removeCredentials: async () => {
       if (record.stateRoot) await rm(join(record.stateRoot, "credentials.json"), { force: true });
     }
   });
+  if (record.inputSha256AtEnd == null || record.inputSha256InSnapshotAtEnd == null) {
+    await verifyRunInputs(record);
+  }
   if (!record.evidenceStatus || record.evidenceStatus === "Pending") {
     updateEvidenceState(record, [], "Evidence collection did not complete");
   }
@@ -790,6 +874,8 @@ async function shutdown(recordPath, record, children, reason) {
         if (record.productStatus !== "Fail" && latest.productReason) record.productReason = latest.productReason;
       }
       record.browserPageVisited = mergeBrowserPageVisited(record.browserPageVisited, latest.browserPageVisited);
+      record.browserSessionStopped = record.browserSessionStopped === true || latest.browserSessionStopped === true;
+      record.externalEvidenceSource ??= latest.externalEvidenceSource;
       record.evidence = [...new Set([...(record.evidence ?? []), ...(latest.evidence ?? [])])];
     } catch (error) {
       record.cleanupFailures = [
@@ -840,27 +926,67 @@ async function preflightPorts() {
   };
 }
 
-function statusFor(projectRootPath) {
-  return parseJson(projectCli(projectRootPath, ["status", "--output", "json"]), "Temporary Supabase status");
+function statusFor(projectRootPath, runtimeRoot = projectRoot) {
+  return parseJson(projectCli(projectRootPath, ["status", "--output", "json"], { cwd: runtimeRoot }), "Temporary Supabase status");
+}
+
+async function freezeSnapshotInputs(root, summary) {
+  for (const file of summary.files) {
+    if (file.state !== "present") continue;
+    await chmod(join(root, ...file.path.split("/")), 0o444);
+  }
+}
+
+async function verifyRunInputs(record) {
+  try {
+    const [source, snapshot] = await Promise.all([
+      summarizeInputs(projectRoot, "browser"),
+      summarizeSnapshotInputs(record.workspaceRoot, "browser", record.inputSummary)
+    ]);
+    record.inputSha256AtEnd = source.inputSha256;
+    record.inputSha256InSnapshotAtEnd = snapshot.inputSha256;
+    record.inputSummaryAtEnd = source;
+    record.snapshotSummaryAtEnd = snapshot;
+    if (!browserExecutionInputsMatch(record.inputSummary, source, snapshot) ||
+        source.rulesSha256 !== record.rulesSha256 ||
+        snapshot.rulesSha256 !== record.rulesSha256 ||
+        snapshot.inputSha256 !== record.inputSha256InSnapshot) {
+      record.productStatus = record.productStatus === "Fail" ? "Fail" : "Unknown";
+      record.productReason = "BrowserSkill product or scenario execution inputs changed between startup, the fixed snapshot and shutdown";
+    }
+  } catch (error) {
+    record.inputSha256AtEnd = null;
+    record.inputSha256InSnapshotAtEnd = null;
+    record.productStatus = record.productStatus === "Fail" ? "Fail" : "Unknown";
+    record.productReason = `BrowserSkill run input summary could not be verified: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
 async function start(args) {
   const options = parseArgs(args);
-  if (options["--scenario"] !== "dashboard" || !options["--browser"]) {
-    throw new Error("Usage: pnpm test:agent:start -- --scenario dashboard --browser <connected-instance-id>");
+  const { rules } = await loadArchitectureRules(projectRoot);
+  const scenario = options["--scenario"];
+  const browserId = options["--browser"];
+  const browserSessionId = options["--browser-session"];
+  if (!rules.scenarios[scenario] || !browserId) {
+    throw new Error(`Usage: pnpm test:agent:start -- --scenario <${Object.keys(rules.scenarios).join("|")}> --browser <instance-id> [--browser-session <Harness-session-id>]`);
   }
+  const startingSummary = await summarizeInputs(projectRoot, "browser");
+  const browserDriver = browserSessionId ? "harness" : "cli";
 
   const runId = randomUUID();
-  const projectId = `agent-dashboard-${randomBytes(8).toString("hex")}`;
+  const projectId = temporarySupabaseProjectId(scenario, randomBytes(8).toString("hex"));
   const tempRoot = join(stateRoot, runId, "stack");
   const statePath = join(stateRoot, runId);
   const projectRootPath = join(tempRoot, "project");
+  const workspaceRoot = join(statePath, "workspace");
   const recordPath = join(statePath, "run.json");
   const startedAt = new Date().toISOString();
+  let browser;
   const record = {
     schemaVersion: 1,
     runId,
-    scenario: "dashboard",
+    scenario,
     commit: runSync("git", ["rev-parse", "HEAD"]).trim(),
     browser: null,
     appOrigin: null,
@@ -869,11 +995,19 @@ async function start(args) {
     stateRoot: statePath,
     tempRoot,
     projectRoot: projectRootPath,
+    workspaceRoot,
+    inputSha256AtStart: startingSummary.inputSha256,
+    inputSha256AtEnd: null,
+    inputSha256InSnapshot: null,
+    inputSha256InSnapshotAtEnd: null,
+    inputSummary: startingSummary,
+    snapshotSummary: null,
     projectId,
     ports: null,
     productStatus: "Unknown",
     productReason: null,
     evidence: [],
+    readinessEvidence: [],
     evidenceStatus: "Pending",
     requiredEvidence: [],
     evidenceFailures: [],
@@ -881,8 +1015,27 @@ async function start(args) {
     stackMayExist: false,
     stackStarted: false
   };
+  if (browserSessionId) {
+    browser = {
+      browserId,
+      sessionId: browserSessionId,
+      daemonVersion: null,
+      browserVersion: null,
+      extensionVersion: null,
+      driver: "harness"
+    };
+  }
+  record.browser = browser ? {
+    instanceId: browser.browserId,
+    sessionId: browser.sessionId,
+    daemonVersion: browser.daemonVersion,
+    browserVersion: browser.browserVersion,
+    extensionVersion: browser.extensionVersion,
+    driver: browser.driver
+  } : null;
   const children = { vite: undefined, edge: undefined };
-  let browser;
+  const runtimeRoot = workspaceRoot;
+  const runtimeFrontendRoot = join(runtimeRoot, "frontend");
   let admin;
   let credentials;
   let finishSupervisor;
@@ -908,19 +1061,50 @@ async function start(args) {
   process.on("unhandledRejection", onUnhandledRejection);
 
   try {
-    console.log(`Starting isolated Dashboard scenario ${runId}.`);
+    console.log(`Starting isolated ${scenario} scenario ${runId}.`);
     await startupStage(lifecycle, () => mkdir(statePath, { recursive: true, mode: 0o700 }));
     await startupStage(lifecycle, () => chmod(statePath, 0o700));
     await startupStage(lifecycle, () => atomicJson(recordPath, record));
 
+    const copied = await startupStage(lifecycle, () => copyFixedWorkspace(projectRoot, runtimeRoot, "browser"));
+    if (copied.before.inputSha256 !== startingSummary.inputSha256 || copied.copy.inputSha256 !== startingSummary.inputSha256) {
+      throw new Error("BrowserSkill worktree and fixed snapshot differed before dependency installation");
+    }
+    await startupStage(lifecycle, () => runSync(pnpm, ["install", "--frozen-lockfile"], {
+      cwd: runtimeRoot,
+      timeout: 10 * 60_000
+    }));
+    const snapshotSummary = await startupStage(lifecycle, () => summarizeSnapshotInputs(runtimeRoot, "browser", startingSummary));
+    if (snapshotSummary.inputSha256 !== startingSummary.inputSha256 || snapshotSummary.rulesSha256 !== startingSummary.rulesSha256) {
+      throw new Error("Frozen install changed a BrowserSkill input in the fixed snapshot");
+    }
+    await startupStage(lifecycle, () => freezeSnapshotInputs(runtimeRoot, snapshotSummary));
+    Object.assign(record, await initializeScenarioReport({
+      runId,
+      scenario,
+      inputSummary: startingSummary,
+      snapshotSummary,
+      browser: record.browser,
+      startedAt,
+      root: projectRoot
+    }));
+    record.workspaceRoot = runtimeRoot;
+    record.stateRoot = statePath;
+    record.tempRoot = tempRoot;
+    record.projectRoot = projectRootPath;
+    record.projectId = projectId;
+    await startupStage(lifecycle, () => atomicJson(recordPath, record));
+    await startupStage(lifecycle, () => publishReport(record));
+
     lifecycle.throwIfCancelled();
-    browser = preflightBrowser(options["--browser"]);
+    if (browserDriver === "cli") browser = preflightBrowser(browserId);
     record.browser = {
       instanceId: browser.browserId,
       sessionId: browser.sessionId,
       daemonVersion: browser.daemonVersion,
       browserVersion: browser.browserVersion,
-      extensionVersion: browser.extensionVersion
+      extensionVersion: browser.extensionVersion,
+      driver: browser.driver
     };
     await atomicJson(recordPath, record);
     await startupCheckpoint(lifecycle);
@@ -933,7 +1117,7 @@ async function start(args) {
     await startupStage(lifecycle, () => atomicJson(recordPath, record));
 
     await startupStage(lifecycle, () => mkdir(tempRoot, { recursive: true, mode: 0o700 }));
-    await startupStage(lifecycle, () => createIsolatedProject(tempRoot, projectId, ports, { appOrigin }));
+    await startupStage(lifecycle, () => createIsolatedProject(tempRoot, projectId, ports, { appOrigin, sourceRoot: runtimeRoot }));
     const edgeEnvPath = join(statePath, "edge.env");
     await startupStage(lifecycle, () => writeFile(edgeEnvPath, `APP_ALLOWED_ORIGINS=${appOrigin}\n`, { mode: 0o600 }));
     await startupStage(lifecycle, () => chmod(edgeEnvPath, 0o600));
@@ -941,23 +1125,23 @@ async function start(args) {
     await startupStage(lifecycle, () => startOwnedStack(
       record,
       () => atomicJson(recordPath, record),
-      () => projectCli(projectRootPath, ["start"], { timeout: 240_000 }),
+      () => projectCli(projectRootPath, ["start"], { cwd: runtimeRoot, timeout: 240_000 }),
       () => startupCheckpoint(lifecycle)
     ));
     record.stackStarted = true;
     await startupStage(lifecycle, () => atomicJson(recordPath, record));
-    await startupStage(lifecycle, () => projectCli(projectRootPath, ["db", "reset", "--local"], { timeout: 240_000 }));
-    const status = await startupStage(lifecycle, () => statusFor(projectRootPath));
+    await startupStage(lifecycle, () => projectCli(projectRootPath, ["db", "reset", "--local"], { cwd: runtimeRoot, timeout: 240_000 }));
+    const status = await startupStage(lifecycle, () => statusFor(projectRootPath, runtimeRoot));
     const local = assertLocalStatus(status);
     record.apiUrl = local.apiUrl;
 
     const supabaseCommand = process.platform === "win32" ? "cmd.exe" : "pnpm";
     const supabaseArgs = process.platform === "win32"
-      ? ["/d", "/s", "/c", join(frontendRoot, "node_modules", ".bin", "supabase.cmd"), "--workdir", projectRootPath, "functions", "serve", "--env-file", edgeEnvPath]
+      ? ["/d", "/s", "/c", join(runtimeFrontendRoot, "node_modules", ".bin", "supabase.cmd"), "--workdir", projectRootPath, "functions", "serve", "--env-file", edgeEnvPath]
       : ["--filter", "fullstack-admin-frontend", "exec", "supabase", "--workdir", projectRootPath, "functions", "serve", "--env-file", edgeEnvPath];
     lifecycle.throwIfCancelled();
     children.edge = spawnManaged(supabaseCommand, supabaseArgs, {
-      cwd: projectRoot,
+      cwd: runtimeRoot,
       logPath: join(statePath, "edge.log"),
       runId
     });
@@ -968,7 +1152,7 @@ async function start(args) {
         ownerMarker: projectRootPath,
         command: children.edge.spawnfile,
         args: children.edge.spawnargs,
-        cwd: projectRootPath
+      cwd: runtimeRoot
       }
     };
     await atomicJson(recordPath, record);
@@ -978,7 +1162,7 @@ async function start(args) {
     children.vite = spawnManaged(pnpm, [
       "--filter", "fullstack-admin-frontend", "exec", "vite", "--host", "127.0.0.1", "--port", String(ports.vite), "--strictPort"
     ], {
-      cwd: projectRoot,
+      cwd: runtimeRoot,
       logPath: join(statePath, "vite.log"),
       runId,
       env: {
@@ -995,7 +1179,7 @@ async function start(args) {
       ownerMarker: viteProcessOwnerMarkers(ports.vite),
       command: children.vite.spawnfile,
       args: children.vite.spawnargs,
-      cwd: projectRoot
+      cwd: runtimeRoot
     };
     await atomicJson(recordPath, record);
     await startupCheckpoint(lifecycle);
@@ -1022,26 +1206,26 @@ async function start(args) {
 
     const viteListeners = listeningPids(ports.vite)
       .map(pid => ({ pid, identity: identityFor(pid) }))
-      .filter(listener => listener.identity?.includes(`--port ${ports.vite}`) && listener.identity.includes(frontendRoot));
+      .filter(listener => listener.identity?.includes(`--port ${ports.vite}`) && listener.identity.includes(runtimeFrontendRoot));
     if (viteListeners.length !== 1) throw new Error("Vite port ownership could not be verified for this run");
     record.children.viteListener = {
       ...viteListeners[0],
-      ownerMarker: viteListenerOwnerMarkers(ports.vite, frontendRoot),
-      cwd: frontendRoot
+      ownerMarker: viteListenerOwnerMarkers(ports.vite, runtimeFrontendRoot),
+      cwd: runtimeFrontendRoot
     };
     await startupStage(lifecycle, () => atomicJson(recordPath, record));
 
     await startupStage(lifecycle, () => runSync(pnpm, ["setup:admin"], {
-      cwd: projectRoot,
+      cwd: runtimeRoot,
       env: { SUPABASE_PROJECT_ROOT: projectRootPath },
       timeout: 60_000
     }));
     admin = createClient(local.apiUrl, local.serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
-    credentials = { runId };
+    credentials = { runId, scenario };
     await startupStage(lifecycle, () => writeFile(join(statePath, "credentials.json"), "{}", { mode: 0o600 }));
-    const login = await startupStage(lifecycle, () => provisionAgentFixture(admin, runId, credentials));
+    const login = await startupStage(lifecycle, () => provisionAgentFixture(admin, runId, scenario, credentials));
     await startupStage(lifecycle, () => writeFile(join(statePath, "credentials.json"), `${JSON.stringify(login)}\n`, { mode: 0o600 }));
     await startupStage(lifecycle, () => chmod(join(statePath, "credentials.json"), 0o600));
     credentials.runId = runId;
@@ -1057,11 +1241,12 @@ async function start(args) {
       authUserId: login.authUserId,
       profileId: login.profileId,
       messageId: credentials.messageId,
+      messageTitle: credentials.messageTitle,
       operationId: credentials.operationId,
       operationMarker: credentials.operationMarker,
       loginName: login.loginName
     };
-    record.evidence.push(
+    record.readinessEvidence.push(
       `readiness:registered-caller-session`,
       `readiness:dashboard-overview:${checked.overview.todoCount} todos`,
       "readiness:navigation:dashboard-and-messages",
@@ -1072,10 +1257,10 @@ async function start(args) {
     record.readiness = "Passed";
     await startupStage(lifecycle, () => atomicJson(recordPath, record));
 
-    console.log(JSON.stringify({
+  console.log(JSON.stringify({
       status: "READY",
       runId,
-      scenario: "dashboard",
+      scenario,
       browserInstanceId: browser.browserId,
       browserSessionId: browser.sessionId,
       appOrigin,
@@ -1088,13 +1273,13 @@ async function start(args) {
     admin?.realtime.disconnect();
     record.failure = redact(error instanceof Error ? error.stack ?? error.message : String(error));
     record.productReason = lifecycle.cancelled
-      ? `Dashboard startup cancelled (${lifecycle.reason})`
-      : "Dashboard readiness or temporary environment startup failed";
+      ? `BrowserSkill startup cancelled (${lifecycle.reason})`
+      : "BrowserSkill readiness or fixed environment startup failed";
     record.productStatus = "Unknown";
     await atomicJson(recordPath, record).catch(() => undefined);
     await shutdown(recordPath, record, children, lifecycle.reason ?? "startup-failed");
     finishSupervisor();
-    throw new Error(`Dashboard scenario did not become READY (run ${runId})`, { cause: error });
+    throw new Error(`${scenario} scenario did not become READY (run ${runId})`, { cause: error });
   } finally {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
@@ -1139,6 +1324,18 @@ async function cleanup(args) {
   }
 
   const { recordPath, record } = await readRun(runId);
+  if (record.browser?.driver === "harness") {
+    const stopped = options["--browser-session-stopped"];
+    if (stopped !== undefined && !["true", "false"].includes(stopped)) {
+      throw new Error("--browser-session-stopped accepts true or false after using the BrowserSkill Harness tool");
+    }
+    if (stopped !== undefined) record.browserSessionStopped = stopped === "true";
+    const evidenceSource = options["--evidence-source"];
+    if (evidenceSource && !isAbsolute(evidenceSource)) throw new Error("--evidence-source must be an absolute directory");
+    if (evidenceSource) record.externalEvidenceSource = evidenceSource;
+  } else if (options["--browser-session-stopped"] !== undefined || options["--evidence-source"] !== undefined) {
+    throw new Error("Harness cleanup flags require a Harness-managed BrowserSkill run");
+  }
   if (options["--browser-page-visited"] === "true") record.browserPageVisited = true;
   const previousStatus = record.productStatus;
   record.productStatus = mergeProductStatus(previousStatus, requestedStatus);
@@ -1185,14 +1382,16 @@ async function cleanup(args) {
   const finalRecord = latest.record;
   await stopOrphan(finalRecord);
   const cleanupStatus = await persistCleanupResult(latest.recordPath, finalRecord);
-  console.log(JSON.stringify({
-    runId,
+    console.log(JSON.stringify({
+      runId,
     productStatus: finalRecord.productStatus ?? "Unknown",
     cleanupStatus,
     reportPath: reportPath(runId),
-    retainedProjectRoot: finalRecord.retainedProjectRoot ?? null
+    retainedProjectRoot: finalRecord.retainedProjectRoot ?? null,
+    retainedWorkspaceRoot: finalRecord.cleanupStatus === "Failed" ? finalRecord.workspaceRoot ?? null : null
   }));
   if (cleanupStatus !== "Succeeded") throw new Error(`Cleanup failed for run ${runId}`);
+  await rm(latest.root, { recursive: true, force: true });
 }
 
 async function stopOrphan(record) {
@@ -1202,6 +1401,9 @@ async function stopOrphan(record) {
 async function fillCredential(args) {
   const options = parseArgs(args);
   const { root, record } = await readRun(safeRunId(options["--run-id"]));
+  if (record.browser?.driver === "harness") {
+    throw new Error("This run is Harness-managed; fill the observed control with the browser_session Harness tool");
+  }
   const field = options["--field"];
   const sessionId = options["--session"];
   const reference = options["--ref"];

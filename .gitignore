@@ -66,6 +66,8 @@ pids
 # ===== Project-specific =====
 uploads/
 private-*/
+visual/candidates/
+visual/.runs/
 
 # ===== Agent local runtime state =====
 .agents/state/

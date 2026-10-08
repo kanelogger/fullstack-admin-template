@@ -20,13 +20,13 @@ export function addRequiredEvidence(record, evidencePath) {
 export function enforceEvidenceGate(record) {
   if (record.productStatus === "Pass" && (record.evidenceStatus !== "Complete" || !record.browserPageVisited)) {
     record.productStatus = "Unknown";
-    record.productReason = "Dashboard acceptance requires an inspected page and complete saved evidence";
+    record.productReason = "BrowserSkill acceptance requires an inspected page and complete saved evidence";
   }
 }
 
 export function updateEvidenceState(record, presentEvidence, unknownReason, observedFailures = []) {
   const required = new Set(record.requiredEvidence ?? []);
-  if (record.browserPageVisited) required.add("evidence/dashboard-final.png");
+  if (record.browserPageVisited) required.add("evidence/final.png");
   record.requiredEvidence = [...required];
 
   const present = new Set(presentEvidence);

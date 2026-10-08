@@ -67,4 +67,19 @@ describe("notification session ownership", () => {
     await aliceStart;
     expect(notifications.unreadMessageCount).toBe(3);
   });
+
+  it("keeps a failed unread count visible until an explicit retry succeeds", async () => {
+    messageMocks.currentReceiverId.mockResolvedValue(aliceId);
+    messageMocks.unreadCount
+      .mockRejectedValueOnce(new Error("暂时不可用"))
+      .mockResolvedValueOnce(4);
+    const notifications = useNotificationStore(createPinia());
+
+    await notifications.startMessageUpdates(aliceId);
+    expect(notifications.loadError).toBe("暂时不可用");
+
+    await notifications.refreshUnreadMessageCount(aliceId);
+    expect(notifications.unreadMessageCount).toBe(4);
+    expect(notifications.loadError).toBe("");
+  });
 });

@@ -1,30 +1,59 @@
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { mkdir, readFile } from "node:fs/promises";
+import { expect, test, type Page } from "@playwright/test";
 import { installSupabaseSessionMock } from "./helpers/supabase-session";
 
 const actorId = "910000000000003";
 const actorAuthId = "6f9619ff-8b86-4011-b42d-00cf4fc964ff";
-const routes = [
-  ["dashboard.overview", "/welcome", "dashboard.overview.read", "系统概览"],
-  ["account.profile", "/profile/info", "identity.profile.read", "个人资料"],
-  ["account.change-password", "/profile/change-password", "identity.profile.read", "重置密码"],
-  ["communication.messages", "/operation/messages", "communication.messages.read", "消息中心"],
-  ["operation.attachments", "/operation/attachments", "files.attachments.read", "附件管理"],
-  ["administration.users", "/system/users", "administration.users.read", "用户管理"],
-  ["administration.roles", "/system/roles", "administration.roles.read", "角色管理"],
-  ["administration.menus", "/system/menus", "administration.menus.read", "菜单管理"],
-  ["administration.departments", "/system/departments", "organization.departments.read", "部门管理"],
-  ["administration.posts", "/system/posts", "organization.posts.read", "岗位管理"],
-  ["administration.dictionaries", "/system/dicts", "configuration.dictionaries.read", "数据字典"],
-  ["administration.configurations", "/system/configs", "configuration.system.read", "系统配置"],
-  ["audit.login-logs", "/log/login-logs", "audit.logs.read", "登录日志"],
-  ["audit.operation-logs", "/log/operation-logs", "audit.logs.read", "操作日志"],
-  ["audit.exception-logs", "/log/exception-logs", "audit.logs.read", "异常日志"]
-] as const;
-const permissionKeys = [
-  ...new Set([
-    ...routes.map(([, , permission]) => permission),
+const pageHeadingByRouteKey = {
+  "dashboard.overview": "系统概览",
+  "account.profile": "个人资料",
+  "account.change-password": "重置密码",
+  "communication.messages": "消息中心",
+  "operation.attachments": "附件管理",
+  "administration.users": "用户管理",
+  "administration.roles": "角色管理",
+  "administration.menus": "菜单管理",
+  "administration.departments": "部门管理",
+  "administration.posts": "岗位管理",
+  "administration.dictionaries": "数据字典",
+  "administration.configurations": "系统配置",
+  "audit.login-logs": "登录日志",
+  "audit.operation-logs": "操作日志",
+  "audit.exception-logs": "异常日志"
+} as const;
+
+type RegisteredRoute = {
+  routeKey: keyof typeof pageHeadingByRouteKey;
+  path: string;
+  permission: string;
+  title: string;
+  icon: string;
+  pageHeading: string;
+};
+
+async function registeredRoutes(): Promise<RegisteredRoute[]> {
+  const source = await readFile(new URL("../src/features/menus/menu-routes.registry.ts", import.meta.url), "utf8");
+  const seed = await readFile(new URL("../../supabase/seed.sql", import.meta.url), "utf8");
+  const block = source.match(/export const registeredMenuRoutes:[\s\S]*?=\s*\[([\s\S]*?)\];/)?.[1];
+  if (!block) throw new Error("Could not read registered RouteKey metadata for the layout matrix");
+  const seedMenus = new Map([...seed.matchAll(/\(\s*\d+,\s*(?:null|\d+),\s*'route',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)]
+    .map(([, routeKey, path, title, icon]) => [routeKey, { path, title, icon }]));
+  const routes = [...block.matchAll(/routeKey:\s*"([^"]+)"[^\n]*label:\s*"([^"]+)"[^\n]*defaultPath:\s*"([^"]+)"[^\n]*requiredPermissionKey:\s*"([^"]+)"/g)]
+    .map(([, routeKey, , path, permission]) => {
+      const seeded = seedMenus.get(routeKey);
+      if (!seeded || seeded.path !== path) throw new Error(`Route ${routeKey} is missing matching seed metadata`);
+      const pageHeading = pageHeadingByRouteKey[routeKey as keyof typeof pageHeadingByRouteKey];
+      if (!pageHeading) throw new Error(`Route ${routeKey} has no expected page heading`);
+      return { routeKey: routeKey as keyof typeof pageHeadingByRouteKey, path, permission, title: seeded.title, icon: seeded.icon, pageHeading };
+    });
+  if (routes.length === 0) throw new Error("The layout matrix requires at least one registered RouteKey");
+  const routeKeys = new Set(routes.map(route => route.routeKey));
+  const unmapped = Object.keys(pageHeadingByRouteKey).filter(routeKey => !routeKeys.has(routeKey as keyof typeof pageHeadingByRouteKey));
+  if (unmapped.length) throw new Error(`Expected page headings contain unregistered RouteKeys: ${unmapped.join(", ")}`);
+  return routes;
+}
+
+const additionalPermissionKeys = [
     "identity.profile.update",
     "communication.messages.update",
     "files.attachments.upload",
@@ -51,27 +80,10 @@ const permissionKeys = [
     "configuration.dictionaries.update",
     "configuration.dictionaries.delete",
     "configuration.system.update"
-  ])
 ];
-const dashboardOverview = {
-  todoCount: 1,
-  unreadMessageCount: 1,
-  todoMessages: [],
-  recentOperations: [],
-  recentMessages: [],
-  adminStats: { userCount: 3, roleCount: 2, menuCount: routes.length, todayLoginCount: 4, apiErrorCount: 0 }
-};
 
-async function saveVisual(page: Page, testInfo: TestInfo, name: string) {
-  const outputDir = process.env.VISUAL_REVIEW_DIR;
-  const path = outputDir
-    ? join(outputDir, `${name}.png`)
-    : testInfo.outputPath(`${name}.png`);
-  if (outputDir) await mkdir(outputDir, { recursive: true });
-  await page.screenshot({ path, fullPage: true });
-}
-
-async function prepareVisualReview(page: Page) {
+async function prepareVisualReview(page: Page, routes: RegisteredRoute[]) {
+  const unexpectedRequests: string[] = [];
   await page.addInitScript(() => {
     const layout = new URL(location.href).searchParams.get("visualLayout");
     if (layout) localStorage.setItem("responsive-layout", JSON.stringify({ layout, sidebarStatus: true }));
@@ -83,16 +95,16 @@ async function prepareVisualReview(page: Page) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-    body: JSON.stringify(routes.map(([routeKey, path, requiredPermissionKey], index) => ({
+        body: JSON.stringify(routes.map(({ routeKey, path, permission, title, icon }, index) => ({
           id: String(index + 1),
           parentId: null,
           kind: "route",
           routeKey,
           path,
-          title: routeKey === "dashboard.overview" ? "首页" : path.split("/").at(-1),
-          icon: "HomeFilled",
+          title,
+          icon,
           sortOrder: index,
-          requiredPermissionKey
+          requiredPermissionKey: permission
         })))
       });
     }
@@ -100,7 +112,18 @@ async function prepareVisualReview(page: Page) {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(actorId) });
     }
     if (endpoint === "dashboard_overview") {
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(dashboardOverview) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          todoCount: 1,
+          unreadMessageCount: 1,
+          todoMessages: [],
+          recentOperations: [],
+          recentMessages: [],
+          adminStats: { userCount: 3, roleCount: 2, menuCount: routes.length, todayLoginCount: 4, apiErrorCount: 0 }
+        })
+      });
     }
     if (endpoint === "admin_roles_page") {
       return route.fulfill({
@@ -127,19 +150,48 @@ async function prepareVisualReview(page: Page) {
       endpoint === "admin_menu_catalog" || endpoint === "admin_menu_permission_catalog") {
       return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
     }
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      headers: { "content-range": "*/0", "access-control-expose-headers": "content-range" },
-      body: "[]"
-    });
+    if (url.pathname.includes("/rpc/")) {
+      unexpectedRequests.push(`${route.request().method()} ${url.pathname}`);
+      return route.abort("failed");
+    }
+    const readModels = new Set([
+      "message_read_model",
+      "department_read_model",
+      "post_read_model",
+      "login_log_read_model",
+      "operation_log_read_model",
+      "exception_log_read_model",
+      "attachment_read_model"
+    ]);
+    if (readModels.has(endpoint) && ["GET", "HEAD"].includes(route.request().method())) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "content-range": "*/0", "access-control-expose-headers": "content-range" },
+        body: route.request().method() === "HEAD" ? "" : "[]"
+      });
+    }
+    if (endpoint === "messages" && ["GET", "HEAD"].includes(route.request().method())) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "content-range": "*/0", "access-control-expose-headers": "content-range" },
+        body: route.request().method() === "HEAD" ? "" : "[]"
+      });
+    }
+    unexpectedRequests.push(`${route.request().method()} ${url.pathname}`);
+    return route.abort("failed");
   });
   await page.route("**/functions/v1/user-management", async route => {
     const action = route.request().postDataJSON()?.action;
     const data = action === "list"
       ? { items: [], total: 0, page: 1, pageSize: 10 }
       : [];
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data }) });
+    if (["list", "roles"].includes(action)) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, data }) });
+    }
+    unexpectedRequests.push(`POST /functions/v1/user-management action=${String(action)}`);
+    return route.abort("failed");
   });
   await installSupabaseSessionMock(page, {
     userId: actorId,
@@ -147,23 +199,32 @@ async function prepareVisualReview(page: Page) {
     loginName: "visual-admin",
     displayName: "视觉验收管理员",
     roles: ["SUPER_ADMIN"],
-    permissions: permissionKeys
+    permissions: [...new Set([...routes.map(route => route.permission), ...additionalPermissionKeys])]
   });
+  return unexpectedRequests;
 }
 
-test("all registered PC pages render across every navigation layout and theme", async ({ page }, testInfo) => {
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  await mkdir(testInfo.outputDir, { recursive: true });
+  await page.screenshot({ path: testInfo.outputPath("failure.png"), fullPage: true }).catch(() => undefined);
+});
+
+test("all registered PC pages render across every navigation layout and theme", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await prepareVisualReview(page);
+  const routes = await registeredRoutes();
+  const unexpectedRequests = await prepareVisualReview(page, routes);
 
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme });
     for (const layout of ["vertical", "horizontal", "mix"] as const) {
-      for (const [routeKey, path, , title] of routes) {
+      for (const { routeKey, path, pageHeading } of routes) {
         await page.goto(`/?visualLayout=${layout}#${path}`);
         const shell = page.locator(".main-content");
         await expect(shell).toBeVisible();
-        await expect(page.getByRole("heading", { name: title }).first()).toBeVisible();
+        await expect(shell.getByRole("heading", { name: pageHeading, exact: true }),
+          `${routeKey} must render its registered page heading`).toBeVisible();
         expect((await shell.innerText()).trim().length).toBeGreaterThan(0);
         await expect.poll(() => page.evaluate(() => document.body.getAttribute("layout"))).toBe(layout);
         await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("dark")))
@@ -186,7 +247,6 @@ test("all registered PC pages render across every navigation layout and theme", 
         );
         expect(overflow, `${routeKey} must keep page overflow inside its own panels (${theme}, ${layout})`).toBe(false);
         await page.waitForFunction(() => !document.querySelector(".fade-transform-enter-active"));
-        await saveVisual(page, testInfo, `${theme}-${layout}-${routeKey.replaceAll(".", "-")}`);
         if (layout !== "vertical" && routeKey === "dashboard.overview") {
           const navLabel = layout === "horizontal" ? "主导航" : "一级导航";
           const navigation = page.getByRole("navigation", { name: navLabel });
@@ -202,4 +262,5 @@ test("all registered PC pages render across every navigation layout and theme", 
       }
     }
   }
+  expect(unexpectedRequests).toEqual([]);
 });

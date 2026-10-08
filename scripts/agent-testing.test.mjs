@@ -1,13 +1,21 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { isDebugCaptureActive, mergeBrowserPageVisited, mergeProductStatus } from "./agent-testing-helpers.mjs";
 import {
+  browserExecutionInputsMatch,
   cleanupOwnedResources,
   createStartupLifecycle,
   ownerMarkersMatch,
   runCancellableStartupChecks,
   startOwnedStack,
   startupStage,
+  listTemporaryDockerResources,
+  stopAndVerifyTemporaryStack,
+  temporarySupabaseProjectId,
   StartupCancelledError,
   supervisorCleanupMode,
   terminateVerifiedProcess,
@@ -17,7 +25,7 @@ import {
 import { initialAdmin, initialAdminPassword } from "./initial-admin-credentials.mjs";
 import { hasBrowserDebugCapture, updateEvidenceState } from "./agent-testing-evidence.mjs";
 import { playwrightArtifactDirectories, playwrightArtifactEnvironment } from "./playwright-artifacts.mjs";
-import { bestEffortBrowserCleanup } from "./agent-testing.mjs";
+import { bestEffortBrowserCleanup, projectRoot } from "./agent-testing.mjs";
 
 test("an observed product failure remains a failure after interruption", () => {
   assert.equal(mergeProductStatus("Fail", "Unknown"), "Fail");
@@ -189,6 +197,110 @@ test("failed Supabase stop preserves the workspace and still removes credentials
   assert.match(result.cleanupFailures.join(" "), /workspace retained for recovery/);
 });
 
+test("a successful Supabase CLI exit is not enough when tagged Docker resources remain", async () => {
+  const calls = [];
+  await assert.rejects(
+    stopAndVerifyTemporaryStack("agent-cleanup-fixture", async projectId => {
+      calls.push(`stop:${projectId}`);
+    }, async (kind, projectId) => {
+      calls.push(`inspect:${kind}:${projectId}`);
+      return kind === "volumes" ? ["supabase_db_agent-cleanup-fixture"] : [];
+    }),
+    /still owns Docker resources \(volumes: supabase_db_agent-cleanup-fixture\)/
+  );
+  assert.deepEqual(calls, [
+    "stop:agent-cleanup-fixture",
+    "inspect:containers:agent-cleanup-fixture",
+    "inspect:volumes:agent-cleanup-fixture",
+    "inspect:networks:agent-cleanup-fixture"
+  ]);
+});
+
+test("identity-navigation temporary project IDs keep their random suffix within the Supabase 40-character limit", () => {
+  const projectId = temporarySupabaseProjectId("identity-navigation", "0123456789abcdef");
+  assert.equal(projectId, "agent-identity-navigati-0123456789abcdef");
+  assert.equal(projectId.length, 40);
+});
+
+test("cleanup rejects an ID that Supabase would truncate before inspecting Docker labels", async () => {
+  const overlongId = "agent-identity-navigation-0123456789abcdef";
+  assert.equal(overlongId.length, 42);
+  let stopCalled = false;
+  let inspectCalled = false;
+  await assert.rejects(
+    stopAndVerifyTemporaryStack(overlongId, async () => { stopCalled = true; }, async () => {
+      inspectCalled = true;
+      return [];
+    }),
+    /no longer than 40 characters/
+  );
+  assert.equal(stopCalled, false);
+  assert.equal(inspectCalled, false);
+});
+
+test("BrowserSkill execution inputs stay strict while report and ledger digests may drift", () => {
+  const baseline = {
+    purpose: "browser",
+    rulesVersion: "2026-10-08.1",
+    rulesSha256: "a".repeat(64),
+    productInputSha256: "b".repeat(64),
+    scenarioInputSha256: "c".repeat(64),
+    managementInputSha256: "d".repeat(64),
+    ledgerInputSha256: "e".repeat(64)
+  };
+  assert.equal(browserExecutionInputsMatch(baseline, {
+    ...baseline,
+    managementInputSha256: "f".repeat(64),
+    ledgerInputSha256: "0".repeat(64)
+  }), true);
+  assert.equal(browserExecutionInputsMatch(baseline, { ...baseline, scenarioInputSha256: "0".repeat(64) }), false);
+  assert.equal(browserExecutionInputsMatch(baseline, { ...baseline, productInputSha256: "0".repeat(64) }), false);
+  assert.equal(browserExecutionInputsMatch(baseline, { ...baseline, rulesSha256: "0".repeat(64) }), false);
+});
+
+test("migration stack cleanup accepts owned non-agent project IDs and checks every resource class", async () => {
+  const calls = [];
+  await assert.rejects(
+    stopAndVerifyTemporaryStack("upg-base-6a5f1234", async projectId => {
+      calls.push(`stop:${projectId}`);
+    }, async (kind, projectId) => {
+      calls.push(`inspect:${kind}:${projectId}`);
+      return kind === "networks" ? ["supabase_network_upg-base-6a5f1234"] : [];
+    }),
+    /still owns Docker resources \(networks: supabase_network_upg-base-6a5f1234\)/
+  );
+  assert.deepEqual(calls, [
+    "stop:upg-base-6a5f1234",
+    "inspect:containers:upg-base-6a5f1234",
+    "inspect:volumes:upg-base-6a5f1234",
+    "inspect:networks:upg-base-6a5f1234"
+  ]);
+  assert.throws(() => listTemporaryDockerResources("services", "upg-base-6a5f1234"), /Unknown temporary Docker resource kind/);
+});
+
+test("a stale project label makes cleanup fail and preserves its recovery workspace", async () => {
+  let removeProject = false;
+  const record = {
+    stackMayExist: true,
+    projectRoot: "/tmp/agent/project",
+    tempRoot: "/tmp/agent"
+  };
+  const result = await cleanupOwnedResources(record, {
+    cleanupBrowser: async () => [],
+    stopProcesses: async () => [],
+    stopStack: () => stopAndVerifyTemporaryStack("agent-cleanup-fixture", async () => undefined, async kind =>
+      kind === "containers" ? ["supabase_db_agent-cleanup-fixture"] : []),
+    removeProject: async () => { removeProject = true; },
+    removeCredentials: async () => undefined
+  });
+
+  assert.equal(result.cleanupStatus, "Failed");
+  assert.equal(result.stackStopped, false);
+  assert.equal(removeProject, false);
+  assert.equal(record.retainedProjectRoot, "/tmp/agent/project");
+  assert.match(result.cleanupFailures.join(" "), /still owns Docker resources/);
+});
+
 test("a later cleanup retry can remove a preserved workspace and keeps failure history", async () => {
   const calls = [];
   const record = {
@@ -236,12 +348,12 @@ test("missing debug evidence keeps acceptance Unknown after resource cleanup is 
   const record = {
     productStatus: "Pass",
     browserPageVisited: true,
-    requiredEvidence: ["evidence/dashboard-final.png", "evidence/browser-debug.json"],
+    requiredEvidence: ["evidence/final.png", "evidence/browser-debug.json"],
     evidenceStatus: "Incomplete",
     evidenceFailures: ["BrowserSkill debug export failed"]
   };
   const cleanup = await cleanupOwnedResources(record, {
-    cleanupBrowser: async () => updateEvidenceState(record, ["evidence/dashboard-final.png"]),
+    cleanupBrowser: async () => updateEvidenceState(record, ["evidence/final.png"]),
     stopProcesses: async () => [],
     stopStack: async () => true,
     removeProject: async () => undefined,
@@ -275,7 +387,7 @@ test("a failed debug export remains required after BrowserSkill session stop", a
       if (value.requiredEvidence.includes("evidence/browser-debug.json")) persistedDebugRequirement = true;
     },
     stat: async path => {
-      if (path.endsWith("dashboard-final.png")) return { isFile: () => true, size: 64 };
+      if (path.endsWith("final.png")) return { isFile: () => true, size: 64 };
       const error = new Error("missing debug export");
       error.code = "ENOENT";
       throw error;
@@ -311,6 +423,73 @@ test("a failed debug export remains required after BrowserSkill session stop", a
   assert.equal(record.evidenceStatus, "Incomplete");
   assert.equal(record.productStatus, "Unknown");
   assert.ok(record.evidenceFailures.some(failure => failure.includes("browser-debug.json")));
+});
+
+test("Harness-managed cleanup imports evidence and never calls the bsk CLI", async t => {
+  const runId = randomUUID();
+  const source = await mkdtemp(join(os.tmpdir(), "browser-harness-evidence-"));
+  const report = join(projectRoot, "frontend/test-results/agent-testing", runId);
+  const evidence = join(report, "evidence");
+  t.after(async () => {
+    await rm(source, { recursive: true, force: true });
+    await rm(report, { recursive: true, force: true });
+  });
+  await writeFile(join(source, "final.png"), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]));
+  await writeFile(join(source, "browser-debug.json"), JSON.stringify({ run: { id: "harness-capture" } }));
+  const record = {
+    runId,
+    browser: { driver: "harness", instanceId: "fb5e899d", sessionId: "harness-session" },
+    browserSessionStopped: true,
+    externalEvidenceSource: source,
+    browserPageVisited: true,
+    productStatus: "Pass",
+    requiredEvidence: ["evidence/final.png", "evidence/browser-debug.json"],
+    evidence: [],
+    evidenceFailures: []
+  };
+  const failures = [];
+
+  await bestEffortBrowserCleanup(record, failures, {
+    runSync: () => { throw new Error("Harness cleanup must not invoke bsk CLI commands"); }
+  });
+
+  assert.deepEqual(failures, []);
+  assert.equal(record.evidenceStatus, "Complete");
+  assert.equal(record.productStatus, "Pass");
+  assert.deepEqual(record.evidence.sort(), ["evidence/browser-debug.json", "evidence/final.png"]);
+  assert.deepEqual((await readdir(evidence)).sort(), ["browser-debug.json", "final.png"]);
+});
+
+test("Harness cleanup remains Unknown until the external Session stop is confirmed", async t => {
+  const runId = randomUUID();
+  const source = await mkdtemp(join(os.tmpdir(), "browser-harness-evidence-"));
+  const report = join(projectRoot, "frontend/test-results/agent-testing", runId);
+  t.after(async () => {
+    await rm(source, { recursive: true, force: true });
+    await rm(report, { recursive: true, force: true });
+  });
+  await writeFile(join(source, "final.png"), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]));
+  await writeFile(join(source, "browser-debug.json"), JSON.stringify({ run: { id: "harness-capture" } }));
+  const record = {
+    runId,
+    browser: { driver: "harness", instanceId: "fb5e899d", sessionId: "harness-session" },
+    browserSessionStopped: false,
+    externalEvidenceSource: source,
+    browserPageVisited: true,
+    productStatus: "Pass",
+    requiredEvidence: ["evidence/final.png", "evidence/browser-debug.json"],
+    evidence: [],
+    evidenceFailures: []
+  };
+  const failures = [];
+
+  await bestEffortBrowserCleanup(record, failures, {
+    runSync: () => { throw new Error("Harness cleanup must not invoke bsk CLI commands"); }
+  });
+
+  assert.equal(record.evidenceStatus, "Unknown");
+  assert.equal(record.productStatus, "Unknown");
+  assert.ok(failures.some(failure => failure.includes("Session stop was not confirmed")));
 });
 
 test("stopped debug runs still require an export artifact", () => {
@@ -375,13 +554,13 @@ test("PID reuse is detected before signaling an unrelated process", async () => 
 });
 
 test("Playwright output sets remain isolated by suite", () => {
-  const mock = playwrightArtifactDirectories("mock");
-  const auth = playwrightArtifactDirectories("local-auth");
+  const browser = playwrightArtifactDirectories("browser");
+  const auth = playwrightArtifactDirectories("browser-local");
   const visual = playwrightArtifactDirectories("visual");
-  assert.equal(new Set([mock.outputDir, auth.outputDir, visual.outputDir]).size, 3);
-  assert.equal(new Set([mock.htmlReport, auth.htmlReport, visual.htmlReport]).size, 3);
-  assert.equal(playwrightArtifactEnvironment({ E2E_LOCAL_AUTH: "1" }, "local-auth").PLAYWRIGHT_ARTIFACT_SET, "local-auth");
-  assert.throws(() => playwrightArtifactDirectories("../mock"), /Invalid Playwright artifact set/);
+  assert.equal(new Set([browser.outputDir, auth.outputDir, visual.outputDir]).size, 3);
+  assert.equal(new Set([browser.htmlReport, auth.htmlReport, visual.htmlReport]).size, 3);
+  assert.equal(playwrightArtifactEnvironment({ E2E_LOCAL_AUTH: "1" }, "browser-local").PLAYWRIGHT_ARTIFACT_SET, "browser-local");
+  assert.throws(() => playwrightArtifactDirectories("../browser"), /Invalid Playwright artifact set/);
 });
 
 test("the isolated pilot uses the documented template bootstrap identity", () => {

@@ -132,7 +132,7 @@ const {
                 </div>
               </td>
               <td class="px-4 py-3">
-                <Badge :variant='user.isActive ? "default" : "outline"'>{{ user.isActive ? "启用" : "停用" }}</Badge>
+                <Badge class="whitespace-nowrap" :variant='user.isActive ? "default" : "outline"'>{{ user.isActive ? "启用" : "停用" }}</Badge>
               </td>
               <td class="px-4 py-3 text-muted-foreground">{{ formatDate(user.createdAt) }}</td>
               <td class="px-4 py-3">

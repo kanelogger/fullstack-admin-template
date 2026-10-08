@@ -24,6 +24,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check route registry
         run: pnpm check:routes
+      - name: Check test architecture
+        run: pnpm check:test-architecture
       - name: Check documentation references
         run: pnpm check:docs
       - name: Lint
@@ -37,7 +39,7 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
       - name: PC browser tests
-        run: pnpm test:e2e:mock
+        run: pnpm test:browser
       - name: Disposable Supabase migration and integration checks
         run: pnpm check:migrations
       - name: Migration track upgrade checks
@@ -56,9 +58,6 @@ jobs:
   visual:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
-      options: --ipc=host
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,10 +66,8 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 12.3.4
-      - name: Install workspace
-        run: pnpm install --frozen-lockfile
-      - name: Compare Dashboard visual baselines
-        run: PLAYWRIGHT_ARTIFACT_SET=visual pnpm --filter fullstack-admin-frontend exec playwright test --project visual-linux
+      - name: Compare visual baselines in the pinned Linux container
+        run: pnpm test:visual
       - name: Upload visual diagnostics
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "rulesVersion": "2026-10-07.3",
+  "requiredPaths": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "frontend/package.json",
+    "frontend/playwright.config.ts",
+    "supabase/config.toml",
+    "visual/test-manifest.json",
+    "scripts/test-architecture-rules.json",
+    "scripts/test-architecture-assertions.json"
+  ],
+  "commonIncludedPrefixes": [
+    "frontend/build/",
+    "frontend/src/",
+    "frontend/public/"
+  ],
+  "commonIncludedPaths": [
+    ".gitignore",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "frontend/package.json",
+    "frontend/components.json",
+    "frontend/index.html",
+    "frontend/postcss.config.js",
+    "frontend/vite.config.ts",
+    "frontend/tsconfig.json",
+    "frontend/playwright.config.ts",
+    "frontend/scripts/run-playwright.mjs",
+    "scripts/playwright-artifacts.mjs",
+    "scripts/test-architecture-rules.json"
+  ],
+  "browserIncludedPrefixes": [
+    "supabase/functions/",
+    "supabase/migrations/",
+    "supabase/baselines/"
+  ],
+  "browserIncludedPaths": [
+    "frontend/e2e/auth-recovery-local.spec.ts",
+    "frontend/e2e/default-admin-login-local.spec.ts",
+    "frontend/e2e/navigation-authorization.spec.ts",
+    "frontend/e2e/session-race.spec.ts",
+    "frontend/e2e/visual-route-review.spec.ts",
+    "frontend/e2e/helpers/local-edge-functions.ts",
+    "frontend/e2e/helpers/supabase-session.ts",
+    "frontend/scripts/run-local-auth-e2e.mjs",
+    "project.yml",
+    "supabase/config.toml",
+    "supabase/seed.sql",
+    "scripts/agent-testing.mjs",
+    "scripts/agent-testing-evidence.mjs",
+    "scripts/agent-testing-helpers.mjs",
+    "scripts/agent-testing-lifecycle.mjs",
+    "scripts/check-migrations.mjs",
+    "scripts/dev.mjs",
+    "scripts/initial-admin-credentials.mjs",
+    "scripts/setup-admin.mjs",
+    "scripts/test-architecture.mjs",
+    "scripts/test-architecture-rules.json",
+    "scripts/test-architecture-assertions.json"
+  ],
+  "visualIncludedPaths": [
+    "frontend/e2e/dashboard-visual.spec.ts",
+    "frontend/e2e/visual-route-review.spec.ts",
+    "frontend/e2e/helpers/dashboard-visual-fixture.ts",
+    "frontend/e2e/helpers/supabase-session.ts",
+    "frontend/scripts/run-playwright.mjs",
+    "frontend/playwright.config.ts",
+    "scripts/playwright-artifacts.mjs",
+    "scripts/run-visual-tests.mjs",
+    "scripts/visual-tests-container.sh",
+    "supabase/seed.sql",
+    "visual/test-manifest.json"
+  ],
+  "visualIncludedPrefixes": [
+    "supabase/functions/_shared/contracts/"
+  ],
+  "excludedPrefixes": [
+    ".git/",
+    ".agents/state/",
+    "node_modules/",
+    "frontend/node_modules/",
+    "frontend/dist/",
+    "frontend/test-results/",
+    "frontend/playwright-report/",
+    "frontend/coverage/",
+    "visual/candidates/"
+  ],
+  "excludedPathPatterns": [
+    "**/.env*",
+    "**/.DS_Store",
+    "**/*-snapshots/**",
+    "**/*.trace.zip",
+    "**/playwright/.cache/**"
+  ],
+  "retiringPaths": [
+    "frontend/e2e/attachment-management-smoke.spec.ts",
+    "frontend/e2e/audit-log-smoke.spec.ts",
+    "frontend/e2e/dictionary-configuration-smoke.spec.ts",
+    "frontend/e2e/login-smoke.spec.ts",
+    "frontend/e2e/messages-smoke.spec.ts",
+    "frontend/e2e/organization-management-smoke.spec.ts",
+    "frontend/e2e/role-menu-smoke.spec.ts",
+    "frontend/e2e/shell-smoke.spec.ts",
+    "frontend/e2e/user-management-smoke.spec.ts"
+  ],
+  "allowedPlaywrightSpecs": [
+    "auth-recovery-local.spec.ts",
+    "dashboard-visual.spec.ts",
+    "default-admin-login-local.spec.ts",
+    "navigation-authorization.spec.ts",
+    "session-race.spec.ts",
+    "visual-route-review.spec.ts"
+  ],
+  "scenarios": {
+    "dashboard": [
+      { "id": "dashboard.visible", "expected": "Dashboard summary and unread message list are visible" },
+      { "id": "dashboard.todo-navigation", "expected": "Selecting a todo opens its message in the message center" },
+      { "id": "dashboard.mark-read", "expected": "Marking the message read updates its state and unread counts" },
+      { "id": "dashboard.refresh", "expected": "Reload restores the authenticated Dashboard and current message state" }
+    ],
+    "messages-shell": [
+      { "id": "messages.inbox", "expected": "The signed-in user sees only their inbox and correct unread count" },
+      { "id": "messages.mark-read", "expected": "Opening and marking a message read updates the inbox state" },
+      { "id": "shell.navigation", "expected": "Breadcrumbs, tabs, search and dynamic navigation follow the current route" },
+      { "id": "shell.notifications", "expected": "Notification loading, empty state and retry behave correctly" }
+    ],
+    "organization": [
+      { "id": "organization.departments", "expected": "Department list and hierarchy render from current service data" },
+      { "id": "organization.department-crud", "expected": "A department can be created, edited and removed with visible state updates" },
+      { "id": "organization.posts", "expected": "Posts can be created, edited and removed with visible state updates" },
+      { "id": "organization.authorization", "expected": "Organization writes require the caller's authorized permission" }
+    ],
+    "configuration": [
+      { "id": "configuration.dictionary-types", "expected": "Dictionary types load with their associated items" },
+      { "id": "configuration.dictionary-crud", "expected": "Dictionary types and items can be created, edited, reordered and removed" },
+      { "id": "configuration.system-values", "expected": "System configuration values can be updated and reloaded" },
+      { "id": "configuration.validation", "expected": "Invalid configuration input is rejected with an actionable message" }
+    ],
+    "identity-navigation": [
+      { "id": "identity.login", "expected": "A registered login_name and password establish an application Session" },
+      { "id": "navigation.dynamic", "expected": "Navigation contains only current Session routes and permissions" },
+      { "id": "navigation.denied", "expected": "An unauthorized direct route is denied by the server-backed authorization flow" },
+      { "id": "identity.logout", "expected": "Logout clears the Session and the server rejects the old access token" },
+      { "id": "users.manage", "expected": "An authorized operator can manage a user and see the saved state" },
+      { "id": "roles.authorization", "expected": "Role permissions can be replaced while system role protections remain visible" },
+      { "id": "menus.registry-crud", "expected": "Menu changes use only registered RouteKeys and update navigation metadata" }
+    ],
+    "attachments": [
+      { "id": "attachments.list", "expected": "The caller sees only authorized attachment metadata" },
+      { "id": "attachments.upload", "expected": "A valid file is stored privately and its metadata is shown" },
+      { "id": "attachments.download-delete", "expected": "Authorized download and deletion update the visible attachment state" },
+      { "id": "attachments.denied", "expected": "Unauthorized attachment reads and writes are rejected" }
+    ],
+    "audit": [
+      { "id": "audit.login-events", "expected": "Login audit records render for the authorized operator" },
+      { "id": "audit.operation-events", "expected": "Operation audit records render with actor and target details" },
+      { "id": "audit.exception-events", "expected": "Sanitized exception audit records render without exposing secrets" },
+      { "id": "audit.filters", "expected": "Audit filters and pagination return the corresponding records" }
+    ],
+    "profile": [
+      { "id": "profile.load", "expected": "Profile fields are populated from the current authenticated user" },
+      { "id": "profile.update", "expected": "Profile edits save and remain visible after reload" },
+      { "id": "profile.validation", "expected": "Invalid profile input is rejected without losing valid edits" }
+    ]
+  },
+  "checkpointRequiredEvidence": [
+    "evidence/browser-debug.json"
+  ],
+  "runRequiredEvidence": [
+    "evidence/final.png",
+    "evidence/browser-debug.json"
+  ],
+  "retirementBatches": {
+    "messages-shell": {
+      "scenarios": ["messages-shell"],
+      "paths": [
+        "frontend/e2e/messages-smoke.spec.ts",
+        "frontend/e2e/shell-smoke.spec.ts"
+      ]
+    },
+    "organization-configuration": {
+      "scenarios": ["organization", "configuration"],
+      "paths": [
+        "frontend/e2e/organization-management-smoke.spec.ts",
+        "frontend/e2e/dictionary-configuration-smoke.spec.ts"
+      ]
+    },
+    "users-roles-menus": {
+      "scenarios": ["identity-navigation"],
+      "paths": [
+        "frontend/e2e/user-management-smoke.spec.ts",
+        "frontend/e2e/role-menu-smoke.spec.ts"
+      ]
+    },
+    "attachments-audit": {
+      "scenarios": ["attachments", "audit"],
+      "paths": [
+        "frontend/e2e/attachment-management-smoke.spec.ts",
+        "frontend/e2e/audit-log-smoke.spec.ts"
+      ]
+    },
+    "login-profile-closeout": {
+      "scenarios": ["identity-navigation", "profile"],
+      "paths": [
+        "frontend/e2e/login-smoke.spec.ts"
+      ]
+    }
+  }
+}

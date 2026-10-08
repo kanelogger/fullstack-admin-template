@@ -6,6 +6,7 @@ select no_plan();
 
 select has_table('public', 'departments', 'department table exists');
 select has_table('public', 'posts', 'post table exists');
+select has_column('public', 'departments', 'parent_id', 'department parent relationship is stored as an optional BIGINT reference');
 select ok((select relrowsecurity from pg_catalog.pg_class where oid = 'public.departments'::regclass), 'department RLS is enabled');
 select ok((select relrowsecurity from pg_catalog.pg_class where oid = 'public.posts'::regclass), 'post RLS is enabled');
 select ok(
@@ -34,7 +35,20 @@ select ok(has_table_privilege('authenticated', 'public.departments', 'select'), 
 select ok(has_table_privilege('authenticated', 'public.posts', 'select'), 'authenticated post reads are controlled by RLS');
 select ok(has_column_privilege('authenticated', 'public.departments', 'dept_code', 'insert'), 'authenticated department creates are controlled by RLS');
 select ok(has_column_privilege('authenticated', 'public.departments', 'dept_code', 'update'), 'authenticated department updates are controlled by RLS');
+select ok(has_column_privilege('authenticated', 'public.departments', 'parent_id', 'insert'), 'authenticated callers can submit an authorized parent assignment');
+select ok(has_column_privilege('authenticated', 'public.departments', 'parent_id', 'update'), 'authenticated callers can change an authorized parent assignment');
 select ok(not has_table_privilege('authenticated', 'public.departments', 'delete'), 'authenticated clients cannot bypass reference checks with hard delete');
+select ok(
+  exists (
+    select 1 from pg_catalog.pg_constraint
+    where conrelid = 'public.departments'::regclass
+      and conname = 'departments_parent_id_fkey'
+      and confrelid = 'public.departments'::regclass
+      and confdeltype = 'r'
+  ),
+  'parent references use a restrictive self foreign key'
+);
+select is(to_regclass('public.departments_parent_id_idx')::text, 'departments_parent_id_idx', 'department parent references are indexed');
 select ok(has_column_privilege('authenticated', 'public.posts', 'post_code', 'insert'), 'authenticated post creates are controlled by RLS');
 select ok(has_column_privilege('authenticated', 'public.posts', 'post_code', 'update'), 'authenticated post updates are controlled by RLS');
 select ok(not has_table_privilege('authenticated', 'public.posts', 'delete'), 'authenticated clients cannot bypass reference checks with hard delete');
@@ -93,6 +107,46 @@ select lives_ok(
   $$insert into public.departments (dept_code, dept_name, status, description)
     values ('CODEX_ORG_DEPT', 'Codex Organization Department', 0, 'department test')$$,
   'SUPER_ADMIN can create a department'
+);
+select lives_ok(
+  $$insert into public.departments (dept_code, dept_name, parent_id)
+    values ('CODEX_HIER_PARENT', 'Codex Hierarchy Parent', null)$$,
+  'SUPER_ADMIN can create a root department'
+);
+select lives_ok(
+  $$insert into public.departments (dept_code, dept_name, parent_id)
+    values (
+      'CODEX_HIER_CHILD', 'Codex Hierarchy Child',
+      (select id from public.departments where dept_code = 'CODEX_HIER_PARENT')
+    )$$,
+  'SUPER_ADMIN can create a child department'
+);
+select is(
+  (select parent_id from public.department_read_model where dept_code = 'CODEX_HIER_CHILD'),
+  (select id from public.department_read_model where dept_code = 'CODEX_HIER_PARENT'),
+  'department read model preserves parent IDs as decimal text'
+);
+select throws_ok(
+  $$update public.departments
+    set parent_id = (select id from public.departments where dept_code = 'CODEX_HIER_CHILD')
+    where dept_code = 'CODEX_HIER_PARENT'$$,
+  '23514',
+  'Department hierarchy cannot contain a cycle',
+  'department parent assignments cannot create a hierarchy cycle'
+);
+select throws_ok(
+  $$select public.delete_department((select id::text from public.departments where dept_code = 'CODEX_HIER_PARENT'))$$,
+  '23503',
+  'Department has active child departments',
+  'a parent department cannot be deleted while it has active children'
+);
+select lives_ok(
+  $$select public.delete_department((select id::text from public.departments where dept_code = 'CODEX_HIER_CHILD'))$$,
+  'an unreferenced child department can be soft-deleted'
+);
+select lives_ok(
+  $$select public.delete_department((select id::text from public.departments where dept_code = 'CODEX_HIER_PARENT'))$$,
+  'a parent department can be deleted after its active children are removed'
 );
 select lives_ok(
   $$insert into public.posts (post_code, post_name, status, description)

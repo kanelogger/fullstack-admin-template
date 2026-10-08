@@ -1,6 +1,6 @@
 # 当前架构与接口事实
 
-- 最近核实：2026-10-06。静态事实以本文件、`package.json`、`supabase/config.toml`、SQL migrations、共享契约和验证脚本为准；实际行为以代码和测试证据为准。
+- 最近核实：2026-10-07。静态事实以本文件、`package.json`、`supabase/config.toml`、SQL migrations、共享契约和验证脚本为准；实际行为以代码和测试证据为准。
 - 目标用户界面：PC 浏览器；移动端适配与验收不属于模板目标。
 
 ## Workspace 与目录
@@ -28,6 +28,7 @@
 ## 数据功能
 
 - 用户、角色、菜单、部门、岗位、字典、配置、Profile、消息、附件、审计与 Dashboard 均通过 Supabase RPC/表策略/Edge Functions。
+- 部门通过可空 `departments.parent_id` 形成多级树；`department_read_model` 返回字符串父 ID，页面显示祖先路径并提供上级选择。数据库在 RLS 写权限之上校验上级有效性、禁止循环并阻止软删除仍有活动子部门的父级；旧部门和 Profile 部门引用保持不变。
 - Dashboard 的待办是当前用户未读消息，不另建任务实体。消息的列表、详情、已读和 Realtime 事件受收件人 RLS 约束。
 - 附件保存在私有 `admin-attachments` Storage bucket，元数据和对象权限分开控制；引用状态与 MIME/扩展名、大小受到数据库和 Storage 限制。
 - 历史 MySQL 导入功能不属于新模板支持范围。历史 migration 保持不可变；新项目使用截止版本 `20261005084413` 的固定基线 `supabase/baselines/20261005084413/`。之后的增量 migration 同时镜像到两条轨道，升级验收会保留数据并用 `migration up`，不会重置升级中的数据库。
@@ -36,6 +37,8 @@
 
 - Node `>=22.13.0`、pnpm `>=9`，项目固定 Node 24.18.0 / pnpm 12.3.4；Postgres Local major version 为 17。
 - `pnpm supabase:start/status/stop` 管理本地栈；`pnpm dev` 同时启动 Edge Functions 与 Vite (`127.0.0.1:8848`)。Auth 邮件由本地 Mailpit 捕获。
-- `pnpm check:docs` 检查活动 Markdown 本地链接和命令；`pnpm check:routes` 检查 RouteKey 合同、菜单元数据、权限键与可跟踪页面；`pnpm lint` 要求 Vue/TypeScript、共享合同、脚本和 Deno Edge Functions 零 warning。`pnpm typecheck` 检查全栈类型；`pnpm test:unit` 聚合 Node Vitest、jsdom Vue 组件、共享合同与脚本测试；`pnpm test:visual` 在固定容器比较确定性基线；`pnpm test:agent:start` 在指定 BrowserSkill 实例中验收真实 Dashboard 会话；`pnpm test:e2e:mock` 覆盖 PC UI 与 Session 竞态；`pnpm test:e2e:local` 覆盖本地 Supabase 浏览器链路；`pnpm test:db` 跑本地 pgTAP 与服务集成；`pnpm check:migrations` 验证历史空库重放；`pnpm check:migration-upgrades` 验证历史与临时基线的真实增量升级及固定基线、数据保留、账本、权限和完整 schema manifest。
-- Playwright Mock、Local Auth 和 Visual 套件分别写入 `test-results/{mock,local-auth,visual}/` 及 `playwright-report/{mock,local-auth,visual}/`；CI 在各自门禁完成后收集这些诊断目录。Dashboard Agent 报告将产品状态、资源清理状态和证据完整性分开保存；未完成必需证据时产品结果不能记为 `Pass`。
-- GitHub Actions 在 push/pull_request 上执行冻结安装、路由检查、源码 lint、类型检查、构建、单测、PC mock 浏览器测试和隔离 migration check。无生产部署配置。
+- `pnpm check:test-architecture` 锁定六类 Playwright spec 并校验每条待退出断言的显式替代测试、BrowserSkill 检查点或保留理由。`pnpm test:unit` 聚合 Vitest、jsdom Vue 组件、共享合同和脚本测试；`pnpm test:browser` 覆盖 Session 竞态、权限导航和完整路由布局矩阵；`pnpm test:browser:local` 覆盖本地 Supabase Auth/RLS/CRUD/Realtime 链路；`pnpm test:visual` 比较固定容器中的 14 个像素状态。Browser 与 Local Auth Playwright 产物分别写入 `test-results/{browser,browser-local}/` 和 `playwright-report/{browser,browser-local}/`。
+- BrowserSkill 的八个场景使用固定源码副本、冻结锁安装和版本化 SHA-256 输入摘要；报告必须同时匹配产品摘要与场景执行摘要，后者覆盖验收 runner、账号/fixture 准备和启动配置。仅显式登记的验收管理输入与逐断言清单可单独报告 drift，管理变化仍由相应 suite 摘要和删除门槛把关。报告逐 checkpoint 记录状态、观察与证据，并校验 debug 捕获的 session、应用 origin 和时间范围与报告匹配。`test:agent:retire` 按登记批次原子删除，并复核每条原始断言的源码指纹。
+- BrowserSkill、`check:migrations` 与 `check:migration-upgrades` 创建的隔离栈，只有在 Supabase CLI stop 成功且 Docker 中精确 project label 下的容器、卷和网络均已消失后才记录清理成功。资源查询失败或仍有资源时清理失败，保留恢复目录和诊断信息。
+- Visual 更新只在固定副本中生成候选、原图、差异图和候选 manifest；审阅后 `pnpm test:visual:accept -- --candidate <id>` 才更新登记基线。正式 PNG 不进入视觉源码摘要；明确登记基线增删，CI 只比较不生成或接受候选。
+- GitHub Actions 在 push/pull_request 上执行冻结安装、RouteKey 与测试架构检查、lint、typecheck、build、unit、PC browser、固定容器视觉比较和隔离 migration checks。无生产部署配置。

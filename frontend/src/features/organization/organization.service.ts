@@ -32,7 +32,15 @@ function throwDatabaseError(
     throw fail(kind === "department" ? "部门编码已存在" : "岗位编码已存在");
   }
   if (error.code === "23503") {
-    throw fail(kind === "department" ? "部门已被用户引用，不能删除" : "岗位已被用户引用，不能删除");
+    if (kind === "department") {
+      throw fail(fallback.includes("删除")
+        ? "部门已被用户或子部门引用，不能删除"
+        : "上级部门不存在或已删除");
+    }
+    throw fail(fallback.includes("删除") ? "岗位已被用户引用，不能删除" : fallback);
+  }
+  if (error.code === "23514") {
+    throw fail(kind === "department" ? "部门层级不能包含自身或形成循环" : "岗位数据无效");
   }
   if (error.code === "42501") {
     throw fail("当前账号没有执行此操作的权限");
@@ -45,6 +53,7 @@ export function mapDepartmentRow(value: unknown): Department {
   const row = value as DatabaseRow;
   return DepartmentSchema.parse({
     id: row.id,
+    parentId: row.parent_id === null ? null : row.parent_id,
     deptCode: row.dept_code,
     deptName: row.dept_name,
     status: row.status,
@@ -77,7 +86,7 @@ export async function getDepartments(input: unknown = {}): Promise<DepartmentPag
   const client = getSupabaseClient();
   let query = client
     .from("department_read_model")
-    .select("id, dept_code, dept_name, status, description, created_at, updated_at", {
+    .select("id, dept_code, dept_name, status, description, created_at, updated_at, parent_id", {
       count: "exact"
     });
   if (request.deptCode) query = query.ilike("dept_code", `%${escapeLike(request.deptCode)}%`);
@@ -155,7 +164,7 @@ export async function listPostOptions(): Promise<Post[]> {
 async function getDepartmentByCode(code: string): Promise<Department> {
   const { data, error } = await getSupabaseClient()
     .from("department_read_model")
-    .select("id, dept_code, dept_name, status, description, created_at, updated_at")
+    .select("id, dept_code, dept_name, status, description, created_at, updated_at, parent_id")
     .eq("dept_code", code)
     .maybeSingle();
   throwDatabaseError(error, "保存后的部门读取失败", "department");
@@ -180,6 +189,7 @@ export async function saveDepartment(input: unknown): Promise<Department> {
   const values = {
     dept_code: request.deptCode,
     dept_name: request.deptName,
+    ...(request.parentId !== undefined ? { parent_id: request.parentId } : {}),
     status: request.status,
     description: request.description
   };

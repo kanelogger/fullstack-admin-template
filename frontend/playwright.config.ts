@@ -18,7 +18,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: "**/dashboard-visual.spec.ts",
+      testMatch: [
+        "**/auth-recovery-local.spec.ts",
+        "**/default-admin-login-local.spec.ts",
+        "**/navigation-authorization.spec.ts",
+        "**/session-race.spec.ts",
+        "**/visual-route-review.spec.ts"
+      ],
       use: { ...devices["Desktop Chrome"] }
     },
     {

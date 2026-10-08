@@ -1,4 +1,4 @@
-const artifactSets = new Set(["mock", "local-auth", "visual", "adhoc"]);
+const artifactSets = new Set(["browser", "browser-local", "visual", "adhoc"]);
 
 export function playwrightArtifactDirectories(artifactSet) {
   if (!artifactSets.has(artifactSet)) {

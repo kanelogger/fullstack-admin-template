@@ -1,9 +1,19 @@
+import { spawnSync } from "node:child_process";
+
+export const MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH = 40;
+
 export class StartupCancelledError extends Error {
   constructor(reason) {
     super(`Dashboard startup cancelled: ${reason}`);
     this.name = "StartupCancelledError";
     this.reason = reason;
   }
+}
+
+export function browserExecutionInputsMatch(reference, ...summaries) {
+  const fields = ["purpose", "rulesVersion", "rulesSha256", "productInputSha256", "scenarioInputSha256"];
+  if (!reference || fields.some(field => typeof reference[field] !== "string" || !reference[field])) return false;
+  return summaries.every(summary => summary && fields.every(field => summary[field] === reference[field]));
 }
 
 export function createStartupLifecycle(onReadyShutdown) {
@@ -99,6 +109,69 @@ export async function startOwnedStack(record, persist, start, checkpoint = () =>
     throw error;
   }
   return await start();
+}
+
+export function temporarySupabaseProjectId(scenario, suffix) {
+  if (typeof scenario !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(scenario)) {
+    throw new Error("Temporary Supabase scenario must be a lowercase slug");
+  }
+  if (typeof suffix !== "string" || !/^[0-9a-f]{16}$/.test(suffix)) {
+    throw new Error("Temporary Supabase project ID requires a 64-bit hexadecimal suffix");
+  }
+  const scenarioLength = MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH - "agent-".length - 1 - suffix.length;
+  const scenarioPart = scenario.slice(0, scenarioLength).replace(/-+$/, "");
+  if (!scenarioPart) throw new Error("Temporary Supabase scenario name is too long");
+  const projectId = `agent-${scenarioPart}-${suffix}`;
+  if (projectId.length > MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH) {
+    throw new Error(`Temporary Supabase project ID exceeds the ${MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH}-character CLI limit`);
+  }
+  return projectId;
+}
+
+export function listTemporaryDockerResources(kind, projectId) {
+  const label = `label=com.docker.compose.project=${projectId}`;
+  const commands = {
+    containers: ["ps", "-a", "--filter", label, "--format", "{{.Names}}"],
+    volumes: ["volume", "ls", "--filter", label, "--format", "{{.Name}}"],
+    networks: ["network", "ls", "--filter", label, "--format", "{{.Name}}"]
+  };
+  const args = commands[kind];
+  if (!args) throw new Error(`Unknown temporary Docker resource kind: ${kind}`);
+  const result = spawnSync(process.platform === "win32" ? "docker.exe" : "docker", args, {
+    encoding: "utf8",
+    timeout: 20_000,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Docker ${kind} inspection failed (${result.error?.message ?? `exit code ${result.status ?? 1}`}): ${(result.stderr ?? "").trim()}`);
+  }
+  return (result.stdout ?? "").split(/\r?\n/).map(item => item.trim()).filter(Boolean);
+}
+
+export async function stopAndVerifyTemporaryStack(projectId, stop, listResources = listTemporaryDockerResources) {
+  if (typeof projectId !== "string" || projectId.length > MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(projectId)) {
+    throw new Error(`Temporary Supabase project ID must be a valid slug no longer than ${MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH} characters`);
+  }
+  if (typeof stop !== "function" || typeof listResources !== "function") {
+    throw new Error("Temporary Supabase stop verification requires stop and resource-list operations");
+  }
+
+  await stop(projectId);
+  const kinds = ["containers", "volumes", "networks"];
+  const resources = await Promise.all(kinds.map(async kind => {
+    const items = await listResources(kind, projectId);
+    if (!Array.isArray(items) || items.some(item => typeof item !== "string" || !item.trim())) {
+      throw new Error(`Docker ${kind} inspection did not return a valid resource list`);
+    }
+    return { kind, items };
+  }));
+  const remaining = resources.filter(resource => resource.items.length > 0);
+  if (remaining.length) {
+    const detail = remaining.map(resource => `${resource.kind}: ${resource.items.join(", ")}`).join("; ");
+    throw new Error(`Supabase CLI returned, but project ${projectId} still owns Docker resources (${detail})`);
+  }
+  return true;
 }
 
 function errorMessage(error) {

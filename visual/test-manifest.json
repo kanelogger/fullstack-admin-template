@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "states": [
+    {
+      "id": "login-light",
+      "testTitle": "login page light",
+      "screenshot": "login-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/login-light-visual-linux-linux.png"
+    },
+    {
+      "id": "login-dark",
+      "testTitle": "login page dark",
+      "screenshot": "login-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/login-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-vertical-light",
+      "testTitle": "dashboard vertical light",
+      "screenshot": "dashboard-vertical-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-vertical-light-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-vertical-dark",
+      "testTitle": "dashboard vertical dark",
+      "screenshot": "dashboard-vertical-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-vertical-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-horizontal-light",
+      "testTitle": "dashboard horizontal light",
+      "screenshot": "dashboard-horizontal-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-horizontal-light-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-horizontal-dark",
+      "testTitle": "dashboard horizontal dark",
+      "screenshot": "dashboard-horizontal-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-horizontal-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-mix-light",
+      "testTitle": "dashboard mix light",
+      "screenshot": "dashboard-mix-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-mix-light-visual-linux-linux.png"
+    },
+    {
+      "id": "dashboard-mix-dark",
+      "testTitle": "dashboard mix dark",
+      "screenshot": "dashboard-mix-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/dashboard-mix-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "users-table-light",
+      "testTitle": "users table light",
+      "screenshot": "users-table-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/users-table-light-visual-linux-linux.png"
+    },
+    {
+      "id": "users-table-dark",
+      "testTitle": "users table dark",
+      "screenshot": "users-table-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/users-table-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "profile-form-light",
+      "testTitle": "profile form light",
+      "screenshot": "profile-form-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/profile-form-light-visual-linux-linux.png"
+    },
+    {
+      "id": "profile-form-dark",
+      "testTitle": "profile form dark",
+      "screenshot": "profile-form-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/profile-form-dark-visual-linux-linux.png"
+    },
+    {
+      "id": "role-permission-light",
+      "testTitle": "role permission dialog light",
+      "screenshot": "role-permission-light.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/role-permission-light-visual-linux-linux.png"
+    },
+    {
+      "id": "role-permission-dark",
+      "testTitle": "role permission dialog dark",
+      "screenshot": "role-permission-dark.png",
+      "baseline": "frontend/e2e/dashboard-visual.spec.ts-snapshots/role-permission-dark-visual-linux-linux.png"
+    }
+  ],
+  "baselineAdditions": [],
+  "baselineDeletions": []
+}

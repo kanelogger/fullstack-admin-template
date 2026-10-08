@@ -6,6 +6,7 @@ import os from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { captureBaseline, createIsolatedProject, projectRoot, reservePorts } from "./check-migrations.mjs";
+import { listTemporaryDockerResources, stopAndVerifyTemporaryStack } from "./agent-testing-lifecycle.mjs";
 
 const fixtureDirectory = join(projectRoot, "scripts/fixtures");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -228,16 +229,22 @@ async function upgradeTrack({
 
   let cleanupError;
   if (stackMayExist) {
-    const stopped = spawnSync(pnpm, [...workdir, "stop", "--project-id", projectId, "--no-backup"], {
-      cwd: projectRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
-      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
-    });
-    if (stopped.error || stopped.status !== 0) {
+    try {
+      await stopAndVerifyTemporaryStack(projectId, async () => {
+        const stopped = spawnSync(pnpm, [...workdir, "stop", "--project-id", projectId, "--no-backup"], {
+          cwd: projectRoot,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          shell: process.platform === "win32",
+          env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
+        });
+        if (stopped.error || stopped.status !== 0) {
+          throw new Error(`Supabase stop failed (${stopped.error?.message ?? `exit code ${stopped.status ?? 1}`}): ${(stopped.stderr ?? "").trim()}`);
+        }
+      }, listTemporaryDockerResources);
+    } catch (error) {
       retainWorkspace();
-      cleanupError = new Error(`Could not stop upgrade test stack ${projectId}; its workspace is ${isolatedRoot}`);
+      cleanupError = new Error(`Could not fully stop upgrade test stack ${projectId}; its workspace is ${isolatedRoot}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   if (operationError && cleanupError) {

@@ -96,7 +96,7 @@ scripts/               # 本地开发、首次管理员和验收入口
 
 PC 应用提供登录、主布局、侧栏、顶栏、面包屑、多标签、搜索、通知、403/404/500 错误页、请求加载/空态/错误态和授权提示。布局只负责应用级行为，业务页面归属 `features/`。
 
-当前业务模块包括 Profile、消息中心、用户、角色、菜单、部门与岗位、字典、系统配置、附件、三类审计日志和 Dashboard。Dashboard 的待办就是当前用户未读消息，不另建任务域。附件使用私有 Storage；消息变化由 Realtime 推送。
+当前业务模块包括 Profile、消息中心、用户、角色、菜单、多级部门目录、岗位、字典、系统配置、附件、三类审计日志和 Dashboard。部门层级在 PostgreSQL 中用自引用外键、有效父级检查与环检测维护，前端按祖先路径展示。Dashboard 的待办就是当前用户未读消息，不另建任务域。附件使用私有 Storage；消息变化由 Realtime 推送。
 
 ## 7. 状态管理
 
@@ -122,12 +122,16 @@ Supabase Auth 是持久 Session 唯一来源；权限快照、菜单、路由和
 ## 9. 验证层
 
 - `pnpm typecheck`：前端 Vue/TypeScript、共享合同和三个 Deno Edge Functions。
-- `pnpm test:unit`：Vitest 与本地脚本 helper 测试。
-- `pnpm test:e2e:mock`：PC Chromium 隔离 fixture 浏览器测试，含授权页面和延迟刷新退出竞态。
-- `pnpm test:e2e:local`：Mailpit 恢复、PC 浏览器登录、字典类型真实 CRUD、消息 Realtime 收件、刷新恢复、越权路由拒绝、登出及旧 access token 的 RLS 拒绝。
+- `pnpm test:unit`：Vitest、Vue 组件、共享合同与脚本测试，包含各业务 Service/Store 的响应、错误、权限和字符串 ID 断言。
+- `pnpm check:test-architecture`：六类 Playwright spec 白名单、旧 Smoke 登记、逐断言替代测试和 BrowserSkill 检查点映射。
+- `pnpm test:browser`：PC Chromium Session 竞态、权限导航与所有注册路由 × 三布局 × 双主题布局矩阵；成功不保存逐页截图。
+- `pnpm test:browser:local`：Mailpit 恢复、PC 浏览器登录、字典类型真实 CRUD、消息 Realtime 收件、刷新恢复、越权路由拒绝、登出及旧 access token 的 RLS 拒绝。
+- `pnpm test:visual`：固定 Linux amd64 Playwright 容器比较 14 状态：登录双主题、Dashboard 三布局双主题、用户表格双主题、Profile 表单双主题、角色授权弹窗双主题。
+- `pnpm test:visual:update`：仅生成固定副本中的候选 PNG、原图、差异图和 manifest；审阅后 `pnpm test:visual:accept -- --candidate <id>` 才更新正式基线。
+- `pnpm test:agent:start/record/verify/retire/cleanup`：固定输入与规则摘要、八个 BrowserSkill 场景 checkpoint 报告、证据完整性与批次删除门槛。
 - `pnpm test:db`：本地 Supabase pgTAP、RLS、Edge、Storage、Realtime 和审计集成检查。
 - `pnpm check:migrations`：在独立临时 Supabase project/动态端口从空库重放 migrations 和 seed，检查重复 seed、DB lint/advisors、Auth bootstrap 并发、pgTAP、服务集成与本地 Auth 浏览器流，并回收该临时栈。
-- GitHub Actions 对 push 与 pull request 运行冻结安装、类型检查、生产构建、Vitest、PC Chromium 和隔离迁移校验。
+- GitHub Actions 在 push 与 pull request 上运行测试架构检查、冻结安装、类型检查、生产构建、Vitest、PC Chromium、固定容器视觉比较和隔离迁移校验；CI 不生成或接受像素候选。
 
 PC 浏览器最低验收路径固定为：
 
@@ -141,11 +145,11 @@ PC 浏览器最低验收路径固定为：
 → 退出并验证旧 access token 被 RLS 拒绝
 ```
 
-该路径由本地 Supabase/Playwright 浏览器测试覆盖；mock 页面测试与独立 pgTAP 测试不能替代它。
+该路径由本地 Supabase/Playwright 浏览器测试覆盖；隔离页面测试与独立 pgTAP 测试不能替代它。
 
 ## 10. 当前实施边界
 
-应用、合同包、Supabase migration/RLS/Auth/Storage/Realtime/Edge 入口及根开发命令均切到上述栈；本机最终版本已通过 `pnpm typecheck`、`pnpm build`、`pnpm test:unit`、PC mock 浏览器测试和包含上述完整浏览器路径的 `pnpm check:migrations`。GitHub Actions 文件已创建在当前工作区，首次远程运行结果尚未取得。生产部署、真实远程项目连接与移动端不属于本模板验收范围。
+测试分层和命令以仓库脚本、`rules/testing.md`、`scripts/test-architecture-rules.json` 与 `scripts/test-architecture-assertions.json` 为准。旧 Smoke 只有逐断言替代映射、相关 BrowserSkill 报告和 verify 全部通过后才退出；缺少真实场景报告时保留原文件。远程 GitHub Actions 的结果只能由对应 workflow run 证明。生产部署、真实远程项目连接与移动端不属于本模板验收范围。
 
 ## 11. 原则
 

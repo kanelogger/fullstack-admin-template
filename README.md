@@ -4,6 +4,8 @@
 
 后台支持垂直、横向和混合导航。横向菜单超出可用宽度时提供左右滚动控件，并在切换路由后把当前菜单项滚入视口。
 
+组织管理支持多级部门：编辑部门时可选择上级部门，列表显示完整层级路径；数据库限制循环关系、失效上级引用和仍有子部门的父级删除。
+
 ## 本地启动
 
 环境要求：Node.js `>=22.13.0`，推荐使用项目锁定的 Node 24.18.0 与 pnpm 12.3.4。macOS 本地 Supabase 使用 OrbStack 或兼容 Docker API 的容器 runtime。
@@ -35,20 +37,29 @@ pnpm typecheck
 pnpm lint
 pnpm check:docs
 pnpm check:routes
+pnpm check:test-architecture
 pnpm build
 pnpm test:unit
 pnpm test:components
-pnpm test:e2e:mock
+pnpm test:browser
 pnpm test:visual
-pnpm test:e2e:local
+pnpm test:browser:local
 pnpm test:db
 pnpm check:migrations
 pnpm check:migration-upgrades
 ```
 
-`test:e2e:mock` 使用隔离服务响应，覆盖 PC 浏览器壳、权限路由、核心管理页面、延迟刷新/登出，以及跨标签同账号重登和账号切换。CI 保留重试用于诊断，但 flaky 结果仍使 CI 失败，并上传限期 trace/report。Mock、Local Auth、Visual 的 Playwright 报告分别保存在 `playwright-report/{mock,local-auth,visual}/` 与 `test-results/{mock,local-auth,visual}/`，不会互相清理。`test:e2e:local` 使用本地 Supabase/Mailpit 验证恢复登录、字典 CRUD、Realtime、刷新、越权和旧 token 的 RLS 拒绝。`check:migrations` 验证历史流空库重放；`check:migration-upgrades` 在历史流和临时基线两边保留数据并应用最近三条真实增量，另外验收固定发布基线，比较权限、账本与完整 schema manifest。
+`check:test-architecture` 只允许五个浏览器/布局 spec 和一个像素 spec 进入 Playwright 项目；旧业务 Smoke 必须登记断言数、替代测试和 BrowserSkill 检查点。`test:browser` 覆盖 Session 竞态、权限路由和完整路由 × 三布局 × 双主题矩阵；`test:browser:local` 用本机 Supabase/Mailpit 验证恢复登录、字典 CRUD、Realtime、刷新、越权和旧 token 的 RLS 拒绝。两套浏览器测试与 Visual 的报告分别保存在 `playwright-report/{browser,browser-local,visual}/` 和 `test-results/{browser,browser-local,visual}/`。
 
-Dashboard 视觉基线在固定 Playwright Linux 容器中比较；更新时运行 `pnpm test:visual:update` 并审阅差异。真实 Dashboard BrowserSkill 试点可通过 `pnpm test:agent:start -- --scenario dashboard --browser <instance-id>` 启动；它只在独立临时栈内运行 `pnpm setup:admin` 并生成 run 专属消息/操作 fixture，完成后使用对应 run ID 清理环境。报告分别记录产品结果、资源清理和证据完整性；stop 未确认时保留临时项目目录，缺少必需截图或调试导出会把 `Pass` 降为 `Unknown`。
+Visual 在固定 Linux amd64 Playwright 容器内比较 14 个像素状态：登录双主题、Dashboard 三布局双主题、用户表格双主题、Profile 表单双主题和角色授权弹窗双主题。`pnpm test:visual:update` 只在临时固定副本生成候选、原图和差异图；检查候选后运行 `pnpm test:visual:accept -- --candidate <id>` 才会更新登记的正式 PNG。CI 只比较。
+
+真实 BrowserSkill 验收覆盖 Dashboard、消息与壳、组织、配置、身份与导航、附件、审计和 Profile 八个场景。Codex CLI 模式通过 `--browser` 绑定指定实例；runner 会执行 `bsk session start --browser <instance-id> --json`，随后从固定副本启动场景：
+
+```text
+pnpm test:agent:start -- --scenario <scenario> --browser <instance-id>
+```
+
+每个必需检查点用 `pnpm test:agent:record` 记录观察结果和证据。CLI 模式的 cleanup 会导出 `final.png`、`browser-debug.json`，停止对应 session 并核对本次隔离栈资源。报告复用要求产品源码和 runner/fixture/启动配置的场景摘要都匹配；仅显式允许的管理状态与断言账本 drift 可单独显示。单场景或八场景完整检查使用 `pnpm test:agent:verify`；删除旧测试还要求逐断言映射与完整 unit/browser suite 摘要通过。Harness 环境可使用 `--browser-session` 传入 Harness 创建的 session，并导入其证据。
 
 ## 架构资料
 
@@ -57,3 +68,4 @@ Dashboard 视觉基线在固定 Playwright Linux 容器中比较；更新时运�
 - [本地命令与副作用](docs/agent-environment/commands.md)
 - [环境服务](docs/agent-environment/services.md)
 - [测试约定](rules/testing.md)
+- [测试架构与验收输入摘要决策](docs/adr/0005-execution-input-fingerprints.md)

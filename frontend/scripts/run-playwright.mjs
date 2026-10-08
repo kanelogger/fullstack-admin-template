@@ -5,8 +5,8 @@ import { playwrightArtifactEnvironment } from "../../scripts/playwright-artifact
 
 const frontendRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const [artifactSet, ...args] = process.argv.slice(2);
-if (!["mock", "visual"].includes(artifactSet) || args.length === 0) {
-  throw new Error("Usage: node scripts/run-playwright.mjs <mock|visual> <playwright arguments...>");
+if (!["browser", "visual"].includes(artifactSet) || args.length === 0) {
+  throw new Error("Usage: node scripts/run-playwright.mjs <browser|visual> <playwright arguments...>");
 }
 
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";

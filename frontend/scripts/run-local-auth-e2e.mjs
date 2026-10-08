@@ -45,13 +45,14 @@ if (result.error || result.status !== 0) {
         "test",
         "e2e/auth-recovery-local.spec.ts",
         ...(process.env.E2E_TEMPLATE_ADMIN === "1" ? ["e2e/default-admin-login-local.spec.ts"] : []),
+        "--project", "chromium",
         "--workers=1"
       ],
       {
         cwd: frontendRoot,
         stdio: "inherit",
         env: {
-          ...playwrightArtifactEnvironment(process.env, "local-auth"),
+          ...playwrightArtifactEnvironment(process.env, "browser-local"),
           E2E_LOCAL_AUTH: "1",
           VITE_SUPABASE_URL: apiUrl,
           VITE_SUPABASE_PUBLISHABLE_KEY: publishableKey,

@@ -1,0 +1,28 @@
+# 0003. 全项目测试架构迁移与旧 E2E 退出门槛
+
+- 日期：2026-10-07
+- 状态：已被 0004 取代
+- 背景：业务 Smoke 同时校验服务调用、页面状态和浏览器交互，存在重复与难以审计的覆盖。只减少 E2E 行数会丢失真实权限、Session、Realtime 和布局证据。旧测试删除必须能证明当前代码确实由其他层承接。
+- 决策：
+  - 参数、响应解析、BIGINT 字符串 ID、权限判定、CRUD 请求、错误与异步归属由合同、Service、Store 和组件测试验证。
+  - Supabase Local 和 pgTAP 验证真实 Auth、Edge、RPC、RLS、Storage、Realtime 与 migration 兼容性；精简 Playwright 保留 Session 竞态、权限导航、本地真实登录、完整布局矩阵和像素比较；BrowserSkill 覆盖真实业务操作。
+  - BrowserSkill 使用八个版本化场景：Dashboard、消息与壳、组织、配置、身份与导航、附件、审计、Profile。checkpoint ID、期望结果、必需证据在规则 JSON 中定义。
+  - BrowserSkill 和视觉摘要使用同一 SHA-256 实现与版本化输入规则，规则文件本身参与规则校验。BrowserSkill 摘要包括产品代码、合同、migrations/seed、依赖和场景 runner；视觉摘要包括渲染代码、依赖、布局与像素 fixture。正式像素 PNG 不进入视觉源码摘要；候选 manifest 单独记录正式基线和候选 hash。
+  - 每次真实验收先计算摘要，创建与输入一致的固定副本，以冻结锁文件安装依赖并从该副本运行。结束时复核副本和当前工作区。规则或输入变化会使报告失效；恢复相同路径与内容可重新匹配摘要。
+  - BrowserSkill 报告逐 checkpoint 记录 `Pass/Fail/Unknown/Skipped`、观察结果和证据引用。通过要求所有必需 checkpoint 为 Pass、引用和 PNG/debug 有效完整、输入规则匹配、副本一致、临时服务/Session 清理成功。Codex CLI 每个场景显式绑定浏览器实例并执行 `bsk session start --browser <instance-id> --json`；Harness driver 只用于提供 `browser_session` 工具的环境。
+  - 旧 E2E 断言清单记录每个测试块内的 expect 数量，并将每条 expect 展开映射到替代测试、BrowserSkill checkpoint 或带理由的保留项；source hash 防止清单审阅后旧测试被静默改写。`test:agent:retire` 在批次验证全部通过后才执行删除，并在源文件移除失败时回滚。
+  - Playwright spec 以六类文件为白名单：Session 竞态、权限导航、Local Auth、首位管理员登录、布局回归、像素回归。测试架构检查阻止未登记 spec 和旧命令进入 CI。
+  - 视觉候选只在固定副本生成，不覆盖正式 PNG。候选含 14 个目标、原图/差异图、输入摘要和基线原 hash。显式 `test:visual:accept -- --candidate <id>` 在核验新摘要、规则、完整性及正式 PNG hash 后，只更新 manifest 中目标；失败回滚。CI 只比较。
+  - 自动化入口统一为 unit/components、browser、browser:local、visual、db 和 migration checks；同步维护 README、架构、规则、命令、CI 和 assertion manifest。旧 Smoke 按“消息与壳 → 组织与配置 → 用户/角色/菜单 → 附件/审计 → 登录/Profile”分批退出。
+- 备选方案与否决原因：
+  - 一次删除所有 Smoke 会在真实验收前失去授权、CRUD 和错误路径覆盖。
+  - 仅保留 BrowserSkill 会降低重复执行确定性并把数据合同错误留给人工发现。
+  - 仅增加 Service 测试会遗漏浏览器路由、焦点、布局和真实 RLS 行为。
+  - 仅以报告文件或截图存在判为通过，不能证明产品结果、证据归属、当前输入和资源清理。
+- 批次与验收：见根目录 `PLAN.md`。完整交付门槛包含八场景有效报告、Dashboard 重验、14 状态连续三次通过、完整布局矩阵、故障注入、主要质量套件和资源清理。
+- 当前实施记录：
+  - 已实现用途摘要、规则 hash、固定副本/冻结安装入口、八场景 checkpoint registry、报告 record/verify/retire API、逐断言 manifest、Playwright 白名单、布局矩阵 RouteKey 派生、14 状态候选和原子接受机制。
+  - Dashboard 系统概览使用 CSS Grid；已生成并接受 14 状态视觉候选，正式 `pnpm test:visual` 14/14 通过。
+  - `pnpm test:unit`、类型、lint、文档、路由、测试架构、browser 与两项隔离 migration 检查通过；部门父级关系正以新增 migration、合同、Service 和 UI 层级路径补齐。
+  - `messages-shell` 曾在当时输入摘要下通过全 checkpoint verify，`messages-smoke.spec.ts` 和 `shell-smoke.spec.ts` 已按门槛退出。随后组织层级 schema/Service/UI 改动使旧报告不能进入当前全量集合；八场景需在当前源码下重跑，其余旧 Smoke 批次和最终全量验收仍待完成。
+  - 远程 GitHub Actions 尚未运行；未自动提交或推送。

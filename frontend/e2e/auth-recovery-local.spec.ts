@@ -161,7 +161,7 @@ function cleanLocalFixtureSql(sql: string): void {
 
 test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permission denial, and secure logout", async ({ page }) => {
   test.setTimeout(90_000);
-  test.skip(process.env.E2E_LOCAL_AUTH !== "1", "Run pnpm test:e2e:auth to enable the real local Auth flow");
+  test.skip(process.env.E2E_LOCAL_AUTH !== "1", "Run pnpm test:browser:local to enable the real local Auth flow");
 
   const { url, publishableKey, serviceRoleKey } = localSupabaseStatus({
     frontendRoot,

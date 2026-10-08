@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { access, appendFile, cp, link, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, appendFile, chmod, cp, link, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { listTemporaryDockerResources, stopAndVerifyTemporaryStack } from "./agent-testing-lifecycle.mjs";
 
 export const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sourceSupabaseRoot = join(projectRoot, "supabase");
@@ -152,7 +153,8 @@ export async function createIsolatedProject(tempRoot, projectId, ports, options 
   await mkdir(tempRoot, { recursive: true });
   const isolatedRoot = join(tempRoot, "project");
   const isolatedSupabase = join(isolatedRoot, "supabase");
-  await cp(sourceSupabaseRoot, isolatedSupabase, {
+  const sourceSupabase = join(resolve(options.sourceRoot ?? projectRoot), "supabase");
+  await cp(sourceSupabase, isolatedSupabase, {
     recursive: true,
     filter: source => {
       const name = source.split(/[\\/]/).at(-1) ?? "";
@@ -161,6 +163,7 @@ export async function createIsolatedProject(tempRoot, projectId, ports, options 
   });
   const configPath = join(isolatedSupabase, "config.toml");
   const config = await readFile(configPath, "utf8");
+  await chmod(configPath, 0o600);
   await writeFile(configPath, isolatedConfig(config, projectId, ports, options.appOrigin));
   return isolatedRoot;
 }
@@ -306,7 +309,7 @@ function statusFor(projectRoot) {
   return { url, publishableKey };
 }
 
-async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate) {
+async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate, retainWorkspace) {
   const workdir = ["--filter", "fullstack-admin-frontend", "exec", "supabase", "--workdir", isolatedRoot];
   let stackStopped;
   try {
@@ -348,25 +351,25 @@ async function runDisposableDatabaseChecks(isolatedRoot, projectId, ports, basel
     run(["--filter", "fullstack-admin-frontend", "test:db"], { env: testEnv, inherit: true });
     console.log("Bootstrapping the documented default administrator and checking browser login.");
     run(["setup:admin"], { env: { SUPABASE_PROJECT_ROOT: isolatedRoot } });
-    run(["--filter", "fullstack-admin-frontend", "test:e2e:local"], {
+    run(["--filter", "fullstack-admin-frontend", "test:browser:local"], {
       env: { ...testEnv, CI: "1", E2E_TEMPLATE_ADMIN: "1" },
       inherit: true
     });
   } finally {
-    const stop = spawnSync(pnpm, [...workdir, "stop", "--project-id", projectId, "--no-backup"], {
-      cwd: projectRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
-      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" }
-    });
-    stackStopped = !stop.error && stop.status === 0;
-    if (!stackStopped) console.error(`Could not stop the disposable Supabase stack ${projectId}; its workspace is ${isolatedRoot}`);
+    try {
+      await stopAndVerifyTemporaryStack(projectId,
+        () => run([...workdir, "stop", "--project-id", projectId, "--no-backup"]),
+        listTemporaryDockerResources);
+      stackStopped = true;
+    } catch (error) {
+      retainWorkspace();
+      console.error(`Could not fully stop the disposable Supabase stack ${projectId}; its workspace is ${isolatedRoot}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   if (!stackStopped) throw new Error("Disposable Supabase cleanup failed");
 }
 
-async function validateGeneratedBaseline(baselineCandidate, tempRoot) {
+async function validateGeneratedBaseline(baselineCandidate, tempRoot, retainWorkspace) {
   const projectId = `template-baseline-${randomUUID().replaceAll("-", "").slice(0, 10)}`;
   const portsList = await reservePorts(9);
   const ports = {
@@ -388,7 +391,7 @@ async function validateGeneratedBaseline(baselineCandidate, tempRoot) {
   const migrations = (await readdir(migrationsRoot)).filter(name => name.endsWith(".sql"));
   assert.deepEqual(migrations, ["00000000000000_template_baseline.sql"], "Baseline validation must replay only the generated SQL");
   console.log("Validating the generated baseline in a second isolated empty database.");
-  await runDisposableDatabaseChecks(isolatedRoot, projectId, ports);
+  await runDisposableDatabaseChecks(isolatedRoot, projectId, ports, undefined, retainWorkspace);
 }
 
 async function main() {
@@ -427,18 +430,24 @@ async function main() {
     vector: portsList[8]
   };
   const tempRoot = await mkdtemp(join(os.tmpdir(), "fullstack-admin-migrations-"));
+  let preserveWorkspace = false;
+  const retainWorkspace = () => { preserveWorkspace = true; };
   const isolatedRoot = await createIsolatedProject(tempRoot, projectId, ports);
   try {
-    await runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate);
+    await runDisposableDatabaseChecks(isolatedRoot, projectId, ports, baselineCandidate, retainWorkspace);
     if (baselineCandidate) {
-      await validateGeneratedBaseline(baselineCandidate, tempRoot);
+      await validateGeneratedBaseline(baselineCandidate, tempRoot, retainWorkspace);
       await link(baselineCandidate, baselineOutput);
       console.log(`Published the validated baseline at ${baselineOutput}.`);
     }
     console.log("Disposable empty-database migrations, seed, pgTAP, Storage/Auth integrations, default-admin login, and local Auth browser flow passed.");
   } finally {
     if (baselineCandidate) await rm(baselineCandidate, { force: true });
-    await rm(tempRoot, { recursive: true, force: true });
+    if (preserveWorkspace) {
+      console.error(`Retained migration recovery workspace at ${tempRoot}`);
+    } else {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   }
 }
 

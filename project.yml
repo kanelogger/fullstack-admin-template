@@ -65,6 +65,10 @@ commands:
       command: "pnpm check:docs"
       cwd: .
       command_ref: "package.json#scripts.check:docs"
+    test_architecture:
+      command: "pnpm check:test-architecture"
+      cwd: .
+      command_ref: "package.json#scripts.check:test-architecture"
     unit:
       command: "pnpm test:unit"
       cwd: .
@@ -85,32 +89,56 @@ commands:
       command: "pnpm test:visual:update"
       cwd: .
       command_ref: "package.json#scripts.test:visual:update"
-      requires: [docker-compatible-runtime, pinned-playwright-visual-image, explicit-baseline-review]
-      side_effects: [temporary-source-copy, visual-snapshot-png-files]
-    dashboard_agent:
-      command: "pnpm test:agent:start -- --scenario dashboard --browser <instance-id>"
+      requires: [docker-compatible-runtime, pinned-playwright-visual-image]
+      side_effects: [temporary-source-copy, visual-candidate-pngs, original-and-diff-evidence, candidate-manifest]
+    visual_baseline_accept:
+      command: "pnpm test:visual:accept -- --candidate <id>"
+      cwd: .
+      command_ref: "package.json#scripts.test:visual:accept"
+      requires: [visual-candidate-id, explicit-baseline-review]
+      side_effects: [atomic-formal-baseline-update, visual-manifest-update]
+    browser_agent:
+      command: "pnpm test:agent:start -- --scenario <scenario> --browser <instance-id> --browser-session <session-id>"
       cwd: .
       command_ref: "package.json#scripts.test:agent:start"
-      requires: [docker-compatible-runtime, connected-explicit-browser-skill-instance, browser-skill-extension, browser-skill-debug-capability]
-      side_effects: [unique-temporary-supabase-project, unique-service-ports, temporary-dashboard-fixtures, vite-process, edge-function-process, browser-skill-session]
-    dashboard_agent_cleanup:
+      requires: [docker-compatible-runtime, explicit-harness-browser-session, frozen-workspace-install]
+      side_effects: [unique-temporary-supabase-project, unique-service-ports, temporary-scenario-fixtures, readonly-source-copy, vite-process, edge-function-process]
+    browser_agent_cleanup:
       command: "pnpm test:agent:cleanup -- --run-id <id>"
       cwd: .
       command_ref: "package.json#scripts.test:agent:cleanup"
-      requires: [dashboard-agent-run-id]
-      side_effects: [export-browser-evidence, verify-required-evidence, downgrade-pass-when-evidence-missing, stop-recorded-browser-session, stop-and-verify-owned-processes, stop-owned-temporary-supabase-stack, preserve-project-directory-on-stack-stop-failure, remove-temporary-credentials]
-    browser_mock:
-      command: "pnpm test:e2e:mock"
+      requires: [browser-agent-run-id, harness-browser-session-stopped, exported-browser-evidence]
+      side_effects: [export-browser-evidence, verify-required-evidence, downgrade-pass-when-evidence-missing, stop-recorded-browser-session, stop-and-verify-owned-processes, stop-owned-temporary-supabase-stack, preserve-project-directory-on-stack-failure, remove-temporary-credentials]
+    browser_agent_record:
+      command: "pnpm test:agent:record -- --run-id <id> --checkpoint <id> --status Pass|Fail|Unknown|Skipped --observed <text> --evidence <paths>"
       cwd: .
-      command_ref: "package.json#scripts.test:e2e:mock"
+      command_ref: "package.json#scripts.test:agent:record"
+      requires: [browser-agent-run-id, registered-checkpoint]
+      side_effects: [update-run-checkpoint-report]
+    browser_agent_verify:
+      command: "pnpm test:agent:verify -- --run-ids <id,...> [--scenario <scenario>]"
+      cwd: .
+      command_ref: "package.json#scripts.test:agent:verify"
+      requires: [explicit-agent-run-reports]
+      side_effects: []
+    browser_agent_retire:
+      command: "pnpm test:agent:retire -- --batch <batch> --run-ids <id,...>"
+      cwd: .
+      command_ref: "package.json#scripts.test:agent:retire"
+      requires: [complete-batch-browser-reports, assertion-mapping-manifest]
+      side_effects: [delete-registered-tests-after-validation]
+    browser:
+      command: "pnpm test:browser"
+      cwd: .
+      command_ref: "package.json#scripts.test:browser"
       requires: [workspace-dependencies, pc-chromium]
-      side_effects: [vite-test-server, playwright-report/mock, test-results/mock]
+      side_effects: [vite-test-server, playwright-report/browser, test-results/browser]
     browser_local_auth:
-      command: "pnpm test:e2e:local"
+      command: "pnpm test:browser:local"
       cwd: .
-      command_ref: "package.json#scripts.test:e2e:local"
+      command_ref: "package.json#scripts.test:browser:local"
       requires: [local-supabase, local-mailpit, pc-chromium]
-      side_effects: [edge-function-server, vite-test-server, temporary-auth-fixtures, temporary-mailpit-message, playwright-report/local-auth, test-results/local-auth]
+      side_effects: [edge-function-server, vite-test-server, temporary-auth-fixtures, temporary-mailpit-message, playwright-report/browser-local, test-results/browser-local]
     local_database:
       command: "pnpm test:db"
       cwd: .

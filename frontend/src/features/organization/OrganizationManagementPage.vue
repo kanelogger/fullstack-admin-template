@@ -18,6 +18,7 @@ import {
   deletePost,
   getDepartments,
   getPosts,
+  listDepartmentOptions,
   saveDepartment,
   savePost
 } from "./organization.service";
@@ -28,6 +29,7 @@ type Row = {
   id: string;
   code: string;
   name: string;
+  parentId: string | null;
   status: Status;
   description: string | null;
 };
@@ -46,6 +48,7 @@ const canDelete = computed(() => permissions.value.has(`organization.${resource.
 const loading = ref(false);
 const saving = ref(false);
 const rows = ref<Row[]>([]);
+const departmentOptions = ref<Department[]>([]);
 const total = ref(0);
 const loadError = ref("");
 const actionError = ref("");
@@ -60,11 +63,18 @@ const form = reactive({
   id: "" as string | undefined,
   code: "",
   name: "",
+  parentId: "",
   status: 1 as Status,
   description: ""
 });
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const departmentById = computed(() => new Map(departmentOptions.value.map(department => [department.id, department])));
+
+const selectableParents = computed(() => departmentOptions.value
+  .filter(department => department.id !== form.id && !isDepartmentDescendant(department.id, form.id, departmentById.value))
+  .sort((left, right) => departmentPath(left.deptName, left.parentId, left.id)
+    .localeCompare(departmentPath(right.deptName, right.parentId, right.id), "zh-CN")));
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -76,6 +86,7 @@ function toRow(value: Department | Post): Row {
         id: value.id,
         code: value.deptCode,
         name: value.deptName,
+        parentId: value.parentId,
         status: value.status,
         description: value.description
       }
@@ -83,9 +94,43 @@ function toRow(value: Department | Post): Row {
         id: value.id,
         code: value.postCode,
         name: value.postName,
+        parentId: null,
         status: value.status,
         description: value.description
       };
+}
+
+function isDepartmentDescendant(candidateId: string, ancestorId: string | undefined, byId: Map<string, Department>): boolean {
+  if (!ancestorId) return false;
+  let parentId = byId.get(candidateId)?.parentId ?? null;
+  const visited = new Set<string>();
+  while (parentId && !visited.has(parentId)) {
+    if (parentId === ancestorId) return true;
+    visited.add(parentId);
+    parentId = byId.get(parentId)?.parentId ?? null;
+  }
+  return false;
+}
+
+function departmentPath(name: string, parentId: string | null, currentId?: string): string {
+  const path = [name];
+  const visited = new Set<string>(currentId ? [currentId] : []);
+  let currentParentId = parentId;
+  while (currentParentId) {
+    if (visited.has(currentParentId)) {
+      path.unshift("循环关系");
+      break;
+    }
+    visited.add(currentParentId);
+    const parent = departmentById.value.get(currentParentId);
+    if (!parent) {
+      path.unshift("未知上级部门");
+      break;
+    }
+    path.unshift(parent.deptName);
+    currentParentId = parent.parentId;
+  }
+  return path.join(" / ");
 }
 
 async function loadRows() {
@@ -105,6 +150,9 @@ async function loadRows() {
     const result = props.kind === "department"
       ? await getDepartments({ ...commonFilters, deptCode: codeFilter.value, deptName: nameFilter.value })
       : await getPosts({ ...commonFilters, postCode: codeFilter.value, postName: nameFilter.value });
+    if (props.kind === "department") {
+      departmentOptions.value = await listDepartmentOptions();
+    }
     rows.value = result.items.map(toRow);
     total.value = result.total;
   } catch (error) {
@@ -126,6 +174,7 @@ function resetForm() {
     id: undefined,
     code: "",
     name: "",
+    parentId: "",
     status: 1 as Status,
     description: ""
   });
@@ -144,6 +193,7 @@ function openEdit(row: Row) {
     id: row.id,
     code: row.code,
     name: row.name,
+    parentId: row.parentId ?? "",
     status: row.status,
     description: row.description ?? ""
   });
@@ -164,6 +214,7 @@ async function save() {
     if (props.kind === "department") {
       await saveDepartment({
         ...common,
+        parentId: form.parentId || null,
         deptCode: form.code,
         deptName: form.name
       });
@@ -192,7 +243,7 @@ async function toggleStatus(row: Row) {
       description: row.description
     };
     if (props.kind === "department") {
-      await saveDepartment({ ...common, deptCode: row.code, deptName: row.name });
+      await saveDepartment({ ...common, parentId: row.parentId, deptCode: row.code, deptName: row.name });
     } else {
       await savePost({ ...common, postCode: row.code, postName: row.name });
     }
@@ -290,11 +341,12 @@ onMounted(() => void loadRows());
           {{ total ? "当前页没有数据" : `暂无${label}数据` }}
         </div>
         <div v-else class="overflow-x-auto rounded-md border">
-          <table class="w-full min-w-[680px] text-left text-sm">
+          <table class="w-full min-w-[760px] text-left text-sm">
             <thead class="bg-muted/50 text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 font-medium">{{ codeLabel }}</th>
                 <th class="px-3 py-2 font-medium">{{ nameLabel }}</th>
+                <th v-if="kind === 'department'" class="px-3 py-2 font-medium">部门层级</th>
                 <th class="px-3 py-2 font-medium">说明</th>
                 <th class="px-3 py-2 font-medium">状态</th>
                 <th class="px-3 py-2 font-medium">操作</th>
@@ -304,6 +356,7 @@ onMounted(() => void loadRows());
               <tr v-for="row in rows" :key="row.id" class="border-t">
                 <td class="px-3 py-3 font-mono text-xs">{{ row.code }}</td>
                 <td class="px-3 py-3 font-medium">{{ row.name }}</td>
+                <td v-if="kind === 'department'" class="px-3 py-3 text-muted-foreground">{{ departmentPath(row.name, row.parentId, row.id) }}</td>
                 <td class="px-3 py-3 text-muted-foreground">{{ row.description || "—" }}</td>
                 <td class="px-3 py-3">
                   <Badge :variant="row.status === 1 ? 'default' : 'secondary'">
@@ -365,6 +418,19 @@ onMounted(() => void loadRows());
           <div class="space-y-1.5">
             <Label :for="`${kind}-name`">{{ nameLabel }}</Label>
             <Input :id="`${kind}-name`" v-model="form.name" required maxlength="128" />
+          </div>
+          <div v-if="kind === 'department'" class="space-y-1.5">
+            <Label for="department-parent">上级部门</Label>
+            <select
+              id="department-parent"
+              v-model="form.parentId"
+              class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">无上级部门</option>
+              <option v-for="department in selectableParents" :key="department.id" :value="department.id">
+                {{ departmentPath(department.deptName, department.parentId, department.id) }}
+              </option>
+            </select>
           </div>
           <div class="space-y-1.5">
             <Label :for="`${kind}-description`">说明</Label>
