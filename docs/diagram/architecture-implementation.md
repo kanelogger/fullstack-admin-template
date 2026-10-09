@@ -27,15 +27,4 @@ PC Chromium → Vue SPA → feature service → 共享 Zod contract
 
 ## 与设计文档的关系
 
-设计文档保留技术栈、目录、边界、目标和验收要求。实现与设计的差异、阶段性状态及核实结论在本文件、架构事实和 ADR 中说明，不能通过删减设计文档消除差异。设计文档中的状态行属于原记录；当前 CI 与验收状态以具名运行和对应输入的报告为准。
-
-近期组件迁移及检查记录见 [0007：优先使用官方 shadcn-vue 组件](../adr/0007-standard-shadcn-vue-components.md)，附件上传按钮回归与八场景证据刷新见 [0009：附件上传按钮回归修复与八场景真实验收刷新](../adr/0009-attachment-upload-fix-and-acceptance-refresh.md)，格式检查范围扩展与路由元数据解析解耦见 [0010：格式检查覆盖整个前端源码与路由元数据解析解耦](../adr/0010-format-scope-and-route-metadata-parsing.md)，基础 CI 与 BrowserSkill 验收门禁拆分见 [0011：基础 CI 与 BrowserSkill 验收门禁拆分](../adr/0011-split-ci-and-browserskill-acceptance-gates.md)。历史八场景账本保留为 `acceptance-only` 归档；普通 PR CI 不再因过期 BrowserSkill 摘要失败。远程 GitHub Actions 是否绿色只能由对应推送后的 workflow run 证明。
-
-## CI 核实记录（2026-10-09）
-
-旧提交 `1f819a09cf8f05487fc6ea3d9a9e59801fad5edc` 的 [运行 37875704153](https://github.com/kanelogger/fullstack-admin-template/actions/runs/37875704153) 和 [运行 37875687467](https://github.com/kanelogger/fullstack-admin-template/actions/runs/37875687467) 曾因两类问题失败（历史记录，非当前门禁定义）：
-
-- 当时 `quality` 在 `check:test-architecture` 阶段要求产品/场景/suite 摘要与八场景报告匹配当前源码；该要求已由 ADR 0011 移出普通 CI。
-- `visual` 的 14 项比较全部通过，随后清理固定副本时因容器生成的 `node_modules/.bin` 属主权限报 `EACCES`，导致 job 失败。
-
-当前 runner 在支持 UID/GID 的宿主上以宿主身份运行容器，Corepack shim 写入容器临时目录。修改后的固定 Linux 14 项比较与临时目录清理在本机均通过；该修复尚未推送或得到新的远程运行证明。
+设计文档说明目标；当前目录、接口和行为以 specs/architecture.md 与源码为准。验收结果只对输入摘要匹配的运行报告有效。

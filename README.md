@@ -51,7 +51,8 @@ pnpm build
 
 `pnpm format:check` 按 `.prettierrc.json` 检查 `frontend/src/**/*.{vue,ts}`，CLI 生成的 `frontend/src/components/ui/` 由 `.prettierignore` 排除；`pnpm format` 用同一范围写入。Markdown 与设计文档不参与格式化。
 
-涉及 UI 再运行 `pnpm test:browser`；涉及登录或数据访问再运行 `pnpm test:browser:local`。它们有不同前置条件，见[环境命令](docs/agent-environment/commands.md)。下面是完整入口清单；`test:unit` 已包含组件测试。最小检查与 PR CI 不等于真实 Supabase / BrowserSkill 全链路验收。`check:test-architecture` 只做结构门禁；八场景证据新鲜度用 `pnpm check:test-architecture:acceptance` 或 `pnpm test:agent:verify`。
+涉及 UI 时运行 pnpm test:browser；涉及登录或数据访问时运行 pnpm test:browser:local。前置条件见环境命令。check:test-architecture 核对 Playwright 白名单与 CI 配置；真实 BrowserSkill 证据用 pnpm test:agent:verify 核对。
+
 
 
 ```sh
@@ -72,7 +73,6 @@ pnpm check:migrations
 pnpm check:migration-upgrades
 ```
 
-`check:test-architecture` 只允许五个浏览器/布局 spec 和一个像素 spec 进入 Playwright 项目，并核对旧业务 Smoke 的逐断言登记结构；PR CI 不因过期 BrowserSkill 账本失败。发布/Agent 验收再跑 `check:test-architecture:acceptance`。`test:browser` 覆盖 Session 竞态、权限路由和完整路由 × 三布局 × 双主题矩阵；`test:browser:local` 用本机 Supabase/Mailpit 验证恢复登录、字典 CRUD、Realtime、刷新、越权和旧 token 的 RLS 拒绝。两套浏览器测试与 Visual 的报告分别保存在 `playwright-report/{browser,browser-local,visual}/` 和 `test-results/{browser,browser-local,visual}/`。
 
 Visual 在固定 Linux amd64 Playwright 容器内比较 14 个像素状态：登录双主题、Dashboard 三布局双主题、用户表格双主题、Profile 表单双主题和角色授权弹窗双主题。`pnpm test:visual:update` 只在临时固定副本生成候选、原图和差异图；检查候选后运行 `pnpm test:visual:accept -- --candidate <id>` 才会更新登记的正式 PNG。CI 只比较。
 
@@ -82,7 +82,8 @@ Visual 在固定 Linux amd64 Playwright 容器内比较 14 个像素状态：登
 pnpm test:agent:start -- --scenario <scenario> --browser <instance-id>
 ```
 
-每个必需检查点用 `pnpm test:agent:record` 记录观察结果和证据。CLI 模式的 cleanup 会导出 `final.png`、`browser-debug.json`，停止对应 session 并核对本次隔离栈资源。报告复用要求产品源码和 runner/fixture/启动配置的场景摘要都匹配；仅显式允许的管理状态与断言账本 drift 可单独显示。单场景或八场景完整检查使用 `pnpm test:agent:verify`；删除旧测试还要求逐断言映射与完整 unit/browser suite 摘要通过。Harness 环境可使用 `--browser-session` 传入 Harness 创建的 session，并导入其证据。
+
+每个必需检查点用 pnpm test:agent:record 记录观察结果和证据。cleanup 导出截图和 browser-debug.json 并停止本次 session；verify 核对单个场景或明确提供的八场景报告集合。
 
 ## 架构资料
 
@@ -92,4 +93,3 @@ pnpm test:agent:start -- --scenario <scenario> --browser <instance-id>
 - [本地命令与副作用](docs/agent-environment/commands.md)
 - [环境服务](docs/agent-environment/services.md)
 - [测试约定](rules/testing.md)
-- [测试架构与验收输入摘要决策](docs/adr/0005-execution-input-fingerprints.md)

@@ -69,11 +69,6 @@ commands:
       command: "pnpm check:test-architecture"
       cwd: .
       command_ref: "package.json#scripts.check:test-architecture"
-    test_architecture_acceptance:
-      command: "pnpm check:test-architecture:acceptance"
-      cwd: .
-      command_ref: "package.json#scripts.check:test-architecture:acceptance"
-      requires: [current-browserskill-reports, current-unit-browser-suite-digests]
     unit:
       command: "pnpm test:unit"
       cwd: .
@@ -126,12 +121,6 @@ commands:
       command_ref: "package.json#scripts.test:agent:verify"
       requires: [explicit-agent-run-reports]
       side_effects: []
-    browser_agent_retire:
-      command: "pnpm test:agent:retire -- --batch <batch> --run-ids <id,...>"
-      cwd: .
-      command_ref: "package.json#scripts.test:agent:retire"
-      requires: [complete-batch-browser-reports, assertion-mapping-manifest]
-      side_effects: [delete-registered-tests-after-validation]
     browser:
       command: "pnpm test:browser"
       cwd: .

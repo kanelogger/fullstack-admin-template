@@ -15,12 +15,11 @@ async function makeVisualWorkspace() {
   const testManifest = JSON.parse(await readFile(join(repositoryRoot, "visual/test-manifest.json"), "utf8"));
   testManifest.baselineAdditions = testManifest.states.slice(4).map(state => state.baseline);
   const testManifestBytes = Buffer.from(`${JSON.stringify(testManifest, null, 2)}\n`);
-  const assertions = await readFile(join(repositoryRoot, "scripts/test-architecture-assertions.json"));
   const files = [
     "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "project.yml",
     "frontend/package.json", "frontend/index.html", "frontend/vite.config.ts", "frontend/tsconfig.json",
     "frontend/playwright.config.ts", "frontend/scripts/run-playwright.mjs", "scripts/playwright-artifacts.mjs",
-    "scripts/test-architecture-rules.json", "scripts/test-architecture-assertions.json", "supabase/config.toml",
+    "scripts/test-architecture-rules.json", "supabase/config.toml",
     "supabase/seed.sql", "frontend/e2e/dashboard-visual.spec.ts", "frontend/e2e/visual-route-review.spec.ts",
     "scripts/run-visual-tests.mjs", "scripts/visual-tests-container.sh", "frontend/src/page.ts"
   ];
@@ -28,7 +27,6 @@ async function makeVisualWorkspace() {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });
     const value = path === "scripts/test-architecture-rules.json" ? rules
-      : path === "scripts/test-architecture-assertions.json" ? assertions
         : path === "visual/test-manifest.json" ? testManifestBytes : Buffer.from(`fixture ${path}\n`);
     await writeFile(target, value);
   }

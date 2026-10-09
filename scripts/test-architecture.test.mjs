@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -9,9 +8,7 @@ import {
   copyFixedWorkspace,
   initializeScenarioReport,
   loadArchitectureRules,
-  parsePlaywrightTestCases,
   repositoryRoot,
-  retireBatch,
   summarizeInputs,
   summarizeSnapshotInputs,
   summarizeFixedPaths,
@@ -33,7 +30,6 @@ const requiredFiles = [
   "supabase/functions/_shared/contracts/package.json",
   "visual/test-manifest.json",
   "scripts/test-architecture-rules.json",
-  "scripts/test-architecture-assertions.json",
   "scripts/agent-testing.test.mjs",
   "scripts/test-architecture.test.mjs"
 ];
@@ -59,8 +55,6 @@ async function makeWorkspace() {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });
     if (path === "scripts/test-architecture-rules.json") {
-      await writeFile(target, await readFile(join(repositoryRoot, path)));
-    } else if (path === "scripts/test-architecture-assertions.json") {
       await writeFile(target, await readFile(join(repositoryRoot, path)));
     } else if (path === "visual/test-manifest.json") {
       await writeFile(target, await readFile(join(repositoryRoot, path)));
@@ -134,47 +128,6 @@ async function createPassingReport(root, scenario = "messages-shell") {
   return { path, report, summary };
 }
 
-async function configureSingleRetirement(root, path, source, { legacyCaseCoverage = false } = {}) {
-  await writeFile(join(root, path), source);
-  const rulesPath = join(root, "scripts/test-architecture-rules.json");
-  const rules = JSON.parse(await readFile(rulesPath, "utf8"));
-  rules.retiringPaths = [path];
-  rules.retirementBatches = { "messages-shell": { scenarios: ["messages-shell"], paths: [path] } };
-  await writeFile(rulesPath, `${JSON.stringify(rules, null, 2)}\n`);
-  const inputSummary = await summarizeInputs(root, "browser");
-  const currentRules = JSON.parse(await readFile(rulesPath, "utf8"));
-  const unitInputSha256 = await suiteInputSha256(root, "pnpm test:unit", currentRules);
-  const browserInputSha256 = await suiteInputSha256(root, "pnpm test:browser", currentRules);
-  const testCase = parsePlaywrightTestCases(source)[0];
-  const assertions = testCase.assertions.map(assertion => ({
-    ...assertion,
-    disposition: "retained",
-    rationale: "retirement transaction fixture",
-    coverage: [{ kind: "retained", reason: "retirement transaction fixture" }]
-  }));
-  const manifest = {
-    schemaVersion: 2,
-    generatedBy: "test fixture",
-    sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8" }).trim(),
-    retiredPaths: [],
-    files: [{ path, sha256: createHash("sha256").update(source).digest("hex") }],
-    cases: [legacyCaseCoverage
-      ? { path, name: testCase.name, assertionCount: testCase.assertionCount, coverage: assertions[0].coverage }
-      : { path, name: testCase.name, assertionCount: testCase.assertionCount, assertions }],
-    verification: {
-      productInputSha256: inputSummary.productInputSha256,
-      scenarioInputSha256: inputSummary.scenarioInputSha256,
-      managementInputSha256: inputSummary.managementInputSha256,
-      suites: {
-        "pnpm test:unit": { status: "Pass", productInputSha256: inputSummary.productInputSha256, inputSha256: unitInputSha256 },
-        "pnpm test:browser": { status: "Pass", productInputSha256: inputSummary.productInputSha256, inputSha256: browserInputSha256 }
-      },
-      browserReports: {}
-    }
-  };
-  await writeFile(join(root, "scripts/test-architecture-assertions.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-  return { inputSummary, manifest };
-}
 
 test("BrowserSkill digest includes product and unignored untracked inputs", async t => {
   const root = await makeWorkspace();
@@ -188,7 +141,7 @@ test("BrowserSkill digest includes product and unignored untracked inputs", asyn
   assert.ok(after.files.some(file => file.path === "frontend/src/new-untracked.ts"));
 });
 
-test("source bytes affect input hash while retiring E2E files and formal PNG baselines are excluded", async t => {
+test("source bytes affect input hash while unregistered specs and formal PNG baselines stay outside active inputs", async t => {
   const root = await makeWorkspace();
   t.after(() => rm(root, { recursive: true, force: true }));
   const before = await summarizeInputs(root, "browser");
@@ -202,19 +155,6 @@ test("source bytes affect input hash while retiring E2E files and formal PNG bas
   assert.ok(!after.files.some(file => file.path.endsWith("login.png")));
 });
 
-test("Playwright retirement parser records exact expect call sites instead of a count only", () => {
-  const source = `test("contract", async () => {\n` +
-    `  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();\n` +
-    `  expect(rows).toEqual(expect.arrayContaining(["expected"]));\n` +
-    `  await expect.poll(() => ready).toBe(true);\n` +
-    `});\n`;
-  const [testCase] = parsePlaywrightTestCases(source);
-  assert.equal(testCase.assertionCount, 3);
-  assert.deepEqual(testCase.assertions.map(assertion => assertion.index), [1, 2, 3]);
-  assert.deepEqual(testCase.assertions.map(assertion => assertion.line), [2, 3, 4]);
-  assert.ok(testCase.assertions[0].source.includes("name: \"登录\""));
-  assert.ok(testCase.assertions.every(assertion => /^[0-9a-f]{64}$/.test(assertion.fingerprint)));
-});
 
 test("BrowserSkill runner and startup inputs invalidate scenario evidence without changing product or visual inputs", async t => {
   const root = await makeWorkspace();
@@ -332,30 +272,6 @@ test("a complete scenario report passes only with every checkpoint, expected evi
   assert.equal(result.valid, true, result.errors.join("\n"));
 });
 
-test("management-only drift is reported separately and does not stale product evidence", async t => {
-  const root = await makeWorkspace();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  await writeFile(join(root, "scripts/test-architecture.mjs"), "export const verifier = 'before';\n");
-  const { path, report } = await createPassingReport(root);
-  const changedTest = join(root, "frontend/e2e/visual-route-review.spec.ts");
-  await writeFile(changedTest, "test('updated visual fixture', () => {});\n");
-  await writeFile(join(root, "scripts/test-architecture.mjs"), "export const verifier = 'after';\n");
-  await writeFile(join(root, "scripts/test-architecture-assertions.json"), "{\"ledger\":\"updated\"}\n");
-  const current = await summarizeInputs(root, "browser");
-  report.inputSha256AtEnd = current.inputSha256;
-  report.inputSummaryAtEnd = current;
-  report.inputSha256InSnapshotAtEnd = report.inputSha256InSnapshot;
-  report.snapshotSummaryAtEnd = report.snapshotSummary;
-  const checked = await verifyScenarioReport(report, { reportDirectory: dirname(path), currentSummary: current, root });
-  assert.equal(checked.valid, true, checked.errors.join("\n"));
-  assert.ok(checked.managementDrift.includes("frontend/e2e/visual-route-review.spec.ts"));
-  assert.ok(checked.ledgerDrift.includes("scripts/test-architecture-assertions.json"));
-  assert.notEqual(report.inputSummary.managementInputSha256, current.managementInputSha256);
-  assert.notEqual(report.inputSummary.ledgerInputSha256, current.ledgerInputSha256);
-  assert.equal(report.inputSummary.productInputSha256, current.productInputSha256);
-  assert.equal(report.inputSummary.scenarioInputSha256, current.scenarioInputSha256);
-  assert.notEqual(report.inputSha256AtStart, report.inputSha256AtEnd, "mutable ledger changes may change the combined worktree digest");
-});
 
 test("runner, account, fixture and startup-script drift invalidate BrowserSkill evidence", async () => {
   const executionPaths = [
@@ -510,79 +426,4 @@ test("a full report collection fails when any of the eight current scenarios is 
   const result = await verifyReportSet({ reportPaths: [path], root });
   assert.equal(result.valid, false);
   assert.ok(result.errors.some(error => error.includes("no report supplied for scenario profile")));
-});
-
-test("retirement failure leaves every registered old test untouched", async t => {
-  const root = await makeWorkspace();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const target = join(root, "frontend/e2e/messages-smoke.spec.ts");
-  const original = await readFile(target, "utf8");
-  const result = await retireBatch({ batchName: "messages-shell", reportPaths: [], root });
-  assert.deepEqual(result.deleted, []);
-  assert.ok(result.errors.length > 0);
-  assert.equal(await readFile(target, "utf8"), original);
-});
-
-test("retirement rejects a case-level coverage array expanded across its assertions", async t => {
-  const root = await makeWorkspace();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const path = "frontend/e2e/messages-smoke.spec.ts";
-  const source = `test("legacy smoke", () => { expect(true).toBe(true); });\n`;
-  await configureSingleRetirement(root, path, source, { legacyCaseCoverage: true });
-  const { path: reportPath } = await createPassingReport(root, "messages-shell");
-
-  const result = await retireBatch({ batchName: "messages-shell", reportPaths: [reportPath], root, manifestPath: join(root, "scripts/test-architecture-assertions.json") });
-
-  assert.deepEqual(result.deleted, []);
-  assert.ok(result.errors.some(error => error.includes("explicit assertion records are missing or stale")), result.errors.join("\n"));
-  assert.equal(await readFile(join(root, path), "utf8"), source);
-});
-
-test("retirement rejects an explicit mapping whose source assertion fingerprint is stale", async t => {
-  const root = await makeWorkspace();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const path = "frontend/e2e/messages-smoke.spec.ts";
-  const source = "test(\"legacy smoke\", () => { expect(true).toBe(true); });\n";
-  await configureSingleRetirement(root, path, source);
-  const manifestPath = join(root, "scripts/test-architecture-assertions.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  manifest.cases[0].assertions[0].source = "expect(false).toBe(false);";
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-  const { path: reportPath } = await createPassingReport(root, "messages-shell");
-
-  const result = await retireBatch({ batchName: "messages-shell", reportPaths: [reportPath], root, manifestPath });
-
-  assert.deepEqual(result.deleted, []);
-  assert.ok(result.errors.some(error => error.includes("source assertion fingerprint is missing or stale")));
-  assert.equal(await readFile(join(root, path), "utf8"), source);
-});
-
-test("successful retirement updates the audited registry and preserves its assertion history", async t => {
-  const root = await makeWorkspace();
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const path = "frontend/e2e/messages-smoke.spec.ts";
-  const source = `test("legacy smoke", () => { expect(true).toBe(true); });\n`;
-  const sourceBytes = Buffer.from(source);
-  const { manifest } = await configureSingleRetirement(root, path, source);
-  const manifestPath = join(root, "scripts/test-architecture-assertions.json");
-
-  const { path: reportPath } = await createPassingReport(root, "messages-shell");
-  const result = await retireBatch({
-    batchName: "messages-shell",
-    reportPaths: [reportPath],
-    root,
-    manifestPath
-  });
-  assert.deepEqual(result, { deleted: [path], errors: [] });
-  await assert.rejects(readFile(join(root, path)), { code: "ENOENT" });
-
-  const retiredManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  assert.deepEqual(retiredManifest.retiredPaths, [path]);
-  assert.equal(retiredManifest.files[0].sha256, createHash("sha256").update(sourceBytes).digest("hex"));
-  assert.equal(retiredManifest.cases[0].name, "legacy smoke");
-  assert.equal(retiredManifest.cases[0].assertions[0].source, "expect(true).toBe(true);");
-  const afterRetirement = await summarizeInputs(root, "browser");
-  assert.equal(retiredManifest.verification.productInputSha256, afterRetirement.productInputSha256);
-  assert.equal(retiredManifest.verification.managementInputSha256, afterRetirement.managementInputSha256);
-  assert.deepEqual(manifest.retiredPaths, []);
 });

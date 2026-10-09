@@ -9,8 +9,6 @@
 | Browser suite | PC Chromium / Playwright，产物 `test-results/browser` 与 `playwright-report/browser` | 安装 Chromium 与系统依赖，诊断单独上传 | Session 竞态、权限导航和完整路由布局矩阵 |
 | Browser Local Auth | 本地 Supabase/Mailpit，产物位于 `browser-local` 子目录 | 临时迁移栈检查后独立上传 | 恢复、真实登录、CRUD、Realtime、刷新与旧 token RLS 拒绝 |
 | Visual baseline | Linux amd64 Playwright 1.63.0 Noble container, pinned by image digest；产物位于 `visual` 子目录 | 固定容器内调用 `pnpm test:visual`，只比较正式基线 | 14 个登录、Dashboard、用户表格、Profile 与角色授权状态；CI 不生成或接受候选 |
-| BrowserSkill scenarios | Harness 指定实例、固定源码副本、run 专属 Supabase project | 不在 CI 自动运行，也不把已提交八场景账本当作 PR 门禁；由调用者显式启动 | 八个业务场景的真实交互与证据；`check:test-architecture:acceptance` / `test:agent:verify` 要求摘要匹配；不匹配时不可用于删除或发布验收宣称 |
-| 质量步骤 | typecheck、build、unit、browser/local Auth、db 集成 | 冻结安装、docs/route、`check:test-architecture`（仅结构）、lint、typecheck、build、unit、browser、14 状态视觉比较、历史 replay、双轨升级 | `check:test-architecture:acceptance` 与显式 BrowserSkill verify；CI 绿色不等于 BrowserSkill 通过 |
 
 CI 的静态步骤以仓库中的 workflow 文件为准；远程执行状态只由对应 GitHub Actions run 证明。维护本文时更新运行环境和步骤配置，不记录易过期的分支、提交或最近一次运行状态。
 

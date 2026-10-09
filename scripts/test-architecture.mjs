@@ -1,19 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { lstat, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const requireFrontend = createRequire(join(repositoryRoot, "frontend/package.json"));
-const typescript = requireFrontend("typescript");
 export const rulesPath = join(repositoryRoot, "scripts/test-architecture-rules.json");
-export const assertionsPath = join(repositoryRoot, "scripts/test-architecture-assertions.json");
 
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 const normalizePath = value => value.split(sep).join("/");
-const isBrowserLedgerPath = path => path === "scripts/test-architecture-assertions.json";
 const browserManagementFiles = new Set([
   "frontend/playwright.config.ts",
   "frontend/scripts/run-local-auth-e2e.mjs",
@@ -39,14 +34,14 @@ const browserScenarioFiles = new Set([
   "supabase/config.toml",
   "supabase/seed.sql"
 ]);
-const isBrowserManagementPath = path => !isBrowserLedgerPath(path) && (
+const isBrowserManagementPath = path => (
   path.startsWith("frontend/e2e/") ||
   (path.startsWith("frontend/src/") && path.endsWith(".test.ts")) ||
   (path.startsWith("supabase/functions/") && path.endsWith(".test.ts")) ||
   browserManagementFiles.has(path)
 );
 const isBrowserScenarioPath = path => browserScenarioFiles.has(path);
-const isBrowserProductPath = path => !isBrowserLedgerPath(path) && !isBrowserManagementPath(path) && !isBrowserScenarioPath(path);
+const isBrowserProductPath = path => !isBrowserManagementPath(path) && !isBrowserScenarioPath(path);
 const safeEvidencePath = value => typeof value === "string" && value.startsWith("evidence/") &&
   !value.split("/").some(segment => segment === ".." || segment === "." || segment === "");
 
@@ -70,7 +65,7 @@ function isExcluded(path, rules) {
   if (patterns.some(pattern => pattern.test(path))) return true;
   if (path.split("/").some(segment => segment.startsWith(".env") || segment === ".DS_Store")) return true;
   if (path.includes("-snapshots/")) return true;
-  return path.startsWith("frontend/e2e/") && rules.retiringPaths.includes(path);
+  return false;
 }
 
 function globToRegExp(glob) {
@@ -145,13 +140,11 @@ function inputPartitionHashes(files) {
   const productFiles = files.filter(file => isBrowserProductPath(file.path));
   const scenarioFiles = files.filter(file => isBrowserScenarioPath(file.path));
   const managementFiles = files.filter(file => isBrowserManagementPath(file.path));
-  const ledgerFiles = files.filter(file => isBrowserLedgerPath(file.path));
   return {
     inputSha256: inputHash(files),
     productInputSha256: inputHash(productFiles),
     scenarioInputSha256: inputHash(scenarioFiles),
-    managementInputSha256: inputHash(managementFiles),
-    ledgerInputSha256: inputHash(ledgerFiles)
+    managementInputSha256: inputHash(managementFiles)
   };
 }
 
@@ -167,7 +160,7 @@ export async function suiteInputSha256(root, suite, rules) {
   const unitPaths = path => sharedPaths.has(path) ||
     (path.startsWith("frontend/src/") && path.endsWith(".test.ts")) ||
     (path.startsWith("supabase/functions/") && path.endsWith(".test.ts")) ||
-    (path.startsWith("scripts/") && path !== "scripts/test-architecture-assertions.json") ||
+    path.startsWith("scripts/") ||
     [
       "frontend/vitest.config.ts",
       "frontend/vitest.components.config.ts",
@@ -392,9 +385,6 @@ function validateInputSummary(summary, label, errors) {
   if (summary.managementInputSha256 !== undefined && summary.managementInputSha256 !== hashes.managementInputSha256) {
     errors.push(`${label} file manifest does not match its management digest`);
   }
-  if (summary.ledgerInputSha256 !== undefined && summary.ledgerInputSha256 !== hashes.ledgerInputSha256) {
-    errors.push(`${label} file manifest does not match its acceptance-ledger digest`);
-  }
   return hashes;
 }
 
@@ -499,7 +489,6 @@ export async function verifyScenarioReport(report, { reportDirectory, currentSum
 
   const currentHashes = validateInputSummary(currentSummary, "current worktree", errors);
   let managementDrift = [];
-  let ledgerDrift = [];
   let scenarioDrift = [];
   if (!currentSummary || report.rulesSha256 !== currentSummary.rulesSha256) {
     errors.push("current worktree input rules do not match the report");
@@ -522,11 +511,6 @@ export async function verifyScenarioReport(report, { reportDirectory, currentSum
       report.inputSummary?.files ?? [],
       currentSummary.files,
       isBrowserManagementPath
-    );
-    ledgerDrift = inputRecordDifferences(
-      report.inputSummary?.files ?? [],
-      currentSummary.files,
-      isBrowserLedgerPath
     );
   }
 
@@ -575,7 +559,6 @@ export async function verifyScenarioReport(report, { reportDirectory, currentSum
       } catch { errors.push("BrowserSkill debug evidence is not readable JSON"); }
     }
   }
-  return { valid: errors.length === 0, errors, managementDrift, ledgerDrift, scenarioDrift };
 }
 
 export async function verifyReportSet({ reportPaths, scenarios, root = repositoryRoot } = {}) {
@@ -586,7 +569,6 @@ export async function verifyReportSet({ reportPaths, scenarios, root = repositor
   const errors = [];
   const passed = new Map();
   const managementDrift = {};
-  const ledgerDrift = {};
   const scenarioDrift = {};
   for (const path of reportPaths) {
     const absolute = resolve(path);
@@ -598,7 +580,6 @@ export async function verifyReportSet({ reportPaths, scenarios, root = repositor
     const verification = await verifyScenarioReport(report, { reportDirectory: dirname(absolute), currentSummary, root });
     if (!verification.valid) errors.push(...verification.errors.map(error => `${report.runId ?? absolute}: ${error}`));
     if (verification.managementDrift?.length) managementDrift[report.scenario] = verification.managementDrift;
-    if (verification.ledgerDrift?.length) ledgerDrift[report.scenario] = verification.ledgerDrift;
     if (verification.scenarioDrift?.length) scenarioDrift[report.scenario] = verification.scenarioDrift;
     if (passed.has(report.scenario)) errors.push(`more than one report supplied for scenario ${report.scenario}`);
     passed.set(report.scenario, report.runId ?? absolute);
@@ -610,329 +591,10 @@ export async function verifyReportSet({ reportPaths, scenarios, root = repositor
     errors,
     reports: Object.fromEntries(passed),
     managementDrift,
-    ledgerDrift,
     scenarioDrift,
     scenarioInputSha256: currentSummary.scenarioInputSha256,
     currentSummary
   };
-}
-
-export function parsePlaywrightTestCases(source) {
-  const sourceFile = typescript.createSourceFile("playwright.spec.ts", source, typescript.ScriptTarget.Latest, true, typescript.ScriptKind.TS);
-  const isTestCall = node => {
-    if (!typescript.isCallExpression(node)) return false;
-    const expression = node.expression;
-    if (typescript.isIdentifier(expression)) return ["test", "it"].includes(expression.text);
-    return typescript.isPropertyAccessExpression(expression) &&
-      typescript.isIdentifier(expression.expression) &&
-      ["test", "it"].includes(expression.expression.text) &&
-      ["skip", "fixme", "only"].includes(expression.name.text);
-  };
-  const isAssertionCall = node => {
-    if (!typescript.isCallExpression(node)) return false;
-    const expression = node.expression;
-    if (typescript.isIdentifier(expression)) return expression.text === "expect";
-    return typescript.isPropertyAccessExpression(expression) &&
-      typescript.isIdentifier(expression.expression) &&
-      expression.expression.text === "expect" &&
-      ["poll", "soft"].includes(expression.name.text);
-  };
-  const results = [];
-  const visit = node => {
-    if (isTestCall(node) && node.arguments.length >= 2 && typescript.isStringLiteralLike(node.arguments[0])) {
-      const body = node.arguments[1];
-      const assertions = [];
-      const visitBody = current => {
-        if (isAssertionCall(current)) {
-          let statement = current;
-          for (let parent = current.parent; parent && parent !== body; parent = parent.parent) {
-            if (typescript.isStatement(parent)) {
-              statement = parent;
-              break;
-            }
-          }
-          const index = assertions.length + 1;
-          const sourceText = statement.getText(sourceFile).trim().replace(/\s+/g, " ");
-          const line = sourceFile.getLineAndCharacterOfPosition(current.getStart(sourceFile)).line + 1;
-          assertions.push({
-            index,
-            line,
-            source: sourceText,
-            fingerprint: sha256(Buffer.from(`${index}\0${sourceText}`))
-          });
-        }
-        typescript.forEachChild(current, visitBody);
-      };
-      visitBody(body);
-      results.push({ name: node.arguments[0].text, assertionCount: assertions.length, assertions });
-    }
-    typescript.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return results;
-}
-
-function isRepositoryRelativePath(path) {
-  return typeof path === "string" && path.length > 0 && !isAbsolute(path) &&
-    !path.split(/[\\/]/).some(segment => segment === ".." || segment === "." || segment === "");
-}
-
-export async function validateAssertionCoverage(assertion, {
-  absoluteRoot,
-  batchScenarios,
-  manifest,
-  rules,
-  verifiedReports,
-  currentSummary,
-  suiteInputDigests = {},
-  requireFreshEvidence = true
-}) {
-  const errors = [];
-  if (!["replaced", "retained"].includes(assertion.disposition)) {
-    errors.push("assertion must have an explicit replaced or retained disposition");
-  }
-  if (assertion.disposition === "retained" && (typeof assertion.rationale !== "string" || !assertion.rationale.trim())) {
-    errors.push("retained assertion requires a reviewable rationale");
-  }
-  if (!Array.isArray(assertion.coverage) || assertion.coverage.length === 0) {
-    return [...errors, "no assertion-specific replacement or retained reason is registered"];
-  }
-  for (const coverage of assertion.coverage) {
-    if (coverage.kind === "retained") {
-      if (typeof coverage.reason !== "string" || !coverage.reason.trim()) {
-        errors.push("retained coverage requires a reviewable reason");
-      }
-      continue;
-    }
-    if (coverage.kind === "browser") {
-      if (!batchScenarios.includes(coverage.scenario)) {
-        errors.push(`BrowserSkill coverage is outside this batch (${coverage.scenario})`);
-      }
-      if (typeof coverage.runId !== "string" || !coverage.runId.trim()) {
-        errors.push(`BrowserSkill coverage is missing a runId for ${coverage.scenario}`);
-      } else if (typeof coverage.checkpoint !== "string" || !coverage.checkpoint.trim()) {
-        errors.push(`BrowserSkill coverage is missing a checkpoint for ${coverage.scenario}`);
-      } else if (requireFreshEvidence) {
-        const browserReport = manifest.verification?.browserReports?.[coverage.scenario];
-        const browserRunId = typeof browserReport === "string" ? browserReport : browserReport?.runId;
-        if (browserReport?.status !== "Pass" || !browserRunId || browserRunId !== coverage.runId ||
-            verifiedReports[coverage.scenario] !== coverage.runId ||
-            browserReport.productInputSha256 !== currentSummary.productInputSha256 ||
-            browserReport.scenarioInputSha256 !== currentSummary.scenarioInputSha256) {
-          errors.push(`BrowserSkill coverage does not reference the verified report for ${coverage.scenario}`);
-        }
-      }
-      const checkpoints = rules.scenarios[coverage.scenario] ?? [];
-      if (!checkpoints.some(checkpoint => checkpoint.id === coverage.checkpoint)) {
-        errors.push(`BrowserSkill checkpoint is not registered (${coverage.scenario}/${coverage.checkpoint})`);
-      }
-      continue;
-    }
-    const suite = ["service", "store", "component", "contract"].includes(coverage.kind)
-      ? "pnpm test:unit"
-      : coverage.kind === "playwright"
-        ? "pnpm test:browser"
-        : null;
-    if (!suite || coverage.suite !== suite || !isRepositoryRelativePath(coverage.path) || !coverage.testName) {
-      errors.push("replacement must name a supported test, file and verification suite");
-      continue;
-    }
-    if (requireFreshEvidence) {
-      const verification = manifest.verification?.suites?.[suite];
-      const suiteDigest = suiteInputDigests[suite] ?? await suiteInputSha256(absoluteRoot, suite, rules);
-      if (verification?.status !== "Pass" ||
-          verification.productInputSha256 !== currentSummary.productInputSha256 ||
-          verification.inputSha256 !== suiteDigest) {
-        errors.push(`replacement suite ${suite} has no passing result for the current inputs`);
-      }
-    }
-    if (coverage.kind === "playwright" && !rules.allowedPlaywrightSpecs.includes(basename(coverage.path))) {
-      errors.push(`replacement Playwright spec is not active (${coverage.path})`);
-    }
-    try {
-      const replacementSource = await readFile(join(absoluteRoot, ...coverage.path.split("/")), "utf8");
-      if (!parsePlaywrightTestCases(replacementSource).some(replacement => replacement.name === coverage.testName)) {
-        errors.push(`replacement test not found (${coverage.path} :: ${coverage.testName})`);
-      }
-    } catch {
-      errors.push(`replacement file does not exist (${coverage.path})`);
-    }
-  }
-  return errors;
-}
-
-export async function retireBatch({ batchName, reportPaths, root = repositoryRoot, manifestPath = assertionsPath } = {}) {
-  const absoluteRoot = resolve(root);
-  const { rules } = await loadArchitectureRules(absoluteRoot);
-  const batch = rules.retirementBatches[batchName];
-  if (!batch) throw new Error(`Unknown retirement batch: ${batchName}`);
-  const verification = await verifyReportSet({ reportPaths, scenarios: batch.scenarios, root: absoluteRoot });
-  if (!verification.valid) return { deleted: [], errors: verification.errors };
-  const suiteInputDigests = Object.fromEntries(await Promise.all(["pnpm test:unit", "pnpm test:browser"].map(async suite => [
-    suite,
-    await suiteInputSha256(absoluteRoot, suite, rules)
-  ])));
-
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  if (manifest.schemaVersion !== 2 || !Array.isArray(manifest.cases)) throw new Error("Invalid assertion retirement manifest");
-  const retiredPaths = Array.isArray(manifest.retiredPaths) ? manifest.retiredPaths : [];
-  if (retiredPaths.some(path => !rules.retiringPaths.includes(path)) || new Set(retiredPaths).size !== retiredPaths.length) {
-    throw new Error("Assertion manifest contains invalid retired paths");
-  }
-  if (manifest.verification?.productInputSha256 !== verification.currentSummary.productInputSha256 ||
-      manifest.verification?.scenarioInputSha256 !== verification.currentSummary.scenarioInputSha256 ||
-      manifest.verification?.managementInputSha256 !== verification.currentSummary.managementInputSha256) {
-    return { deleted: [], errors: ["Assertion mappings do not have passing results for the current product and management inputs"] };
-  }
-  const alreadyRetired = batch.paths.filter(path => retiredPaths.includes(path));
-  if (alreadyRetired.length) return { deleted: [], errors: [`Batch contains already retired files: ${alreadyRetired.join(", ")}`] };
-  const candidates = [];
-  const errors = [];
-  for (const path of batch.paths) {
-    if (!rules.retiringPaths.includes(path)) {
-      errors.push(`${path}: file is not registered as retiring`);
-      continue;
-    }
-    const fullPath = join(absoluteRoot, ...path.split("/"));
-    const sourceInfo = await lstat(fullPath).catch(() => null);
-    if (!sourceInfo?.isFile() || sourceInfo.isSymbolicLink()) {
-      errors.push(`${path}: retirement target must be a regular non-symlink file`);
-      continue;
-    }
-    let source;
-    try { source = await readFile(fullPath, "utf8"); } catch (error) {
-      errors.push(`${path}: cannot read candidate (${error.message})`);
-      continue;
-    }
-    const testCases = parsePlaywrightTestCases(source);
-    const names = testCases.map(entry => entry.name);
-    if (!testCases.length) errors.push(`${path}: no named Playwright tests found`);
-    const mappings = manifest.cases.filter(entry => entry.path === path);
-    if (mappings.length !== testCases.length) errors.push(`${path}: assertion manifest has stale, duplicate or missing test cases`);
-    for (const testCase of testCases) {
-      const mapping = mappings.find(entry => entry.name === testCase.name);
-      const assertionMaps = mapping?.assertions;
-      if (!mapping || Object.hasOwn(mapping, "coverage") || mapping.assertionCount !== testCase.assertionCount ||
-          !Array.isArray(assertionMaps) || assertionMaps.length !== testCase.assertions.length) {
-        errors.push(`${path} :: ${testCase.name}: explicit assertion records are missing or stale`);
-        continue;
-      }
-      for (const [assertionIndex, actualAssertion] of testCase.assertions.entries()) {
-        const assertion = assertionMaps[assertionIndex];
-        const label = `${path} :: ${testCase.name} :: assertion ${assertionIndex + 1}`;
-        if (!assertion || assertion.index !== actualAssertion.index || assertion.line !== actualAssertion.line ||
-            assertion.fingerprint !== actualAssertion.fingerprint || assertion.source !== actualAssertion.source) {
-          errors.push(`${label}: source assertion fingerprint is missing or stale`);
-          continue;
-        }
-        errors.push(...(await validateAssertionCoverage(assertion, {
-          absoluteRoot,
-          batchScenarios: batch.scenarios,
-          manifest,
-          rules,
-          verifiedReports: verification.reports,
-          currentSummary: verification.currentSummary,
-          suiteInputDigests
-        })).map(error => `${label}: ${error}`));
-      }
-    }
-    if (mappings.some(entry => !names.includes(entry.name))) errors.push(`${path}: retirement manifest contains stale test names`);
-    const sourceBytes = Buffer.from(source);
-    const fileDigest = sha256(sourceBytes);
-    const fileManifest = manifest.files?.find(entry => entry.path === path);
-    if (!fileManifest || fileManifest.sha256 !== fileDigest) errors.push(`${path}: source digest does not match the reviewed assertion manifest`);
-    candidates.push({ path, fullPath, source, fileMode: sourceInfo.mode & 0o777 });
-  }
-  if (errors.length) return { deleted: [], errors };
-
-  const finalSummary = await summarizeInputs(absoluteRoot, "browser");
-  if (finalSummary.inputSha256 !== verification.currentSummary.inputSha256 || finalSummary.rulesSha256 !== verification.currentSummary.rulesSha256) {
-    return { deleted: [], errors: ["worktree inputs changed after verification; no registered file was deleted"] };
-  }
-
-  const quarantined = [];
-  try {
-    for (const candidate of candidates) {
-      const quarantinePath = `${candidate.fullPath}.retire-${randomUUID()}.tmp`;
-      await rename(candidate.fullPath, quarantinePath);
-      quarantined.push({ candidate, quarantinePath });
-      const movedDigest = sha256(await readFile(quarantinePath));
-      const expectedDigest = manifest.files.find(entry => entry.path === candidate.path)?.sha256;
-      if (movedDigest !== expectedDigest) throw new Error(`${candidate.path}: source changed during retirement`);
-    }
-    for (const item of quarantined) await rm(item.quarantinePath);
-  } catch (error) {
-    const rollbackErrors = [];
-    const movedPaths = new Set(quarantined.map(item => item.candidate.fullPath));
-    for (const candidate of [...candidates].reverse()) {
-      try {
-        const item = quarantined.find(entry => entry.candidate === candidate);
-        if (item) {
-          const exists = await lstat(item.quarantinePath).then(() => true).catch(() => false);
-          if (exists) await rename(item.quarantinePath, candidate.fullPath);
-          else await writeFile(candidate.fullPath, candidate.source, { mode: candidate.fileMode, flag: "wx" });
-        } else if (movedPaths.has(candidate.fullPath)) {
-          await writeFile(candidate.fullPath, candidate.source, { mode: candidate.fileMode, flag: "wx" });
-        }
-      } catch (rollbackError) { rollbackErrors.push(`${candidate.path}: ${rollbackError.message}`); }
-    }
-    return { deleted: [], errors: [`Retirement failed and attempted rollback: ${error.message}`, ...rollbackErrors] };
-  }
-
-  const nextManifest = {
-    ...manifest,
-    retiredPaths: [...new Set([...retiredPaths, ...batch.paths])].sort()
-  };
-  const manifestInfo = await lstat(manifestPath);
-  const temporaryManifest = `${manifestPath}.${randomUUID()}.tmp`;
-  try {
-    const postRetirementSummary = await summarizeInputs(absoluteRoot, "browser");
-    if (postRetirementSummary.productInputSha256 !== verification.currentSummary.productInputSha256 ||
-        postRetirementSummary.rulesSha256 !== verification.currentSummary.rulesSha256) {
-      throw new Error("Product inputs or rules changed during retirement; no assertion ledger update was committed");
-    }
-    const postSuiteInputDigests = Object.fromEntries(await Promise.all(Object.keys(suiteInputDigests).map(async suite => [
-      suite,
-      await suiteInputSha256(absoluteRoot, suite, rules)
-    ])));
-    if (Object.keys(suiteInputDigests).some(suite => postSuiteInputDigests[suite] !== suiteInputDigests[suite])) {
-      throw new Error("Verification suite inputs changed during retirement; no assertion ledger update was committed");
-    }
-    nextManifest.verification = {
-      ...nextManifest.verification,
-      productInputSha256: postRetirementSummary.productInputSha256,
-      scenarioInputSha256: postRetirementSummary.scenarioInputSha256,
-      managementInputSha256: postRetirementSummary.managementInputSha256,
-      suites: Object.fromEntries(Object.entries(nextManifest.verification.suites).map(([suite, result]) => [suite, {
-        ...result,
-        productInputSha256: postRetirementSummary.productInputSha256,
-        inputSha256: postSuiteInputDigests[suite]
-      }])),
-      browserReports: Object.fromEntries(Object.entries(nextManifest.verification.browserReports).map(([scenario, result]) => [scenario, {
-        ...result,
-        productInputSha256: postRetirementSummary.productInputSha256,
-        scenarioInputSha256: postRetirementSummary.scenarioInputSha256
-      }]))
-    };
-    await writeFile(temporaryManifest, `${JSON.stringify(nextManifest, null, 2)}\n`, {
-      mode: manifestInfo.mode & 0o777,
-      flag: "wx"
-    });
-    await rename(temporaryManifest, manifestPath);
-  } catch (error) {
-    await rm(temporaryManifest, { force: true }).catch(() => undefined);
-    const rollbackErrors = [];
-    for (const candidate of [...candidates].reverse()) {
-      try {
-        const exists = await lstat(candidate.fullPath).then(() => true).catch(() => false);
-        if (!exists) await writeFile(candidate.fullPath, candidate.source, { mode: candidate.fileMode, flag: "wx" });
-      } catch (rollbackError) {
-        rollbackErrors.push(`${candidate.path}: ${rollbackError.message}`);
-      }
-    }
-    return { deleted: [], errors: [`Retirement ledger update failed and attempted rollback: ${error.message}`, ...rollbackErrors] };
-  }
-  return { deleted: candidates.map(candidate => candidate.path), errors: [] };
 }
 
 export function listScenarioCheckpointIds(scenario, rules) {
@@ -1000,22 +662,14 @@ async function main(args) {
       errors: result.errors,
       reports: result.reports,
       managementDrift: result.managementDrift,
-      ledgerDrift: result.ledgerDrift,
       productInputSha256: result.currentSummary.productInputSha256
     }, null, 2)}\n`);
     if (!result.valid) process.exitCode = 1;
     return;
   }
 
-  if (command === "retire") {
-    if (!options["--batch"]) throw new Error("--batch is required");
-    const result = await retireBatch({ batchName: options["--batch"], reportPaths, root });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    if (result.errors.length) process.exitCode = 1;
-    return;
-  }
 
-  throw new Error("Usage: node scripts/test-architecture.mjs <record|verify|retire> --run-id|--run-ids ...");
+  throw new Error("Usage: node scripts/test-architecture.mjs <record|verify> --run-id|--run-ids ...");
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";

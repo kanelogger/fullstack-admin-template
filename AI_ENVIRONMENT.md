@@ -16,7 +16,7 @@
 ## 事实与安全边界
 
 - 命令以根 `package.json`、`frontend/package.json` 和 Supabase 配置为准；`project.yml` 登记执行条件与副作用。
-- 当前架构与接口以 [`specs/architecture.md`](specs/architecture.md) 和源码为准；决策原因见 [`docs/adr/`](docs/adr/)。
+- 当前架构与接口以 [`specs/architecture.md`](specs/architecture.md) 和源码为准；新项目的技术决策按 [`docs/adr/README.md`](docs/adr/README.md) 记录。
 - 权限与凭据处理见 [`rules/security.md`](rules/security.md)。仓库声明的能力不代表当前会话已经获得相应授权。
 - 环境探测结果记录 `scope`、`owner`、`evidence`、`verified_at` 和 `status`。没有本轮证据时不能从旧会话继承 `healthy`。
 - 仓库支持 PC Chromium Playwright、Node/Vue jsdom Vitest、固定 Linux Playwright visual baseline、Supabase 隔离迁移校验，以及由 Agent 显式运行的八场景 BrowserSkill 验收。普通 CI 只跑结构门禁与可自动执行的测试；BrowserSkill 证据不作为 PR 阻塞条件。生产部署和外部服务连接未配置。

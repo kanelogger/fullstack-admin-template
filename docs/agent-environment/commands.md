@@ -18,8 +18,6 @@
 | 前端格式修复 | `pnpm format` | 只格式化上述前端文件，不修改设计文档 |
 | 源码 lint | `pnpm lint` | ESLint 检查 Vue/TypeScript、共享合同、脚本；Deno lint 检查 Edge Functions |
 | RouteKey 合同 | `pnpm check:routes` | 检查前端注册、菜单元数据、权限键与未忽略的页面导入；CI 另要求页面文件已跟踪 |
-| 测试架构（CI） | `pnpm check:test-architecture` | 结构门禁：Playwright 六类 spec 白名单、待退出/已退出登记、逐断言映射结构与替代引用；不要求 BrowserSkill/suite 摘要匹配当前源码 |
-| 测试架构（验收） | `pnpm check:test-architecture:acceptance` | 在结构检查之外要求账本中的 suite 通过记录与八场景 BrowserSkill 报告匹配当前产品/场景摘要；发布或 Agent 验收显式调用 |
 | 构建 | `pnpm build` | 生成 `frontend/dist/` |
 
 环境变量示例在 `frontend/.env.example` 与 `frontend/.env.development.example`。本机 Supabase URL/publishable key 可从 `pnpm supabase:status` 获取；输出已剔除服务端密钥。
@@ -43,8 +41,6 @@ Supabase seed 不含公开默认管理员。`pnpm setup:admin` 只连接本机 S
 | Harness BrowserSkill 场景 | `pnpm test:agent:start -- --scenario <id> --browser <instance-id> --browser-session <session-id>` | 仅在提供 Harness `browser_session` 工具的环境使用；runner 不再创建另一 session |
 | 填充 Agent 凭据 | `pnpm test:agent:fill -- --run-id <id> --session <session-id> --ref <snapshot-ref-or-css-selector> --field loginName|password` | 校验 run 与 BrowserSkill Session 归属，从私有运行文件读取字段值；selector 仅在语义控件不可观察且 DOM 已核实时使用 |
 | 记录验收 checkpoint | `pnpm test:agent:record -- --run-id <id> --checkpoint <id> --status Pass|Fail|Unknown|Skipped --observed <text> --evidence <paths>` | 记录观察结果和证据引用 |
-| 验证 BrowserSkill 报告 | `pnpm test:agent:verify -- --run-ids <id,...> [--scenario <id>]` | 单场景或显式八场景报告集合；核对 debug Session、应用 origin、时间窗、产品摘要与场景执行摘要；缺项、Unknown、无效证据、运行输入变化或清理失败返回非零，管理/断言清单 drift 单独显示 |
-| 退出旧测试批次 | `pnpm test:agent:retire -- --batch <batch> --run-ids <id,...>` | 每条原始断言都须有明确替代测试、场景检查点或保留理由，并匹配当前通过的输入摘要；随后才删除登记目标 |
 | 清理 Agent 环境 | `pnpm test:agent:cleanup -- --run-id <id> --browser-page-visited true --product-status Pass` | CLI driver 导出 `final.png`、`browser-debug.json` 并停止该 session；核对进程、副本及精确 project label 下的容器、卷、网络；检查失败或残留时保留恢复目录 |
 | 清理 Harness 环境 | `pnpm test:agent:cleanup -- --run-id <id> --browser-page-visited true --browser-session-stopped true --evidence-source <directory> --product-status Pass` | Harness driver 导入 Harness 导出的 `final.png`、`browser-debug.json` 后核验自建资源清理 |
 | 当前本地数据库 | `pnpm test:db` | pgTAP/Auth/Edge/Storage/Realtime fixtures；清理测试记录，不重置数据库 |
@@ -56,7 +52,6 @@ Supabase seed 不含公开默认管理员。`pnpm setup:admin` 只连接本机 S
 
 `test:visual` 和 `test:visual:update` 先计算用途摘要、创建固定源码副本，再运行固定容器；不复用宿主 `node_modules` 或已有 Vite 服务。Codex CLI BrowserSkill 流程要求显式 `--browser`，每个新 session 都通过 `bsk session start --browser <instance-id> --json` 创建；Harness 流程复用工具返回的 Session ID，不创建第二个会话或更换浏览器。调用者权限探针使用真实 `session-login` Session；消息和操作记录带 run/scenario 标记。
 
-BrowserSkill 八个场景为 `dashboard`、`messages-shell`、`organization`、`configuration`、`identity-navigation`、`attachments`、`audit`、`profile`。稳定 checkpoint 与必需证据见 `scripts/test-architecture-rules.json`；旧 E2E 逐断言覆盖清单见 `scripts/test-architecture-assertions.json`（其中 `verification.gate=acceptance-only`，仅 acceptance / verify / retire 使用，不阻塞 PR CI）。
 
 Browser、Local Auth 和 Visual 三套 Playwright 诊断使用独立子目录；CI 在相应门禁后收集报告，不会互相覆盖。
 
