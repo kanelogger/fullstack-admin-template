@@ -2022,11 +2022,11 @@
     "managementInputSha256": "8ce1b13db996e559fbb2db081f0e14badb5bee4ddc3f06f4f871370f62b523f1",
     "suites": {
       "pnpm test:unit": {
-        "status": "Stale",
+        "status": "Pass",
         "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "inputSha256": "044698bae18d76b576ca090db1f66de55351dc939d4e9959737f2c4af142a151",
-        "verifiedAt": "2026-10-08T12:59:06.624Z",
-        "result": "73 frontend unit, 9 component, 3 Deno, 21 contracts and 73 Node tests passed"
+        "inputSha256": "e76df1c5b04e0d68fbe495b336c8dc92d73a40b54f1db62a01e21a21f8df0451",
+        "verifiedAt": "2026-10-09T00:59:05.795Z",
+        "result": "73 frontend unit, 9 component, 3 Deno, 21 contracts and 74 Node tests passed"
       },
       "pnpm test:browser": {
         "status": "Pass",

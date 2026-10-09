@@ -4,7 +4,7 @@ project:
   id: fullstack-admin-template
   name: fullstack-admin-template
   summary: "PC browser admin template: Vue 3, TypeScript, Vite, pnpm, Zod and Supabase"
-  in_scope: [frontend, supabase, scripts, rules, specs, tasks, workflow, docs, .agents, .github]
+  in_scope: [frontend, supabase, scripts, rules, specs, tasks, docs, .agents, .github]
   out_of_scope: ["production data", "production deployment", "mobile browser acceptance"]
 
 repositories:
@@ -231,7 +231,7 @@ capabilities:
   hooks: not-applicable
 
 workflow:
-  definitions: [tasks/README.md, workflow/README.md]
+  definitions: [tasks/README.md]
   default: "aligning -> implementing -> verifying -> idle; blocked records reason and recovery condition"
   active_state: .agents/state/workflow.json
   verification_guide: rules/testing.md

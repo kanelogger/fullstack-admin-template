@@ -17,3 +17,24 @@
   - 回归测试覆盖 40 字符 ID 生成、42 字符 ID 在 stop/检查前拒绝、scenario runner/account/startup 输入漂移拒绝报告、Vitest 配置与 Node 测试变化更新 unit digest。
   - 八份旧报告保留原文件；新严格场景摘要拒绝复用 runner、生命周期和 migration startup 输入已变化的旧 run。当前八场景重验状态记录在下方收口记录。
 - 关联：本决策取代 [ADR 0004](0004-acceptance-evidence-integrity.md) 对管理 drift 与产品报告复用范围的描述，保留其逐断言、证据归属和清理资源后置条件。
+
+## 收口记录（2026-10-09）
+
+- `pnpm test:unit` 退出码 0：73 个前端单元、9 个组件、3 个 Deno、21 个合同、74 个 Node 测试全部通过，无跳过。当前完整 unit 输入摘要为 `e76df1c5b04e0d68fbe495b336c8dc92d73a40b54f1db62a01e21a21f8df0451`；运行期间未修改输入，结束后再次核对一致，并据实更新逐断言账本中的 suite 记录。
+- `pnpm check:test-architecture` 退出码 0、`valid: true`：6 类 active spec、9 个 retired spec、无待退出 spec；12 个旧用例的 113 条断言替代映射通过当前输入门槛。
+- 八场景现存报告重新执行 `pnpm test:agent:verify`，退出码 0、`valid: true`，34/34 checkpoint 通过，证据归属、固定副本及清理结果有效。产品摘要为 `5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e`，场景执行摘要为 `e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e`；验证工具与账本 drift 按规则单独报告，未改写历史报告。
+- Playwright 的已有通过记录仍匹配当前产品及 browser suite 输入：14 passed、2 个按配置跳过的 Local Auth 用例。本次补齐 unit 门槛并验证现存 BrowserSkill 证据，未重跑浏览器交互、Local Auth 或视觉基线。
+
+| 场景 | 当前有效 run ID | checkpoint |
+| --- | --- | ---: |
+| `dashboard` | `f18363bc-be30-42e5-9f8a-b02863f5d42a` | 4/4 |
+| `messages-shell` | `f14ee074-17fb-49c3-8bf8-0046ee6656a7` | 4/4 |
+| `organization` | `d501e023-a1d5-4fd0-b177-8efea6589901` | 4/4 |
+| `configuration` | `28879bc1-8813-425b-8a35-25896d881ceb` | 4/4 |
+| `identity-navigation` | `2d3f7032-bbce-4a8c-bc31-1a4169546d45` | 7/7 |
+| `attachments` | `0610393c-31ff-42c1-81d0-967fa22e50f2` | 4/4 |
+| `audit` | `99e18f42-e2ce-47a3-b8a4-6e6153ef3a36` | 4/4 |
+| `profile` | `dfd2e60c-6c0f-4ff4-8d46-b6b84a32230a` | 3/3 |
+
+- 2026-10-09 清理已保留当前八场景必需证据与正式视觉基线，移除旧临时目录、过期报告、调试及构建产物；工作区 Local 数据卷和无关服务保留。本次收口未启动或重置数据库，未创建提交或推送。
+- Playwright + BrowserSkill 测试迁移的本地最终门槛已通过；BrowserSkill 继续由 Agent 显式运行，远程 CI 的实际执行结果不在本次验收范围内。

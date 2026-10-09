@@ -10,7 +10,7 @@
 | 文件系统、worktree 和状态协议 | [`docs/agent-environment/network-filesystem.md`](docs/agent-environment/network-filesystem.md) |
 | GitHub Actions 和环境差异 | [`docs/agent-environment/ci-parity.md`](docs/agent-environment/ci-parity.md) |
 | Node、pnpm、Docker | [`docs/agent-environment/local-toolchain.md`](docs/agent-environment/local-toolchain.md) |
-| 任务恢复 | [`tasks/README.md`](tasks/README.md)、[`workflow/README.md`](workflow/README.md) |
+| 任务恢复 | [`tasks/README.md`](tasks/README.md) |
 | Agent 规则维护 | [agents-maintenance](.agents/skills/agents-maintenance/SKILL.md) |
 
 ## 事实与安全边界
@@ -19,4 +19,4 @@
 - 当前架构与接口以 [`specs/architecture.md`](specs/architecture.md) 和源码为准；决策原因见 [`docs/adr/`](docs/adr/)。
 - 权限与凭据处理见 [`rules/security.md`](rules/security.md)。仓库声明的能力不代表当前会话已经获得相应授权。
 - 环境探测结果记录 `scope`、`owner`、`evidence`、`verified_at` 和 `status`。没有本轮证据时不能从旧会话继承 `healthy`。
-- 仓库支持 PC Chromium Playwright、Node/Vue jsdom Vitest、固定 Linux Playwright visual baseline 和 Supabase 隔离迁移校验。Dashboard BrowserSkill 试点要求调用时指定一个已连接的浏览器实例；环境声明不代表实例已连接。生产部署和外部服务连接未配置。
+- 仓库支持 PC Chromium Playwright、Node/Vue jsdom Vitest、固定 Linux Playwright visual baseline、Supabase 隔离迁移校验，以及由 Agent 显式运行的八场景 BrowserSkill 验收。生产部署和外部服务连接未配置。

@@ -13,7 +13,7 @@
 | 内容 | 位置 |
 | --- | --- |
 | 当前架构、安全与验证规则 | `specs/`、`rules/` 和项目 Agent 规则 |
-| 需求状态与结论 | `tasks/`、`workflow/`、`docs/adr/` |
+| 需求状态与结论 | `tasks/`、`docs/adr/` |
 | 阶段、锁、测试日志和探测状态 | `.agents/state/`，已忽略 |
 | 凭据 | 本地 `.env*`；只提交 example 文件 |
 | 依赖与产物 | `node_modules/`、`dist/`、logs、Playwright results、Supabase Local state |

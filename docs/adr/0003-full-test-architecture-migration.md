@@ -19,8 +19,8 @@
   - 仅保留 BrowserSkill 会降低重复执行确定性并把数据合同错误留给人工发现。
   - 仅增加 Service 测试会遗漏浏览器路由、焦点、布局和真实 RLS 行为。
   - 仅以报告文件或截图存在判为通过，不能证明产品结果、证据归属、当前输入和资源清理。
-- 批次与验收：见根目录 `PLAN.md`。完整交付门槛包含八场景有效报告、Dashboard 重验、14 状态连续三次通过、完整布局矩阵、故障注入、主要质量套件和资源清理。
-- 当前实施记录：
+- 批次与验收：原计划记录已随阶段任务清理；最终收口状态见 [ADR 0005](0005-execution-input-fingerprints.md)。完整交付门槛包含八场景有效报告、Dashboard 重验、14 状态连续三次通过、完整布局矩阵、故障注入、主要质量套件和资源清理。
+- 实施记录（2026-10-07 阶段快照）：
   - 已实现用途摘要、规则 hash、固定副本/冻结安装入口、八场景 checkpoint registry、报告 record/verify/retire API、逐断言 manifest、Playwright 白名单、布局矩阵 RouteKey 派生、14 状态候选和原子接受机制。
   - Dashboard 系统概览使用 CSS Grid；已生成并接受 14 状态视觉候选，正式 `pnpm test:visual` 14/14 通过。
   - `pnpm test:unit`、类型、lint、文档、路由、测试架构、browser 与两项隔离 migration 检查通过；部门父级关系正以新增 migration、合同、Service 和 UI 层级路径补齐。
