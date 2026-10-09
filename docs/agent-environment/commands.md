@@ -18,7 +18,8 @@
 | 前端格式修复 | `pnpm format` | 只格式化上述前端文件，不修改设计文档 |
 | 源码 lint | `pnpm lint` | ESLint 检查 Vue/TypeScript、共享合同、脚本；Deno lint 检查 Edge Functions |
 | RouteKey 合同 | `pnpm check:routes` | 检查前端注册、菜单元数据、权限键与未忽略的页面导入；CI 另要求页面文件已跟踪 |
-| 测试架构 | `pnpm check:test-architecture` | 检查 Playwright 六类 spec 白名单、待退出 spec 与逐断言替代映射 |
+| 测试架构（CI） | `pnpm check:test-architecture` | 结构门禁：Playwright 六类 spec 白名单、待退出/已退出登记、逐断言映射结构与替代引用；不要求 BrowserSkill/suite 摘要匹配当前源码 |
+| 测试架构（验收） | `pnpm check:test-architecture:acceptance` | 在结构检查之外要求账本中的 suite 通过记录与八场景 BrowserSkill 报告匹配当前产品/场景摘要；发布或 Agent 验收显式调用 |
 | 构建 | `pnpm build` | 生成 `frontend/dist/` |
 
 环境变量示例在 `frontend/.env.example` 与 `frontend/.env.development.example`。本机 Supabase URL/publishable key 可从 `pnpm supabase:status` 获取；输出已剔除服务端密钥。
@@ -55,7 +56,7 @@ Supabase seed 不含公开默认管理员。`pnpm setup:admin` 只连接本机 S
 
 `test:visual` 和 `test:visual:update` 先计算用途摘要、创建固定源码副本，再运行固定容器；不复用宿主 `node_modules` 或已有 Vite 服务。Codex CLI BrowserSkill 流程要求显式 `--browser`，每个新 session 都通过 `bsk session start --browser <instance-id> --json` 创建；Harness 流程复用工具返回的 Session ID，不创建第二个会话或更换浏览器。调用者权限探针使用真实 `session-login` Session；消息和操作记录带 run/scenario 标记。
 
-BrowserSkill 八个场景为 `dashboard`、`messages-shell`、`organization`、`configuration`、`identity-navigation`、`attachments`、`audit`、`profile`。稳定 checkpoint 与必需证据见 `scripts/test-architecture-rules.json`；旧 E2E 逐断言覆盖清单见 `scripts/test-architecture-assertions.json`。
+BrowserSkill 八个场景为 `dashboard`、`messages-shell`、`organization`、`configuration`、`identity-navigation`、`attachments`、`audit`、`profile`。稳定 checkpoint 与必需证据见 `scripts/test-architecture-rules.json`；旧 E2E 逐断言覆盖清单见 `scripts/test-architecture-assertions.json`（其中 `verification.gate=acceptance-only`，仅 acceptance / verify / retire 使用，不阻塞 PR CI）。
 
 Browser、Local Auth 和 Visual 三套 Playwright 诊断使用独立子目录；CI 在相应门禁后收集报告，不会互相覆盖。
 

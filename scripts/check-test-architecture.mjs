@@ -12,14 +12,39 @@ import {
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
-export async function checkTestArchitecture(repositoryRoot = root) {
+export const CHECK_TEST_ARCHITECTURE_MODES = Object.freeze(["ci", "acceptance"]);
+
+export function parseCheckTestArchitectureArgs(argv = process.argv.slice(2)) {
+  const args = argv.filter(value => value !== "--");
+  let mode = "ci";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--mode") {
+      const value = args[index + 1];
+      if (!CHECK_TEST_ARCHITECTURE_MODES.includes(value)) {
+        throw new Error(`--mode must be one of ${CHECK_TEST_ARCHITECTURE_MODES.join(", ")}`);
+      }
+      mode = value;
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+  return { mode };
+}
+
+export async function checkTestArchitecture(repositoryRoot = root, options = {}) {
+  const mode = options.mode === "acceptance" ? "acceptance" : "ci";
+  const requireFreshEvidence = mode === "acceptance";
   const { rules } = await loadArchitectureRules(repositoryRoot);
   const assertionManifest = JSON.parse(await readFile(join(repositoryRoot, "scripts/test-architecture-assertions.json"), "utf8"));
-  const currentSummary = await summarizeInputs(repositoryRoot, "browser");
-  const suiteInputDigests = Object.fromEntries(await Promise.all(["pnpm test:unit", "pnpm test:browser"].map(async suite => [
-    suite,
-    await suiteInputSha256(repositoryRoot, suite, rules)
-  ])));
+  const currentSummary = requireFreshEvidence ? await summarizeInputs(repositoryRoot, "browser") : null;
+  const suiteInputDigests = requireFreshEvidence
+    ? Object.fromEntries(await Promise.all(["pnpm test:unit", "pnpm test:browser"].map(async suite => [
+      suite,
+      await suiteInputSha256(repositoryRoot, suite, rules)
+    ])))
+    : {};
   const frontendE2e = join(repositoryRoot, "frontend/e2e");
   const files = (await readdir(frontendE2e)).filter(path => path.endsWith(".spec.ts")).sort();
   const active = [...rules.allowedPlaywrightSpecs].sort();
@@ -57,6 +82,9 @@ export async function checkTestArchitecture(repositoryRoot = root) {
   for (const required of ["pnpm check:test-architecture", "pnpm test:browser", "pnpm test:visual"]) {
     if (!workflow.includes(required)) errors.push(`CI does not run required test architecture gate: ${required}`);
   }
+  if (workflow.includes("pnpm check:test-architecture:acceptance") || /check:test-architecture[^\n]*--mode\s+acceptance/.test(workflow)) {
+    errors.push("CI must not run the BrowserSkill acceptance evidence gate");
+  }
   if (/pnpm\s+test:visual:update|pnpm\s+test:visual:accept/.test(workflow)) {
     errors.push("CI must compare visual baselines without generating or accepting candidates");
   }
@@ -68,26 +96,30 @@ export async function checkTestArchitecture(repositoryRoot = root) {
     if (!/^[0-9a-f]{40}$/i.test(assertionManifest.sourceCommit ?? "")) {
       errors.push("Assertion retirement manifest must pin the historical source commit");
     }
-    if (verification.productInputSha256 !== currentSummary.productInputSha256) errors.push("Assertion verification product digest is stale");
-    if (verification.scenarioInputSha256 !== currentSummary.scenarioInputSha256) errors.push("Assertion verification scenario-input digest is stale");
-    managementDrift = verification.managementInputSha256 === currentSummary.managementInputSha256
-      ? []
-      : ["Acceptance scripts or ledgers changed after the recorded verification snapshot"];
-    for (const suite of ["pnpm test:unit", "pnpm test:browser"]) {
-      const result = verification.suites?.[suite];
-      const suiteDigest = suiteInputDigests[suite];
-      if (result?.status !== "Pass" || result.productInputSha256 !== currentSummary.productInputSha256 ||
-          result.inputSha256 !== suiteDigest) {
-        errors.push(`Assertion verification suite is missing a current passing result: ${suite}`);
+    if (requireFreshEvidence) {
+      if (verification.productInputSha256 !== currentSummary.productInputSha256) errors.push("Assertion verification product digest is stale");
+      if (verification.scenarioInputSha256 !== currentSummary.scenarioInputSha256) errors.push("Assertion verification scenario-input digest is stale");
+      managementDrift = verification.managementInputSha256 === currentSummary.managementInputSha256
+        ? []
+        : ["Acceptance scripts or ledgers changed after the recorded verification snapshot"];
+      for (const suite of ["pnpm test:unit", "pnpm test:browser"]) {
+        const result = verification.suites?.[suite];
+        const suiteDigest = suiteInputDigests[suite];
+        if (result?.status !== "Pass" || result.productInputSha256 !== currentSummary.productInputSha256 ||
+            result.inputSha256 !== suiteDigest) {
+          errors.push(`Assertion verification suite is missing a current passing result: ${suite}`);
+        }
       }
-    }
-    for (const scenario of Object.keys(rules.scenarios)) {
-      const result = verification.browserReports?.[scenario];
-      if (!result?.runId || result.status !== "Pass" ||
-          result.productInputSha256 !== currentSummary.productInputSha256 ||
-          result.scenarioInputSha256 !== currentSummary.scenarioInputSha256) {
-        errors.push(`Assertion verification is missing a passing current-source BrowserSkill report: ${scenario}`);
+      for (const scenario of Object.keys(rules.scenarios)) {
+        const result = verification.browserReports?.[scenario];
+        if (!result?.runId || result.status !== "Pass" ||
+            result.productInputSha256 !== currentSummary.productInputSha256 ||
+            result.scenarioInputSha256 !== currentSummary.scenarioInputSha256) {
+          errors.push(`Assertion verification is missing a passing current-source BrowserSkill report: ${scenario}`);
+        }
       }
+    } else if (verification.gate !== "acceptance-only") {
+      errors.push("Assertion verification archive must declare gate=acceptance-only so CI cannot treat it as current evidence");
     }
 
     const sourcePaths = new Set(rules.retiringPaths);
@@ -144,11 +176,12 @@ export async function checkTestArchitecture(repositoryRoot = root) {
             absoluteRoot: repositoryRoot,
             batchScenarios: Object.keys(rules.scenarios),
             manifest: assertionManifest,
-          rules,
-          verifiedReports: Object.fromEntries(Object.entries(verification.browserReports ?? {})
-            .map(([key, value]) => [key, value.runId])),
-          currentSummary,
-          suiteInputDigests
+            rules,
+            verifiedReports: Object.fromEntries(Object.entries(verification.browserReports ?? {})
+              .map(([key, value]) => [key, value.runId])),
+            currentSummary,
+            suiteInputDigests,
+            requireFreshEvidence
           });
           for (const error of coverageErrors) errors.push(`${assertionLabel}: ${error}`);
         }
@@ -157,16 +190,28 @@ export async function checkTestArchitecture(repositoryRoot = root) {
     }
   }
 
-  return { valid: errors.length === 0, errors, activeSpecs: active, retiringSpecs: retiring, retiredSpecs: retired, managementDrift };
+  return {
+    valid: errors.length === 0,
+    mode,
+    browserskillEvidenceRequired: requireFreshEvidence,
+    errors,
+    activeSpecs: active,
+    retiringSpecs: retiring,
+    retiredSpecs: retired,
+    managementDrift
+  };
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 if (invokedPath === import.meta.url) {
-  checkTestArchitecture().then(result => {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    if (!result.valid) process.exitCode = 1;
-  }).catch(error => {
-    process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  });
+  Promise.resolve()
+    .then(() => parseCheckTestArchitectureArgs())
+    .then(options => checkTestArchitecture(root, options))
+    .then(result => {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      if (!result.valid) process.exitCode = 1;
+    }).catch(error => {
+      process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    });
 }

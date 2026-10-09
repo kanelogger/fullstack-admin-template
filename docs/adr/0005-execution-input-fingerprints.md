@@ -1,7 +1,7 @@
 # 0005. 场景执行输入与测试 suite 完整摘要
 
 - 日期：2026-10-08
-- 状态：生效
+- 状态：生效；普通 CI 对账本新鲜度的绑定范围已由 [ADR 0011](0011-split-ci-and-browserskill-acceptance-gates.md) 收窄
 - 背景：继续审阅发现三处 false Pass：Supabase CLI 会把超过 40 字符的 project ID 截断，清理代码仍用原 ID 查资源；管理摘要把整个 BrowserSkill runner、账号/fixture 准备和启动逻辑排除在严格输入匹配之外；suite 摘要只筛选已经过 BrowserSkill 规则筛选的文件，遗漏 Vitest 配置与部分 Node 测试。
 - 决策：
   - BrowserSkill 临时 project ID 由场景 slug 和 64-bit 随机后缀构成，总长不超过 CLI 的 40 字符限制。清理 helper 拒绝长 ID，防止 CLI 与 Docker 查询使用不同标签。
@@ -37,4 +37,4 @@
 | `profile` | `dfd2e60c-6c0f-4ff4-8d46-b6b84a32230a` | 3/3 |
 
 - 2026-10-09 清理已保留当前八场景必需证据与正式视觉基线，移除旧临时目录、过期报告、调试及构建产物；工作区 Local 数据卷和无关服务保留。本次收口未启动或重置数据库，未创建提交或推送。
-- Playwright + BrowserSkill 测试迁移的本地最终门槛已通过；BrowserSkill 继续由 Agent 显式运行，远程 CI 的实际执行结果不在本次验收范围内。
+- Playwright + BrowserSkill 测试迁移的本地最终门槛已通过；BrowserSkill 继续由 Agent 显式运行，远程 CI 的实际执行结果不在本次验收范围内。此后普通 CI 不再要求八场景账本匹配当前源码，见 [ADR 0011](0011-split-ci-and-browserskill-acceptance-gates.md)。

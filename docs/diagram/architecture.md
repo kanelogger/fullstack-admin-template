@@ -124,7 +124,7 @@ Supabase Auth 是持久 Session 唯一来源；权限快照、菜单、路由和
 
 - `pnpm typecheck`：前端 Vue/TypeScript、共享合同和三个 Deno Edge Functions。
 - `pnpm test:unit`：Vitest、Vue 组件、共享合同与脚本测试，包含各业务 Service/Store 的响应、错误、权限和字符串 ID 断言。
-- `pnpm check:test-architecture`：六类 Playwright spec 白名单、旧 Smoke 登记、逐断言替代测试和 BrowserSkill 检查点映射。
+- `pnpm check:test-architecture`：CI 结构门禁（白名单、退休登记、逐断言映射结构）。`pnpm check:test-architecture:acceptance`：另要求当前源码匹配的 suite/BrowserSkill 账本。
 - `pnpm test:browser`：PC Chromium Session 竞态、权限导航与所有注册路由 × 三布局 × 双主题布局矩阵；成功不保存逐页截图。
 - `pnpm test:browser:local`：Mailpit 恢复、PC 浏览器登录、字典类型真实 CRUD、消息 Realtime 收件、刷新恢复、越权路由拒绝、登出及旧 access token 的 RLS 拒绝。
 - `pnpm test:visual`：固定 Linux amd64 Playwright 容器比较 14 状态：登录双主题、Dashboard 三布局双主题、用户表格双主题、Profile 表单双主题、角色授权弹窗双主题。
@@ -132,7 +132,7 @@ Supabase Auth 是持久 Session 唯一来源；权限快照、菜单、路由和
 - `pnpm test:agent:start/record/verify/retire/cleanup`：固定输入与规则摘要、八个 BrowserSkill 场景 checkpoint 报告、证据完整性与批次删除门槛。
 - `pnpm test:db`：本地 Supabase pgTAP、RLS、Edge、Storage、Realtime 和审计集成检查。
 - `pnpm check:migrations`：在独立临时 Supabase project/动态端口从空库重放 migrations 和 seed，检查重复 seed、DB lint/advisors、Auth bootstrap 并发、pgTAP、服务集成与本地 Auth 浏览器流，并回收该临时栈。
-- GitHub Actions 在 push 与 pull request 上运行测试架构检查、冻结安装、类型检查、生产构建、Vitest、PC Chromium、固定容器视觉比较和隔离迁移校验；CI 不生成或接受像素候选。
+- GitHub Actions 在 push 与 pull request 上运行测试架构结构检查、冻结安装、类型检查、生产构建、Vitest、PC Chromium、固定容器视觉比较和隔离迁移校验；CI 不生成或接受像素候选，也不把八场景 BrowserSkill 账本当作 PR 门禁。
 
 PC 浏览器最低验收路径固定为：
 

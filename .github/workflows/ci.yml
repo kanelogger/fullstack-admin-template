@@ -26,7 +26,7 @@ jobs:
         run: pnpm format:check
       - name: Check route registry
         run: pnpm check:routes
-      - name: Check test architecture
+      - name: Check test architecture (CI structural gate)
         run: pnpm check:test-architecture
       - name: Check documentation references
         run: pnpm check:docs

@@ -2018,6 +2018,7 @@
     }
   ],
   "verification": {
+    "gate": "acceptance-only",
     "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
     "managementInputSha256": "14a6bed9acf2af41821515f77ba772a010e21103d76d102cd480dd806cec1db3",
     "suites": {

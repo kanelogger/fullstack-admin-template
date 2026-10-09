@@ -69,6 +69,11 @@ commands:
       command: "pnpm check:test-architecture"
       cwd: .
       command_ref: "package.json#scripts.check:test-architecture"
+    test_architecture_acceptance:
+      command: "pnpm check:test-architecture:acceptance"
+      cwd: .
+      command_ref: "package.json#scripts.check:test-architecture:acceptance"
+      requires: [current-browserskill-reports, current-unit-browser-suite-digests]
     unit:
       command: "pnpm test:unit"
       cwd: .

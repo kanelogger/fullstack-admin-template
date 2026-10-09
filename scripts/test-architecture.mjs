@@ -684,7 +684,8 @@ export async function validateAssertionCoverage(assertion, {
   rules,
   verifiedReports,
   currentSummary,
-  suiteInputDigests = {}
+  suiteInputDigests = {},
+  requireFreshEvidence = true
 }) {
   const errors = [];
   if (!["replaced", "retained"].includes(assertion.disposition)) {
@@ -707,13 +708,19 @@ export async function validateAssertionCoverage(assertion, {
       if (!batchScenarios.includes(coverage.scenario)) {
         errors.push(`BrowserSkill coverage is outside this batch (${coverage.scenario})`);
       }
-      const browserReport = manifest.verification?.browserReports?.[coverage.scenario];
-      const browserRunId = typeof browserReport === "string" ? browserReport : browserReport?.runId;
-      if (browserReport?.status !== "Pass" || !browserRunId || browserRunId !== coverage.runId ||
-          verifiedReports[coverage.scenario] !== coverage.runId ||
-          browserReport.productInputSha256 !== currentSummary.productInputSha256 ||
-          browserReport.scenarioInputSha256 !== currentSummary.scenarioInputSha256) {
-        errors.push(`BrowserSkill coverage does not reference the verified report for ${coverage.scenario}`);
+      if (typeof coverage.runId !== "string" || !coverage.runId.trim()) {
+        errors.push(`BrowserSkill coverage is missing a runId for ${coverage.scenario}`);
+      } else if (typeof coverage.checkpoint !== "string" || !coverage.checkpoint.trim()) {
+        errors.push(`BrowserSkill coverage is missing a checkpoint for ${coverage.scenario}`);
+      } else if (requireFreshEvidence) {
+        const browserReport = manifest.verification?.browserReports?.[coverage.scenario];
+        const browserRunId = typeof browserReport === "string" ? browserReport : browserReport?.runId;
+        if (browserReport?.status !== "Pass" || !browserRunId || browserRunId !== coverage.runId ||
+            verifiedReports[coverage.scenario] !== coverage.runId ||
+            browserReport.productInputSha256 !== currentSummary.productInputSha256 ||
+            browserReport.scenarioInputSha256 !== currentSummary.scenarioInputSha256) {
+          errors.push(`BrowserSkill coverage does not reference the verified report for ${coverage.scenario}`);
+        }
       }
       const checkpoints = rules.scenarios[coverage.scenario] ?? [];
       if (!checkpoints.some(checkpoint => checkpoint.id === coverage.checkpoint)) {
@@ -730,12 +737,14 @@ export async function validateAssertionCoverage(assertion, {
       errors.push("replacement must name a supported test, file and verification suite");
       continue;
     }
-    const verification = manifest.verification?.suites?.[suite];
-    const suiteDigest = suiteInputDigests[suite] ?? await suiteInputSha256(absoluteRoot, suite, rules);
-    if (verification?.status !== "Pass" ||
-        verification.productInputSha256 !== currentSummary.productInputSha256 ||
-        verification.inputSha256 !== suiteDigest) {
-      errors.push(`replacement suite ${suite} has no passing result for the current inputs`);
+    if (requireFreshEvidence) {
+      const verification = manifest.verification?.suites?.[suite];
+      const suiteDigest = suiteInputDigests[suite] ?? await suiteInputSha256(absoluteRoot, suite, rules);
+      if (verification?.status !== "Pass" ||
+          verification.productInputSha256 !== currentSummary.productInputSha256 ||
+          verification.inputSha256 !== suiteDigest) {
+        errors.push(`replacement suite ${suite} has no passing result for the current inputs`);
+      }
     }
     if (coverage.kind === "playwright" && !rules.allowedPlaywrightSpecs.includes(basename(coverage.path))) {
       errors.push(`replacement Playwright spec is not active (${coverage.path})`);

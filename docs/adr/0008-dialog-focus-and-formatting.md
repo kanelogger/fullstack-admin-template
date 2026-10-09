@@ -31,4 +31,4 @@
 
 通过当前 BrowserSkill 实例 `fb5e899d` 启动了 Dashboard 隔离 run `5fb5a150-0c04-4826-88bc-1290bc6c70f7`，Session `bxym`，独立应用和 Supabase 达到 READY。debug 从导航前开始并绑定本次 origin。登录页可观察，但填充时 Chrome 拒绝 CDP 访问另一个扩展的 `chrome-extension://` 框架；按提示重新导航后仍失败。页面曾出现 CocoCut 注入痕迹，不能据此确认它就是冲突来源。
 
-本次未完成登录或任一产品 checkpoint，产品状态保持 Unknown，不回写旧报告或把 Mock 结果替代真实场景。需要浏览器侧排查注入框架的冲突扩展后重新启动场景；未得到人工处理确认前不再反复尝试、不更换后端绕过限制。后续仍需八场景、当前 unit/browser suite 摘要与验收账本全部匹配后让 `check:test-architecture` 通过。
+本次未完成登录或任一产品 checkpoint，产品状态保持 Unknown，不回写旧报告或把 Mock 结果替代真实场景。需要浏览器侧排查注入框架的冲突扩展后重新启动场景；未得到人工处理确认前不再反复尝试、不更换后端绕过限制。八场景与验收账本匹配属于 `check:test-architecture:acceptance` / `test:agent:verify` 门槛；普通 CI 结构门禁见 [ADR 0011](0011-split-ci-and-browserskill-acceptance-gates.md)。

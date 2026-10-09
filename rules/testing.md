@@ -10,7 +10,8 @@
 - `pnpm test:browser`：Playwright Chromium 白名单，只运行 Session 竞态、权限导航、Local Auth、首位管理员登录和全路由布局矩阵。报告位于 `frontend/test-results/browser/` 与 `frontend/playwright-report/browser/`。
 - `pnpm test:browser:local`：真实本地 Supabase/Mailpit 浏览器链路，覆盖恢复、登录、字典 CRUD、Realtime、刷新、越权拒绝、退出与旧 token 的 RLS 拒绝。报告位于 `frontend/test-results/browser-local/` 与 `frontend/playwright-report/browser-local/`。
 - `pnpm test:visual`：固定 Linux amd64 Playwright 1.63.0 Noble 容器中的 14 个像素状态比较。状态为登录双主题、Dashboard 三布局双主题、用户表格双主题、Profile 表单双主题和角色授权弹窗双主题。未知请求必须失败；测试固定时间、字体来源、视口及 Zod 校验 fixture。
-- `pnpm check:test-architecture`：检查 Playwright 白名单、旧测试登记、逐断言覆盖映射及映射引用。CI 运行该检查并且不会执行登记待退出的 Smoke。
+- `pnpm check:test-architecture`：CI 结构门禁。检查 Playwright 白名单、旧测试登记、逐断言覆盖映射结构与替代引用是否存在；不要求已提交的 BrowserSkill/suite 摘要匹配当前源码，也不宣称 BrowserSkill 通过。
+- `pnpm check:test-architecture:acceptance`：发布/Agent 验收门禁。在结构检查之外，要求账本中的 unit/browser suite 通过记录与八场景 BrowserSkill 报告的产品/场景摘要均匹配当前工作区。
 
 Playwright 只允许以下 spec：`session-race.spec.ts`、`navigation-authorization.spec.ts`、`auth-recovery-local.spec.ts`、`default-admin-login-local.spec.ts`、`visual-route-review.spec.ts`、`dashboard-visual.spec.ts`。正式基线 PNG 不参与源码摘要。
 
@@ -24,7 +25,7 @@ BrowserSkill 用途摘要包含产品源码与静态资源、共享合同、migr
 
 报告摘要分成产品输入、场景执行输入、验收管理输入和逐断言清单。产品源码与场景执行摘要都必须匹配当前工作区，才能复用 BrowserSkill 报告；场景执行摘要涵盖 runner、账号/fixture 准备、启动配置与规则。只有明确列入管理 allowlist 的验证/记录工具及 Playwright 测试层差异才单独报告 drift；逐断言清单也单独报告。上述管理或清单变化不得改写历史报告，旧测试删除仍须由当前逐断言清单、具名替代测试/场景和完整 suite 摘要下的通过结果独立授权。
 
-`pnpm test:unit` 和 `pnpm test:browser` 的 suite 摘要从完整 Git 文件清单（tracked 与未忽略的 untracked）筛选各自实际输入，不得从 BrowserSkill 已筛选过的文件清单计算。Unit 摘要包括 Vitest 配置、所有 Node 测试及其 `scripts/` 支持输入、前端/Edge 测试源码与对应运行配置；Browser 摘要包括 Playwright 配置、active spec、helpers 与运行器。断言账本不纳入自身 suite hash，避免形成自引用。
+`pnpm test:unit` 和 `pnpm test:browser` 的 suite 摘要从完整 Git 文件清单（tracked 与未忽略的 untracked）筛选各自实际输入，不得从 BrowserSkill 已筛选过的文件清单计算。Unit 摘要包括 Vitest 配置、所有 Node 测试及其 `scripts/` 支持输入、前端/Edge 测试源码与对应运行配置；Browser 摘要包括 Playwright 配置、active spec、helpers 与运行器。断言账本不纳入自身 suite hash，避免形成自引用。普通 CI 以现场执行 `pnpm test:unit` / `pnpm test:browser` 为准，不依赖已提交 suite 摘要；suite 摘要只服务 acceptance / retire 门槛。
 
 八个稳定 BrowserSkill 场景为 `dashboard`、`messages-shell`、`organization`、`configuration`、`identity-navigation`、`attachments`、`audit`、`profile`。每个场景的 checkpoint ID、期望结果和必需证据定义在 `scripts/test-architecture-rules.json`。每个 checkpoint 按 `Pass`、`Fail`、`Unknown` 或 `Skipped` 记录观察结果和证据路径。截图/debug 不是产品通过的推断来源，只核对证据完整性和引用有效性。
 
