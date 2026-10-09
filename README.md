@@ -21,7 +21,7 @@ pnpm template:select-migrations -- --track baseline
 pnpm template:init -- --project-id my-admin --title "My Admin"
 ```
 
-轨道和项目标识只在首次配置时选择。Docker 状态无法读取，或发现当前/目标 project ID 的本地状态与数据卷时，命令会拒绝修改。已有数据库项目继续使用原 migration 轨道。
+轨道和项目标识只在首次配置时选择。本地 `project_id` 长度为 3–40，以小写字母开头，只含小写字母、数字和连字符；Supabase CLI 会截断更长的 ID，初始化会直接拒绝。Docker 状态无法读取，或发现当前/目标 project ID 的本地状态与数据卷时，命令会拒绝修改。已有数据库项目继续使用原 migration 轨道。
 
 ```sh
 pnpm install

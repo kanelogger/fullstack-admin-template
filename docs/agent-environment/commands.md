@@ -7,7 +7,7 @@
 | 用途 | 命令 | 前置条件与结果 |
 | --- | --- | --- |
 | 新项目选 migration 轨道 | `pnpm template:select-migrations -- --track baseline` | 首次启动 Supabase 前运行；归档旧历史、物化固定基线和共同增量并保存轨道标记。已有项目不可换轨；本地状态、容器/数据卷存在或 Docker 探测失败时拒绝修改 |
-| 配置新项目 | `pnpm template:init -- --project-id <id> --title <title> [--dry-run]` | 设置 Supabase project ID 和浏览器标题；dry-run 与实际执行共用变更集。存在恢复日志或残留备份时，dry-run 只报告待恢复路径且不写文件；实际执行会先恢复。目标文件偏离模板默认值或运行状态无法核实时拒绝；部分写入失败会回滚 |
+| 配置新项目 | `pnpm template:init -- --project-id <id> --title <title> [--dry-run]` | 设置本地 Supabase `project_id` 和浏览器标题。ID 为 3–40 个字符，以小写字母开头，只含小写字母、数字和连字符；更长的值会被 CLI 截断，命令直接拒绝。dry-run 与实际执行共用变更集。存在恢复日志或残留备份时，dry-run 只报告待恢复路径且不写文件；实际执行会先恢复。目标文件偏离模板默认值或运行状态无法核实时拒绝；部分写入失败会回滚 |
 | 同步 migration 轨道 | `pnpm template:sync-migrations` | 模板维护者按字节镜像 cutoff 后的历史增量；已选 baseline 的项目只添加缺失的共享增量，不覆盖固定基线或已有 migration |
 | 冻结安装 | `pnpm install --frozen-lockfile` | 根 workspace 安装 Vue 应用、共享合同、Supabase CLI 与 Deno 工具；锁文件无漂移 |
 | Supabase Local | `pnpm supabase:start` | OrbStack 或兼容 Docker runtime 启动本地 Postgres、Auth、Storage、Realtime、Edge 与 Mailpit |

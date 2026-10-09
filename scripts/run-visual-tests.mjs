@@ -9,6 +9,12 @@ import { acceptVisualCandidate, assertVisualBaselinesComplete, createVisualCandi
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const image = "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27";
 
+export async function prepareVisualContainerWorkspace(containerWorkspace) {
+  // Docker creates missing bind-mount parents as root. The container then runs
+  // as the host user and cannot create the pnpm virtual store at node_modules/.pnpm.
+  await mkdir(join(containerWorkspace, "node_modules", ".pnpm-store", "v11"), { recursive: true });
+}
+
 async function copyArtifacts(sourceRoot, destinationRoot) {
   for (const name of ["playwright-report", "test-results"]) {
     const source = join(sourceRoot, "frontend", name);
@@ -58,6 +64,7 @@ async function execute() {
       throw new Error(`Could not locate the pnpm content store: ${pnpmStoreResult.error?.message ?? pnpmStoreResult.stderr ?? "empty path"}`);
     }
     const pnpmStore = resolve(pnpmStoreResult.stdout.trim());
+    await prepareVisualContainerWorkspace(containerWorkspace);
     const dockerResult = spawnSync("docker", [
       "run", "--rm", "--init", "--ipc=host",
       ...(typeof process.getuid === "function" ? ["--user", `${process.getuid()}:${process.getgid()}`] : []),

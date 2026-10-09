@@ -35,8 +35,8 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       // https://cn.vitejs.dev/guide/build.html#browser-compatibility
       target: "es2015",
       sourcemap: false,
-      // 消除打包大小超过500kb警告
-      chunkSizeWarningLimit: 4000,
+      // 2026-10-09 生产构建最大 JS chunk 为 714 kB。超过 800 kB 时警告。
+      chunkSizeWarningLimit: 800,
       rollupOptions: {
         input: {
           index: pathResolve("./index.html", import.meta.url)

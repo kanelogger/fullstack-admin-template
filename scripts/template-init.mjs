@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH as MAX_LOCAL_SUPABASE_PROJECT_ID_LENGTH } from "./agent-testing-lifecycle.mjs";
 import {
   applyAtomicFileChanges,
   assertNoSupabaseRuntimeState,
@@ -13,8 +14,16 @@ const defaultProjectId = "fullstack-admin-template";
 const defaultTitle = "Admin";
 
 export function validateProjectId(projectId) {
-  if (!/^[a-z][a-z0-9-]{2,62}$/.test(projectId)) {
-    throw new Error("Project ID must be 3-63 lowercase letters, numbers, or hyphens, and start with a letter.");
+  const length = typeof projectId === "string" ? projectId.length : 0;
+  if (
+    typeof projectId !== "string" ||
+    length < 3 ||
+    length > MAX_LOCAL_SUPABASE_PROJECT_ID_LENGTH ||
+    !/^[a-z][a-z0-9-]*$/.test(projectId)
+  ) {
+    throw new Error(
+      `Project ID must be 3-${MAX_LOCAL_SUPABASE_PROJECT_ID_LENGTH} lowercase letters, numbers, or hyphens, and start with a letter.`
+    );
   }
   if (projectId === defaultProjectId) throw new Error("Choose a new project ID instead of the template default.");
   return projectId;

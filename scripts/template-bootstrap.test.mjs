@@ -32,9 +32,13 @@ async function createTemplateRoot() {
 
 test("initializer validates IDs and titles", () => {
   assert.equal(validateProjectId("customer-admin-01"), "customer-admin-01");
+  assert.equal(validateProjectId("a".repeat(40)), "a".repeat(40));
   assert.equal(validateProjectTitle("  Customer Admin  "), "Customer Admin");
   assert.throws(() => validateProjectId("Fullstack Admin"));
   assert.throws(() => validateProjectId("fullstack-admin-template"));
+  assert.throws(() => validateProjectId("ab"));
+  assert.throws(() => validateProjectId("a".repeat(41)), /3-40/);
+  assert.throws(() => validateProjectId("a".repeat(63)), /3-40/);
   assert.throws(() => validateProjectTitle("\u0000"));
   assert.throws(() => validateProjectTitle("x".repeat(81)));
 });

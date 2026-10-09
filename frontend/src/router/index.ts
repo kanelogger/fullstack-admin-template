@@ -19,6 +19,7 @@ import {
   formatFlatteningRoutes
 } from "./utils";
 import { type RouteRecordRaw, type Router, createRouter } from "vue-router";
+import { resolveScrollPosition } from "./scroll-behavior";
 
 /** 自动导入全部静态路由，无需再手动引入！匹配 src/router/modules 目录（任何嵌套级别）中具有 .ts 扩展名的所有文件，除了 remaining.ts 文件
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
@@ -60,16 +61,9 @@ export const router: Router = createRouter({
   history: getHistoryMode(import.meta.env.VITE_ROUTER_HISTORY),
   routes: [...constantRoutes, ...remainingRouter],
   strict: true,
-  scrollBehavior(to, from, savedPosition) {
-    return new Promise((resolve) => {
-      if (savedPosition) {
-        return savedPosition;
-      } else {
-        if (from.meta.saveSrollTop) {
-          const top: number = document.documentElement.scrollTop || document.body.scrollTop;
-          resolve({ left: 0, top });
-        }
-      }
+  scrollBehavior(_to, from, savedPosition) {
+    return resolveScrollPosition(Boolean(from.meta.saveSrollTop), savedPosition, () => {
+      return document.documentElement.scrollTop || document.body.scrollTop;
     });
   }
 });

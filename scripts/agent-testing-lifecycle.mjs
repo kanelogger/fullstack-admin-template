@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 
+/** Supabase CLI v2.119.0 `sanitizeProjectId` truncates local project IDs to this length. */
 export const MAX_TEMPORARY_SUPABASE_PROJECT_ID_LENGTH = 40;
 
 export class StartupCancelledError extends Error {
