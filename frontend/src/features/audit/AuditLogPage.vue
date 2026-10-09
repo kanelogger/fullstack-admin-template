@@ -45,6 +45,7 @@ const loadError = ref("");
 const actionError = ref("");
 const rows = ref<AuditRow[]>([]);
 const selected = ref<AuditRow | null>(null);
+let detailRequest = 0;
 const { capture: captureDetailFocus, restore: restoreDetailFocus } = useDialogReturnFocus();
 const total = ref(0);
 const page = ref(1);
@@ -229,21 +230,34 @@ async function search() {
   await loadRows();
 }
 
+function closeDetail() {
+  if (selected.value === null) return;
+  detailRequest += 1;
+  selected.value = null;
+  detailLoading.value = false;
+}
+
 async function showDetail(row: AuditRow) {
   captureDetailFocus();
+  const request = ++detailRequest;
+  selected.value = row;
   detailLoading.value = true;
   actionError.value = "";
   try {
-    selected.value =
+    const detail =
       props.kind === "login"
         ? await getLoginLog(row.id)
         : props.kind === "operation"
           ? await getOperationLog(row.id)
           : await getExceptionLog(row.id);
+    if (request !== detailRequest || selected.value?.id !== row.id) return;
+    selected.value = detail;
   } catch (error) {
+    if (request !== detailRequest) return;
+    closeDetail();
     actionError.value = error instanceof Error ? error.message : "日志详情加载失败";
   } finally {
-    detailLoading.value = false;
+    if (request === detailRequest) detailLoading.value = false;
   }
 }
 
@@ -447,7 +461,7 @@ onMounted(loadRows);
       :open="selected !== null"
       @update:open="
         (open) => {
-          if (!open) selected = null;
+          if (!open) closeDetail();
         }
       "
     >
