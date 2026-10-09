@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { useRouter } from "vue-router";
 import { message } from "@/utils/message";
 import { ref, reactive } from "vue";
@@ -8,7 +9,6 @@ import { requestPasswordReset } from "@/features/auth/auth.service";
 import { getTopMenu } from "@/router/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
   Eye,
@@ -41,7 +41,7 @@ const ruleForm = reactive({
 /** 根据后端返回的错误码/信息，映射为对用户友好的提示 */
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -77,14 +77,10 @@ function resolveLoginError(res: unknown): string {
   }
 
   if (msg) {
-    if (/账号不存在|用户不存在|user not found/i.test(msg))
-      return "账号不存在，请检查后重试";
-    if (/密码错误|password.*incorrect|密码不匹配/i.test(msg))
-      return "密码错误，请重新输入";
-    if (/禁用|disabled|冻结|frozen/i.test(msg))
-      return "账号已被禁用，请联系管理员";
-    if (/锁定|locked/i.test(msg))
-      return "账号已被锁定，请稍后再试";
+    if (/账号不存在|用户不存在|user not found/i.test(msg)) return "账号不存在，请检查后重试";
+    if (/密码错误|password.*incorrect|密码不匹配/i.test(msg)) return "密码错误，请重新输入";
+    if (/禁用|disabled|冻结|frozen/i.test(msg)) return "账号已被禁用，请联系管理员";
+    if (/锁定|locked/i.test(msg)) return "账号已被锁定，请稍后再试";
     return msg;
   }
 
@@ -148,8 +144,7 @@ function resolveNetworkError(error: unknown): string {
   const errorMessage = typeof result?.message === "string" ? result.message : "";
   if (result?.code === "ECONNABORTED" || errorMessage.includes("timeout"))
     return "请求超时，请检查网络后重试";
-  if (errorMessage.includes("Network Error") || !response)
-    return "网络异常，请检查网络连接";
+  if (errorMessage.includes("Network Error") || !response) return "网络异常，请检查网络连接";
 
   return "网络异常，请稍后重试";
 }
@@ -177,13 +172,13 @@ async function onLogin() {
       sessionId: res.authSessionId
     };
     loginIdentity = expectedIdentity;
-    if (!await userStore.initSessionNavigation(expectedIdentity)) return;
-    if (!await userStore.isCurrentPersistedAuthSession(expectedIdentity)) return;
+    if (!(await userStore.initSessionNavigation(expectedIdentity))) return;
+    if (!(await userStore.isCurrentPersistedAuthSession(expectedIdentity))) return;
     disabled.value = true;
     try {
       const landingMenu = getTopMenu();
       if (!landingMenu?.path) throw new Error("当前账号没有可访问菜单");
-      if (!await userStore.isCurrentPersistedAuthSession(expectedIdentity)) return;
+      if (!(await userStore.isCurrentPersistedAuthSession(expectedIdentity))) return;
       await router.push(landingMenu.path);
       message("登录成功", { type: "success" });
     } finally {
@@ -210,20 +205,26 @@ async function onLogin() {
 
 <template>
   <main class="grid min-h-screen bg-background text-foreground lg:grid-cols-2">
-    <section class="relative hidden overflow-hidden bg-slate-950 px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16">
+    <section
+      class="relative hidden overflow-hidden bg-slate-950 px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16"
+    >
       <div class="absolute -right-36 -top-36 size-[32rem] rounded-full border border-white/10" />
       <div class="absolute -right-20 -top-20 size-[24rem] rounded-full border border-white/10" />
       <div class="absolute -bottom-40 -left-24 size-[30rem] rounded-full bg-blue-500/20 blur-3xl" />
 
       <div class="relative flex items-center gap-3 text-sm font-semibold tracking-wide">
-        <span class="grid size-10 place-items-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-950/40">
+        <span
+          class="grid size-10 place-items-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-950/40"
+        >
           <ShieldCheck class="size-5" aria-hidden="true" />
         </span>
         <span>ADMIN CONSOLE</span>
       </div>
 
       <div class="relative max-w-xl pb-14">
-        <p class="mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">Workspace access</p>
+        <p class="mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">
+          Workspace access
+        </p>
         <h2 class="text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
           让管理工作，<br />回到清晰有序。
         </h2>
@@ -238,7 +239,9 @@ async function onLogin() {
     <section class="flex min-h-screen items-center justify-center px-6 py-12 sm:px-10">
       <div class="w-full max-w-sm">
         <div class="mb-10 flex items-center gap-3 lg:hidden">
-          <span class="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+          <span
+            class="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground"
+          >
             <ShieldCheck class="size-5" aria-hidden="true" />
           </span>
           <span class="text-sm font-semibold tracking-wide">ADMIN CONSOLE</span>
@@ -250,67 +253,77 @@ async function onLogin() {
           <p class="mt-2 text-sm text-muted-foreground">输入账号和密码，继续管理你的系统。</p>
         </div>
 
-        <form class="space-y-5" @submit.prevent="onLogin">
-          <div class="space-y-2">
-            <Label for="username">账号</Label>
-            <div class="relative">
-              <UserRound class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="username"
-                v-model="ruleForm.username"
-                class="pl-10"
-                autocomplete="username"
-                placeholder="请输入账号"
-                required
-              />
-            </div>
-          </div>
+        <form @submit.prevent="onLogin">
+          <FieldGroup class="gap-5">
+            <Field class="space-y-2">
+              <FieldLabel for="username">账号</FieldLabel>
+              <div class="relative">
+                <UserRound
+                  class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="username"
+                  v-model="ruleForm.username"
+                  class="pl-10"
+                  autocomplete="username"
+                  placeholder="请输入账号"
+                  required
+                />
+              </div>
+            </Field>
 
-          <div class="space-y-2">
-            <Label for="password">密码</Label>
-            <div class="relative">
-              <LockKeyhole class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="password"
-                v-model="ruleForm.password"
-                class="pl-10 pr-11"
-                :type="passwordVisible ? 'text' : 'password'"
-                autocomplete="current-password"
-                placeholder="请输入密码"
-                minlength="6"
-                required
-              />
+            <Field class="space-y-2">
+              <FieldLabel for="password">密码</FieldLabel>
+              <div class="relative">
+                <LockKeyhole
+                  class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="password"
+                  v-model="ruleForm.password"
+                  class="pl-10 pr-11"
+                  :type="passwordVisible ? 'text' : 'password'"
+                  autocomplete="current-password"
+                  placeholder="请输入密码"
+                  minlength="6"
+                  required
+                />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
+                  @click="passwordVisible = !passwordVisible"
+                >
+                  <EyeOff v-if="passwordVisible" class="size-4" aria-hidden="true" />
+                  <Eye v-else class="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            </Field>
+
+            <div class="flex min-h-9 items-center justify-between gap-4">
               <button
+                class="shrink-0 text-sm text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
-                class="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                @click="passwordVisible = !passwordVisible"
+                :disabled="loading || resetLoading"
+                @click="onRequestPasswordReset"
               >
-                <EyeOff v-if="passwordVisible" class="size-4" aria-hidden="true" />
-                <Eye v-else class="size-4" aria-hidden="true" />
+                {{ resetLoading ? "正在发送重置邮件" : "忘记密码？" }}
               </button>
             </div>
-          </div>
 
-          <div class="flex min-h-9 items-center justify-between gap-4">
-            <button
-              class="shrink-0 text-sm text-primary underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-              type="button"
-              :disabled="loading || resetLoading"
-              @click="onRequestPasswordReset"
-            >
-              {{ resetLoading ? "正在发送重置邮件" : "忘记密码？" }}
-            </button>
-          </div>
-
-          <Button class="w-full" type="submit" :disabled="loading || disabled">
-            <LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" />
-            <span>{{ loading ? "正在登录" : "登录" }}</span>
-            <ArrowRight v-if="!loading" class="size-4" aria-hidden="true" />
-          </Button>
+            <Button class="w-full" type="submit" :disabled="loading || disabled">
+              <LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" />
+              <span>{{ loading ? "正在登录" : "登录" }}</span>
+              <ArrowRight v-if="!loading" class="size-4" aria-hidden="true" />
+            </Button>
+          </FieldGroup>
         </form>
 
-        <div class="mt-8 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
+        <div
+          class="mt-8 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground"
+        >
           <ShieldCheck class="size-4 shrink-0" aria-hidden="true" />
           <span>使用账号和密码登录，邮箱仅用于密码重置。</span>
         </div>

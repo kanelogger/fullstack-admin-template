@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MenuCatalogSchema, ManagedMenuSchema, ManagedRouteKeySchema, SaveMenuRequestSchema } from "@template/contracts/menu-management";
+import {
+  MenuCatalogSchema,
+  ManagedMenuSchema,
+  ManagedRouteKeySchema,
+  SaveMenuRequestSchema
+} from "@template/contracts/menu-management";
 import {
   ManagedRoleSchema,
   ReplaceRoleAuthorizationRequestSchema,
@@ -40,7 +45,9 @@ describe("role and menu management contracts", () => {
       updatedAt: "2026-10-02T00:00:00.000Z"
     };
     expect(ManagedMenuSchema.parse(menu).id).toBe("9007199254740993");
-    expect(ManagedMenuSchema.safeParse({ ...menu, parentId: Number("9007199254740993") }).success).toBe(false);
+    expect(
+      ManagedMenuSchema.safeParse({ ...menu, parentId: Number("9007199254740993") }).success
+    ).toBe(false);
   });
 
   it("accepts a server-paginated catalog and rejects duplicate or overlapping authorization keys", () => {
@@ -61,11 +68,13 @@ describe("role and menu management contracts", () => {
         actionPermissionKeys: []
       }).success
     ).toBe(false);
-    expect(ReplaceRoleAuthorizationRequestSchema.safeParse({
-      roleId: roleRow.id,
-      menuPermissionKeys: ["communication.messages.read"],
-      actionPermissionKeys: ["communication.messages.read"]
-    }).success).toBe(false);
+    expect(
+      ReplaceRoleAuthorizationRequestSchema.safeParse({
+        roleId: roleRow.id,
+        menuPermissionKeys: ["communication.messages.read"],
+        actionPermissionKeys: ["communication.messages.read"]
+      }).success
+    ).toBe(false);
   });
 
   it("restricts route keys to the closed component registry and rejects component paths", () => {
@@ -86,19 +95,23 @@ describe("role and menu management contracts", () => {
       createdAt: "2026-10-02T00:00:00.000Z",
       updatedAt: "2026-10-02T00:00:00.000Z"
     };
-    expect(ManagedMenuSchema.safeParse({ ...validMenu, componentPath: "../../views/unsafe.vue" }).success).toBe(false);
+    expect(
+      ManagedMenuSchema.safeParse({ ...validMenu, componentPath: "../../views/unsafe.vue" }).success
+    ).toBe(false);
     expect(MenuCatalogSchema.safeParse([validMenu]).success).toBe(true);
-    expect(SaveMenuRequestSchema.safeParse({
-      parentId: null,
-      kind: "group",
-      routeKey: "administration.roles",
-      path: "/system",
-      title: "系统管理",
-      icon: null,
-      sortOrder: 0,
-      isVisible: true,
-      isActive: true,
-      requiredPermissionKey: null
-    }).success).toBe(false);
+    expect(
+      SaveMenuRequestSchema.safeParse({
+        parentId: null,
+        kind: "group",
+        routeKey: "administration.roles",
+        path: "/system",
+        title: "系统管理",
+        icon: null,
+        sortOrder: 0,
+        isVisible: true,
+        isActive: true,
+        requiredPermissionKey: null
+      }).success
+    ).toBe(false);
   });
 });

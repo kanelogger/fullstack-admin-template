@@ -24,7 +24,7 @@ function scrollToTop() {
 }
 
 const transitions = computed(() => {
-  return route => {
+  return (route) => {
     return route.meta.transition;
   };
 });
@@ -54,9 +54,7 @@ const getSectionStyle = computed(() => {
     props.fixedHeader
       ? ""
       : `padding-top: 0;${
-          hideTabs
-            ? "min-height: calc(100vh - 56px);"
-            : "min-height: calc(100vh - 94px);"
+          hideTabs ? "min-height: calc(100vh - 56px);" : "min-height: calc(100vh - 94px);"
         }`
   ];
 });
@@ -69,20 +67,15 @@ const transitionMain = defineComponent({
     }
   },
   render() {
-    const transitionName =
-      transitions.value(this.route)?.name || "fade-transform";
+    const transitionName = transitions.value(this.route)?.name || "fade-transform";
     const enterTransition = transitions.value(this.route)?.enterTransition;
     const leaveTransition = transitions.value(this.route)?.leaveTransition;
     return h(
       Transition,
       {
         name: enterTransition ? "layout-classes-transition" : transitionName,
-        enterActiveClass: enterTransition
-          ? `animate__animated ${enterTransition}`
-          : undefined,
-        leaveActiveClass: leaveTransition
-          ? `animate__animated ${leaveTransition}`
-          : undefined,
+        enterActiveClass: enterTransition ? `animate__animated ${enterTransition}` : undefined,
+        leaveActiveClass: leaveTransition ? `animate__animated ${leaveTransition}` : undefined,
         mode: "out-in",
         appear: true
       },
@@ -95,10 +88,7 @@ const transitionMain = defineComponent({
 </script>
 
 <template>
-  <section
-    :class="[fixedHeader ? 'app-main' : 'app-main-nofixed-header']"
-    :style="getSectionStyle"
-  >
+  <section :class="[fixedHeader ? 'app-main' : 'app-main-nofixed-header']" :style="getSectionStyle">
     <router-view>
       <template #default="{ Component, route }">
         <LayFrame :currComp="Component" :currRoute="route">
@@ -141,14 +131,12 @@ const transitionMain = defineComponent({
                 variant="outline"
                 aria-label="回到顶部"
                 @click="scrollToTop"
-              >↑</Button>
+                >↑</Button
+              >
             </template>
             <div v-else class="grow">
               <transitionMain :route="route">
-                <keep-alive
-                  v-if="isKeepAlive"
-                  :include="usePermissionStoreHook().cachePageList"
-                >
+                <keep-alive v-if="isKeepAlive" :include="usePermissionStoreHook().cachePageList">
                   <component
                     :is="Comp"
                     :key="fullPath"

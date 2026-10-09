@@ -12,7 +12,11 @@ import {
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentSession } from "@/features/profile/profile.service";
 import { withAuthSessionLock } from "./auth-session-lock";
-import { getAuthSessionIdentity, isSameAuthSession, type AuthSessionIdentity } from "./session-identity";
+import {
+  getAuthSessionIdentity,
+  isSameAuthSession,
+  type AuthSessionIdentity
+} from "./session-identity";
 import {
   beginAuthOperation,
   completeAuthOperation,
@@ -59,7 +63,7 @@ export async function revokeSupabaseAuthSession(
     }
   );
   if (!response.ok) return false;
-  return await response.json().catch(() => false) === true;
+  return (await response.json().catch(() => false)) === true;
 }
 
 function isRecoveryAccessToken(accessToken: string): boolean {
@@ -68,8 +72,11 @@ function isRecoveryAccessToken(accessToken: string): boolean {
     if (!encodedPayload) return false;
     const base64 = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
     const claims = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
-    return Array.isArray(claims.amr) && claims.amr.some(
-      (entry: { method?: unknown }) => entry?.method === "recovery" || entry?.method === "otp"
+    return (
+      Array.isArray(claims.amr) &&
+      claims.amr.some(
+        (entry: { method?: unknown }) => entry?.method === "recovery" || entry?.method === "otp"
+      )
     );
   } catch {
     return false;
@@ -81,7 +88,8 @@ function recoveryTokensFromHash(hash: string) {
   if (
     callbackSeparator < 0 ||
     hash.slice(0, callbackSeparator).split("?")[0] !== "#/reset-password"
-  ) return null;
+  )
+    return null;
 
   const parameters = new URLSearchParams(hash.slice(callbackSeparator + 1));
   if (parameters.get("type") !== "recovery" || parameters.get("token_type") !== "bearer") {
@@ -109,9 +117,9 @@ export async function restorePasswordRecoverySession(hash: string): Promise<{
   if (!callbackSession) return { available: false, scrubCallback: false };
   const restoredResult = await withAuthSessionLock(() => client.auth.setSession(callbackSession));
   const { data: restored, error: restoreError } = restoredResult;
-  const validRecoverySession = !restoreError && Boolean(
-    restored.session && isRecoveryAccessToken(restored.session.access_token)
-  );
+  const validRecoverySession =
+    !restoreError &&
+    Boolean(restored.session && isRecoveryAccessToken(restored.session.access_token));
   return {
     available: validRecoverySession,
     scrubCallback: validRecoverySession
@@ -162,10 +170,9 @@ export async function loginWithSupabase(
   if (!request.success) return failure("BAD_REQUEST", "账号或密码格式无效");
 
   const client = getSupabaseClient();
-  const { data: edgeData, error: edgeError } = await client.functions.invoke(
-    "session-login",
-    { body: request.data }
-  );
+  const { data: edgeData, error: edgeError } = await client.functions.invoke("session-login", {
+    body: request.data
+  });
 
   if (edgeError) {
     const parsedError = await edgeFunctionError(edgeError);
@@ -179,10 +186,8 @@ export async function loginWithSupabase(
   if (!response.success) {
     throw new Error("登录服务返回了无效的 Session 契约");
   }
-  if (response.data.success === false) return failure(
-    response.data.error.code,
-    response.data.error.message
-  );
+  if (response.data.success === false)
+    return failure(response.data.error.code, response.data.error.message);
   const loginData = response.data.data;
 
   if (!isCurrentAuthOperation(operationRevision)) {
@@ -210,17 +215,15 @@ export async function loginWithSupabase(
     completeAuthOperation(operationRevision);
     console.warn(
       "Supabase Session initialization failed",
-      sessionResult.error?.code ?? (sessionResult.session ? "UNKNOWN_AUTH_ERROR" : "SESSION_MISSING")
+      sessionResult.error?.code ??
+        (sessionResult.session ? "UNKNOWN_AUTH_ERROR" : "SESSION_MISSING")
     );
     return failure("SESSION_INIT_FAILED", "登录成功，但本地 Session 初始化失败，请重试");
   }
   const authSession = sessionResult.session;
   const attemptAccessToken = authSession.access_token;
   const attemptIdentity = getAuthSessionIdentity(authSession);
-  if (
-    !attemptIdentity ||
-    attemptIdentity.authUserId !== loginData.session.profile.authUserId
-  ) {
+  if (!attemptIdentity || attemptIdentity.authUserId !== loginData.session.profile.authUserId) {
     await discardAttemptSession(client, attemptAccessToken, attemptIdentity);
     completeAuthOperation(operationRevision);
     return failure("SESSION_MISMATCH", "登录会话与用户资料不匹配，请重试");
@@ -258,7 +261,10 @@ export async function restoreSupabaseSession(
   const initialSession = data.session;
   if (!initialSession) return null;
   const initialIdentity = getAuthSessionIdentity(initialSession);
-  if (!initialIdentity || (expectedIdentity && !isSameAuthSession(initialIdentity, expectedIdentity))) {
+  if (
+    !initialIdentity ||
+    (expectedIdentity && !isSameAuthSession(initialIdentity, expectedIdentity))
+  ) {
     return null;
   }
 
@@ -291,14 +297,13 @@ export async function clearRejectedSupabaseSessionIfCurrent(
     // Supabase removes a local Session for Auth 401/403 responses; confirm that
     // happened without clearing a Session installed by a newer login.
     const { data: latest, error: latestError } = await client.auth.getSession();
-    return !latestError &&
-      !isSameAuthSession(getAuthSessionIdentity(latest.session), expectedIdentity);
+    return (
+      !latestError && !isSameAuthSession(getAuthSessionIdentity(latest.session), expectedIdentity)
+    );
   });
 }
 
-export async function requestPasswordReset(
-  input: unknown
-): Promise<PasswordResetResponse> {
+export async function requestPasswordReset(input: unknown): Promise<PasswordResetResponse> {
   const parsedInput = LoginRequestSchema.pick({ loginName: true }).safeParse(input);
   if (!parsedInput.success) {
     return PasswordResetResponseSchema.parse({
@@ -307,10 +312,9 @@ export async function requestPasswordReset(
     });
   }
 
-  const { data, error } = await getSupabaseClient().functions.invoke(
-    "password-reset",
-    { body: parsedInput.data }
-  );
+  const { data, error } = await getSupabaseClient().functions.invoke("password-reset", {
+    body: parsedInput.data
+  });
   if (error) {
     const parsedError = await edgeFunctionError(error);
     if (parsedError) {

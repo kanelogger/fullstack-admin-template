@@ -15,7 +15,9 @@ vi.mock("../utils", () => ({
 }));
 vi.mock("@/router/utils", () => ({ getTopMenu: vi.fn() }));
 vi.mock("./tabs", () => ({ useTabsStoreHook: () => ({ handleTags: vi.fn() }) }));
-vi.mock("./permission", () => ({ usePermissionStoreHook: () => ({ clearAuthorization: vi.fn() }) }));
+vi.mock("./permission", () => ({
+  usePermissionStoreHook: () => ({ clearAuthorization: vi.fn() })
+}));
 vi.mock("./notification", () => ({ useNotificationStoreHook: () => ({ reset: vi.fn() }) }));
 
 import { useSessionStore } from "./session";

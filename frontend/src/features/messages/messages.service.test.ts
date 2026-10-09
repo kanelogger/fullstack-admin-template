@@ -7,7 +7,12 @@ const mocks = vi.hoisted(() => ({
   removeChannel: vi.fn()
 }));
 vi.mock("@/lib/supabase/client", () => ({
-  getSupabaseClient: () => ({ rpc: mocks.rpc, from: mocks.from, channel: mocks.channel, removeChannel: mocks.removeChannel })
+  getSupabaseClient: () => ({
+    rpc: mocks.rpc,
+    from: mocks.from,
+    channel: mocks.channel,
+    removeChannel: mocks.removeChannel
+  })
 }));
 
 import { getMessages, markMessagesRead, subscribeToMessageChanges } from "./messages.service";
@@ -32,21 +37,34 @@ describe("messages service", () => {
       gte: vi.fn(() => query),
       lt: vi.fn(() => query),
       order: vi.fn(() => query),
-      range: vi.fn().mockResolvedValue({ data: [{
-        id: messageId,
-        receiver_id: receiverId,
-        title: "项目通知",
-        summary: "请完成验收",
-        message_type: "NOTICE",
-        read_status: false,
-        sent_at: now,
-        read_at: null
-      }], count: 1, error: null })
+      range: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: messageId,
+            receiver_id: receiverId,
+            title: "项目通知",
+            summary: "请完成验收",
+            message_type: "NOTICE",
+            read_status: false,
+            sent_at: now,
+            read_at: null
+          }
+        ],
+        count: 1,
+        error: null
+      })
     };
     mocks.rpc.mockResolvedValue({ data: receiverId, error: null });
     mocks.from.mockReturnValue(query);
 
-    const result = await getMessages({ title: "项目_%", messageType: "NOTICE", readStatus: "unread", sentEndAt: "2026-10-07", page: 2, pageSize: 10 });
+    const result = await getMessages({
+      title: "项目_%",
+      messageType: "NOTICE",
+      readStatus: "unread",
+      sentEndAt: "2026-10-07",
+      page: 2,
+      pageSize: 10
+    });
 
     expect(result.items[0]?.id).toBe(messageId);
     expect(query.eq).toHaveBeenCalledWith("receiver_id", receiverId);
@@ -84,7 +102,9 @@ describe("messages service", () => {
     const unsubscribe = subscribeToMessageChanges(receiverId, handler);
     unsubscribe();
 
-    expect(mocks.channel).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^inbox:${receiverId}:`)));
+    expect(mocks.channel).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^inbox:${receiverId}:`))
+    );
     expect(channel.on).toHaveBeenCalledTimes(2);
     expect(mocks.removeChannel).toHaveBeenCalledWith(channel);
   });

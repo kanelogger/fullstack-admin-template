@@ -6,10 +6,7 @@ import {
   type Session
 } from "@template/contracts";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import {
-  AuthSessionRejectedError,
-  isExplicitAuthRejection
-} from "@/features/auth/session-errors";
+import { AuthSessionRejectedError, isExplicitAuthRejection } from "@/features/auth/session-errors";
 
 export class ProfileServiceError extends Error {
   readonly code: string;
@@ -55,9 +52,7 @@ export async function getCurrentProfile(): Promise<Profile> {
   return session.profile;
 }
 
-export async function updateCurrentProfile(
-  input: unknown
-): Promise<Profile> {
+export async function updateCurrentProfile(input: unknown): Promise<Profile> {
   const update: ProfileUpdateRequest = ProfileUpdateRequestSchema.parse(input);
   const client = getSupabaseClient();
   const { data: userResult, error: userError } = await client.auth.getUser();

@@ -52,11 +52,16 @@ function session(authUserId: string, loginName: string) {
 }
 
 function tokenForSession(authUserId: string, sessionId: string): string {
-  const payload = Buffer.from(JSON.stringify({ sub: authUserId, session_id: sessionId })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ sub: authUserId, session_id: sessionId })).toString(
+    "base64url"
+  );
   return `header.${payload}.signature`;
 }
 
-function supabaseAuthSession(authUserId: string, sessionId = authUserId === aliceAuthId ? aliceSessionId : bobSessionId) {
+function supabaseAuthSession(
+  authUserId: string,
+  sessionId = authUserId === aliceAuthId ? aliceSessionId : bobSessionId
+) {
   return {
     access_token: tokenForSession(authUserId, sessionId),
     refresh_token: `refresh-${authUserId}`,
@@ -75,7 +80,11 @@ describe("Supabase Auth application session", () => {
     rejectAuthSession();
     vi.stubGlobal("navigator", {
       locks: {
-        request: async (_name: string, _options: { mode: string }, callback: (lock: null) => Promise<unknown>) => callback(null)
+        request: async (
+          _name: string,
+          _options: { mode: string },
+          callback: (lock: null) => Promise<unknown>
+        ) => callback(null)
       }
     });
     mocks.client.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
@@ -116,7 +125,11 @@ describe("Supabase Auth application session", () => {
       access_token: tokenForSession(aliceAuthId, aliceSessionId),
       refresh_token: `refresh-${aliceAuthId}`
     });
-    expect(result).toMatchObject({ success: true, data: session(aliceAuthId, "alice"), authSessionId: aliceSessionId });
+    expect(result).toMatchObject({
+      success: true,
+      data: session(aliceAuthId, "alice"),
+      authSessionId: aliceSessionId
+    });
     if (result.success) expect(typeof result.discardIfStale).toBe("function");
     expect(mocks.client.rpc).not.toHaveBeenCalled();
   });
@@ -127,9 +140,11 @@ describe("Supabase Auth application session", () => {
       .mockResolvedValueOnce({ data: { session: supabaseAuthSession(bobAuthId) }, error: null });
 
     let resolveProfile!: (value: ReturnType<typeof session>) => void;
-    mocks.getCurrentSession.mockReturnValue(new Promise(resolve => {
-      resolveProfile = resolve;
-    }));
+    mocks.getCurrentSession.mockReturnValue(
+      new Promise((resolve) => {
+        resolveProfile = resolve;
+      })
+    );
 
     const pending = restoreSupabaseSession();
     await Promise.resolve();
@@ -148,7 +163,11 @@ describe("Supabase Auth application session", () => {
         success: true,
         data: {
           session: session(aliceAuthId, "alice"),
-          tokens: { accessToken: staleAccessToken, refreshToken: "stale-refresh", expiresAt: 1_900_000_000 }
+          tokens: {
+            accessToken: staleAccessToken,
+            refreshToken: "stale-refresh",
+            expiresAt: 1_900_000_000
+          }
         }
       },
       error: null
@@ -183,13 +202,21 @@ describe("Supabase Auth application session", () => {
   it("does not reuse a delayed profile when the same account has a new Auth Session", async () => {
     const nextSessionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     mocks.client.auth.getSession
-      .mockResolvedValueOnce({ data: { session: supabaseAuthSession(aliceAuthId, aliceSessionId) }, error: null })
-      .mockResolvedValueOnce({ data: { session: supabaseAuthSession(aliceAuthId, nextSessionId) }, error: null });
+      .mockResolvedValueOnce({
+        data: { session: supabaseAuthSession(aliceAuthId, aliceSessionId) },
+        error: null
+      })
+      .mockResolvedValueOnce({
+        data: { session: supabaseAuthSession(aliceAuthId, nextSessionId) },
+        error: null
+      });
 
     let resolveProfile!: (value: ReturnType<typeof session>) => void;
-    mocks.getCurrentSession.mockReturnValue(new Promise(resolve => {
-      resolveProfile = resolve;
-    }));
+    mocks.getCurrentSession.mockReturnValue(
+      new Promise((resolve) => {
+        resolveProfile = resolve;
+      })
+    );
 
     const pending = restoreSupabaseSession({ authUserId: aliceAuthId, sessionId: aliceSessionId });
     await Promise.resolve();
@@ -201,19 +228,29 @@ describe("Supabase Auth application session", () => {
   it("clears a rejected persisted Auth Session only when its session_id is still current", async () => {
     const nextSessionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     mocks.client.auth.getSession
-      .mockResolvedValueOnce({ data: { session: supabaseAuthSession(aliceAuthId, nextSessionId) }, error: null })
-      .mockResolvedValueOnce({ data: { session: supabaseAuthSession(aliceAuthId, aliceSessionId) }, error: null });
+      .mockResolvedValueOnce({
+        data: { session: supabaseAuthSession(aliceAuthId, nextSessionId) },
+        error: null
+      })
+      .mockResolvedValueOnce({
+        data: { session: supabaseAuthSession(aliceAuthId, aliceSessionId) },
+        error: null
+      });
 
-    await expect(clearRejectedSupabaseSessionIfCurrent({
-      authUserId: aliceAuthId,
-      sessionId: aliceSessionId
-    })).resolves.toBe(false);
+    await expect(
+      clearRejectedSupabaseSessionIfCurrent({
+        authUserId: aliceAuthId,
+        sessionId: aliceSessionId
+      })
+    ).resolves.toBe(false);
     expect(mocks.client.auth.signOut).not.toHaveBeenCalled();
 
-    await expect(clearRejectedSupabaseSessionIfCurrent({
-      authUserId: aliceAuthId,
-      sessionId: aliceSessionId
-    })).resolves.toBe(true);
+    await expect(
+      clearRejectedSupabaseSessionIfCurrent({
+        authUserId: aliceAuthId,
+        sessionId: aliceSessionId
+      })
+    ).resolves.toBe(true);
     expect(mocks.client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 

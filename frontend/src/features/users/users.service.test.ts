@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
-vi.mock("@/lib/supabase/client", () => ({ getSupabaseClient: () => ({ functions: { invoke: mocks.invoke } }) }));
+vi.mock("@/lib/supabase/client", () => ({
+  getSupabaseClient: () => ({ functions: { invoke: mocks.invoke } })
+}));
 
 import { deleteManagedUser, listManagedUsers, updateManagedUser } from "./users.service";
 
@@ -26,7 +28,10 @@ describe("users service", () => {
   beforeEach(() => mocks.invoke.mockReset());
 
   it("parses paginated user records and sends normalized list filters", async () => {
-    mocks.invoke.mockResolvedValue({ data: { success: true, data: { items: [managedUser], total: 1, page: 1, pageSize: 10 } }, error: null });
+    mocks.invoke.mockResolvedValue({
+      data: { success: true, data: { items: [managedUser], total: 1, page: 1, pageSize: 10 } },
+      error: null
+    });
 
     const result = await listManagedUsers({ loginName: " operator.one ", page: 1, pageSize: 10 });
 
@@ -37,7 +42,10 @@ describe("users service", () => {
   });
 
   it("updates the selected user with a text ID and rejects numeric IDs before a request", async () => {
-    mocks.invoke.mockResolvedValue({ data: { success: true, data: { user: managedUser } }, error: null });
+    mocks.invoke.mockResolvedValue({
+      data: { success: true, data: { user: managedUser } },
+      error: null
+    });
 
     const result = await updateManagedUser({
       id: userId,
@@ -51,8 +59,14 @@ describe("users service", () => {
     expect(result.id).toBe(userId);
     await expect(deleteManagedUser(Number(userId))).rejects.toThrow();
     expect(mocks.invoke).toHaveBeenCalledTimes(1);
-    expect(mocks.invoke).toHaveBeenCalledWith("user-management", expect.objectContaining({
-      body: expect.objectContaining({ action: "update", input: expect.objectContaining({ id: userId }) })
-    }));
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      "user-management",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          action: "update",
+          input: expect.objectContaining({ id: userId })
+        })
+      })
+    );
   });
 });

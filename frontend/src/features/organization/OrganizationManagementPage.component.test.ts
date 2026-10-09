@@ -33,7 +33,12 @@ vi.mock("@/stores/modules/permission", () => ({
 import OrganizationManagementPage from "./OrganizationManagementPage.vue";
 
 const timestamp = "2026-10-08T00:00:00.000Z";
-const department = (id: string, deptCode: string, deptName: string, parentId: string | null): Department => ({
+const department = (
+  id: string,
+  deptCode: string,
+  deptName: string,
+  parentId: string | null
+): Department => ({
   id,
   parentId,
   deptCode,
@@ -43,7 +48,12 @@ const department = (id: string, deptCode: string, deptName: string, parentId: st
   createdAt: timestamp,
   updatedAt: timestamp
 });
-const pageOf = (items: Department[]): DepartmentPage => ({ items, total: items.length, page: 1, pageSize: 10 });
+const pageOf = (items: Department[]): DepartmentPage => ({
+  items,
+  total: items.length,
+  page: 1,
+  pageSize: 10
+});
 const emptyPosts: PostPage = { items: [], total: 0, page: 1, pageSize: 10 };
 
 describe("OrganizationManagementPage component", () => {
@@ -74,7 +84,11 @@ describe("OrganizationManagementPage component", () => {
     organizationMocks.getDepartments.mockResolvedValue(pageOf(departments));
     organizationMocks.listDepartmentOptions.mockResolvedValue(departments);
 
-    wrapper = mount(OrganizationManagementPage, { props: { kind: "department" } });
+    wrapper = mount(OrganizationManagementPage, {
+      attachTo: document.body,
+      props: { kind: "department" },
+      global: { stubs: { DialogPortal: { template: "<div><slot /></div>" } } }
+    });
     await flushPromises();
 
     expect(wrapper.text()).toContain("部门层级");
@@ -83,12 +97,21 @@ describe("OrganizationManagementPage component", () => {
   });
 
   it("saves the selected parent as a decimal string ID", async () => {
-    organizationMocks.getDepartments.mockResolvedValue(pageOf([department("9007199254740993", "HQ", "总部", null)]));
-    organizationMocks.listDepartmentOptions.mockResolvedValue([department("9007199254740993", "HQ", "总部", null)]);
+    organizationMocks.getDepartments.mockResolvedValue(
+      pageOf([department("9007199254740993", "HQ", "总部", null)])
+    );
+    organizationMocks.listDepartmentOptions.mockResolvedValue([
+      department("9007199254740993", "HQ", "总部", null)
+    ]);
 
-    wrapper = mount(OrganizationManagementPage, { props: { kind: "department" } });
+    wrapper = mount(OrganizationManagementPage, {
+      attachTo: document.body,
+      props: { kind: "department" },
+      global: { stubs: { DialogPortal: { template: "<div><slot /></div>" } } }
+    });
     await flushPromises();
     await wrapper.get('[data-testid="create-organization"]').trigger("click");
+    await flushPromises();
     await wrapper.get("#department-code").setValue("OPS-CHILD");
     await wrapper.get("#department-name").setValue("运营子部门");
     await wrapper.get("#department-parent").setValue("9007199254740993");
@@ -112,16 +135,27 @@ describe("OrganizationManagementPage component", () => {
     organizationMocks.getDepartments.mockResolvedValue(pageOf(departments));
     organizationMocks.listDepartmentOptions.mockResolvedValue(departments);
 
-    wrapper = mount(OrganizationManagementPage, { props: { kind: "department" } });
+    wrapper = mount(OrganizationManagementPage, {
+      attachTo: document.body,
+      props: { kind: "department" },
+      global: { stubs: { DialogPortal: { template: "<div><slot /></div>" } } }
+    });
     await flushPromises();
     await wrapper.get("tbody tr").get("button").trigger("click");
-    const selectableIds = wrapper.findAll("#department-parent option").map(option => (option.element as HTMLOptionElement).value);
+    await flushPromises();
+    const selectableIds = wrapper
+      .findAll("#department-parent option")
+      .map((option) => (option.element as HTMLOptionElement).value);
 
     expect(selectableIds).toEqual([""]);
   });
 
   it("does not show department hierarchy controls on the posts page", async () => {
-    wrapper = mount(OrganizationManagementPage, { props: { kind: "post" } });
+    wrapper = mount(OrganizationManagementPage, {
+      attachTo: document.body,
+      props: { kind: "post" },
+      global: { stubs: { DialogPortal: { template: "<div><slot /></div>" } } }
+    });
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("部门层级");

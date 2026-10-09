@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { message } from "@/utils/message";
@@ -9,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoaderCircle, ShieldCheck } from "@lucide/vue";
 
 defineOptions({ name: "ResetPassword" });
@@ -67,9 +68,7 @@ async function submitPasswordReset() {
           <ShieldCheck class="size-5" aria-hidden="true" />
         </span>
         <CardTitle>重置密码</CardTitle>
-        <CardDescription>
-          使用邮件中的安全链接设置新密码。密码至少需要 8 位。
-        </CardDescription>
+        <CardDescription> 使用邮件中的安全链接设置新密码。密码至少需要 8 位。 </CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -77,40 +76,44 @@ async function submitPasswordReset() {
           正在验证重置链接…
         </p>
         <div v-else-if="!hasRecoverySession" class="space-y-4">
-          <p class="text-sm text-destructive" role="alert">
-            重置链接无效或已过期，请返回登录页重新申请。
-          </p>
+          <Alert variant="destructive"
+            ><AlertDescription>
+              重置链接无效或已过期，请返回登录页重新申请。
+            </AlertDescription></Alert
+          >
           <Button class="w-full" variant="outline" @click="router.replace('/login')">
             返回登录
           </Button>
         </div>
-        <form v-else class="space-y-4" @submit.prevent="submitPasswordReset">
-          <div class="space-y-2">
-            <Label for="new-password">新密码</Label>
-            <Input
-              id="new-password"
-              v-model="newPassword"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              required
-            />
-          </div>
-          <div class="space-y-2">
-            <Label for="confirm-password">确认新密码</Label>
-            <Input
-              id="confirm-password"
-              v-model="confirmPassword"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              required
-            />
-          </div>
-          <Button class="w-full" type="submit" :disabled="loading">
-            <LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" />
-            <span>{{ loading ? "正在保存" : "保存新密码" }}</span>
-          </Button>
+        <form v-else @submit.prevent="submitPasswordReset">
+          <FieldGroup class="gap-4">
+            <Field class="space-y-2">
+              <FieldLabel for="new-password">新密码</FieldLabel>
+              <Input
+                id="new-password"
+                v-model="newPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                required
+              />
+            </Field>
+            <Field class="space-y-2">
+              <FieldLabel for="confirm-password">确认新密码</FieldLabel>
+              <Input
+                id="confirm-password"
+                v-model="confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                required
+              />
+            </Field>
+            <Button class="w-full" type="submit" :disabled="loading">
+              <LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" />
+              <span>{{ loading ? "正在保存" : "保存新密码" }}</span>
+            </Button>
+          </FieldGroup>
         </form>
       </CardContent>
     </Card>

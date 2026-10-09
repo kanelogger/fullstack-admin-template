@@ -30,13 +30,21 @@ describe("Auth session identity", () => {
       sessionId,
       accessToken: authSession.access_token
     });
-    expect(getAuthSessionIdentity(session(tokenForClaims({ sub: "different", session_id: sessionId }), userId))).toBeNull();
+    expect(
+      getAuthSessionIdentity(
+        session(tokenForClaims({ sub: "different", session_id: sessionId }), userId)
+      )
+    ).toBeNull();
   });
 
   it("rejects missing and malformed session_id claims", () => {
     const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     expect(getAuthSessionIdentity(session(tokenForClaims({ sub: userId }), userId))).toBeNull();
-    expect(getAuthSessionIdentity(session(tokenForClaims({ sub: userId, session_id: "not-a-uuid" }), userId))).toBeNull();
+    expect(
+      getAuthSessionIdentity(
+        session(tokenForClaims({ sub: userId, session_id: "not-a-uuid" }), userId)
+      )
+    ).toBeNull();
     expect(getAuthSessionIdentity(session("malformed", userId))).toBeNull();
   });
 

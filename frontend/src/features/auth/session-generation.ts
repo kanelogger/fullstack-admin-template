@@ -1,7 +1,4 @@
-import {
-  isSameAuthSession,
-  type AuthSessionIdentity
-} from "./session-identity";
+import { isSameAuthSession, type AuthSessionIdentity } from "./session-identity";
 
 export type AuthSessionOwner = {
   authUserId: string;
@@ -32,7 +29,9 @@ export type AuthSessionCommitGuard = {
 };
 
 function sameOwner(left: AuthSessionOwner | null, right: AuthSessionOwner): boolean {
-  return Boolean(left && left.authUserId === right.authUserId && left.sessionId === right.sessionId);
+  return Boolean(
+    left && left.authUserId === right.authUserId && left.sessionId === right.sessionId
+  );
 }
 
 export function reduceSessionCoordinator(
@@ -115,10 +114,7 @@ export function beginAuthOperation(): number {
   return dispatch({ type: "auth-operation-started" }).authOperationRevision;
 }
 
-export function expectAuthSessionForOperation(
-  revision: number,
-  owner: AuthSessionOwner
-): boolean {
+export function expectAuthSessionForOperation(revision: number, owner: AuthSessionOwner): boolean {
   if (coordinator.authOperationRevision !== revision) return false;
   dispatch({ type: "login-session-expected", revision, owner });
   return sameOwner(coordinator.pendingLogin, owner);
@@ -168,7 +164,8 @@ export function commitForCurrentAuthSession(
     !isCurrentSessionTransition(guard.transitionRevision) ||
     !isCurrentAuthOperation(guard.authOperationRevision) ||
     !isSameAuthSession(currentIdentity, guard.identity)
-  ) return false;
+  )
+    return false;
   commit();
   return true;
 }

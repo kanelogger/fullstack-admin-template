@@ -11,12 +11,7 @@ import type { RouteConfigs, tagsViewsType } from "../types";
 import { useRoute, useRouter } from "vue-router";
 import { getConfig } from "@/config";
 import { useTabsStoreHook } from "@/stores/modules/tabs";
-import {
-  isEqual,
-  isBoolean,
-  toggleClass,
-  hasClass
-} from "@/utils/shared";
+import { isEqual, isBoolean, toggleClass, hasClass } from "@/utils/shared";
 
 import CloseAllTags from "~icons/ri/subtract-line";
 import CloseOtherTags from "~icons/ri/text-spacing";
@@ -100,13 +95,9 @@ export function useTags() {
 
     if (isBoolean(route?.meta?.showLink) && route?.meta?.showLink === false) {
       if (Object.keys(route.query).length > 0) {
-        return currentName === itemName && isEqual(route.query, item.query)
-          ? previous
-          : next;
+        return currentName === itemName && isEqual(route.query, item.query) ? previous : next;
       } else {
-        return currentName === itemName && isEqual(route.params, item.params)
-          ? previous
-          : next;
+        return currentName === itemName && isEqual(route.params, item.params) ? previous : next;
       }
     } else {
       return currentName === itemName ? previous : next;
@@ -114,8 +105,7 @@ export function useTags() {
   }
 
   const isFixedTag = computed(() => {
-    return (item: RouteConfigs) =>
-      isBoolean(item?.meta?.fixedTag) && item?.meta?.fixedTag === true;
+    return (item: RouteConfigs) => isBoolean(item?.meta?.fixedTag) && item?.meta?.fixedTag === true;
   });
 
   const iconIsActive = computed(() => {
@@ -130,8 +120,7 @@ export function useTags() {
   });
 
   const scheduleIsActive = computed(() => {
-    return (item: RouteConfigs) =>
-      conditionHandle(item, "schedule-active", "");
+    return (item: RouteConfigs) => conditionHandle(item, "schedule-active", "");
   });
 
   const getTabStyle = computed((): CSSProperties => {
@@ -153,8 +142,7 @@ export function useTags() {
   function onMouseenter(index: number) {
     if (index) activeIndex.value = index;
     if (unref(showModel) === "smart") {
-      if (hasClass(instance.refs["schedule" + index][0], "schedule-active"))
-        return;
+      if (hasClass(instance.refs["schedule" + index][0], "schedule-active")) return;
       toggleClass(true, "schedule-in", instance.refs["schedule" + index][0]);
       toggleClass(false, "schedule-out", instance.refs["schedule" + index][0]);
     } else {
@@ -168,8 +156,7 @@ export function useTags() {
   function onMouseleave(index: number) {
     activeIndex.value = -1;
     if (unref(showModel) === "smart") {
-      if (hasClass(instance.refs["schedule" + index][0], "schedule-active"))
-        return;
+      if (hasClass(instance.refs["schedule" + index][0], "schedule-active")) return;
       toggleClass(false, "schedule-in", instance.refs["schedule" + index][0]);
       toggleClass(true, "schedule-out", instance.refs["schedule" + index][0]);
     } else {

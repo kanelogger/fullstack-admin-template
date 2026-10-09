@@ -42,10 +42,7 @@ describe("Supabase navigation route adapter", () => {
   it("builds groups and maps leaves only through the local RouteKey registry", () => {
     const routes = buildNavigationRoutes(rows);
 
-    expect(routes.map(route => route.name)).toEqual([
-      "communication.messages",
-      "menu-group-10"
-    ]);
+    expect(routes.map((route) => route.name)).toEqual(["communication.messages", "menu-group-10"]);
     const group = routes[1];
     expect(group.children?.[0]).toMatchObject({
       name: "administration.roles",

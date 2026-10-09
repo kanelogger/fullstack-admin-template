@@ -79,29 +79,26 @@ export function isAllEmpty(value: unknown): boolean {
   return isObject(value) && Object.keys(value).length === 0;
 }
 
-export function isIncludeAllChildren(
-  values: string[],
-  permissions: string[]
-): boolean {
-  return values.every(value => permissions.includes(value));
+export function isIncludeAllChildren(values: string[], permissions: string[]): boolean {
+  return values.every((value) => permissions.includes(value));
 }
 
 export function intersection<T>(left: T[], right: T[]): T[] {
   const rightSet = new Set(right);
-  return left.filter(value => rightSet.has(value));
+  return left.filter((value) => rightSet.has(value));
 }
 
-export function getKeyList<T extends Record<string, unknown>>(
-  values: T[],
-  key: string
-): unknown[] {
+export function getKeyList<T extends Record<string, unknown>>(values: T[], key: string): unknown[] {
   const keys = key.split(".");
-  return values.map(value => keys.reduce<unknown>(
-    (current, part) => current && typeof current === "object"
-      ? (current as Record<string, unknown>)[part]
-      : undefined,
-    value
-  ));
+  return values.map((value) =>
+    keys.reduce<unknown>(
+      (current, part) =>
+        current && typeof current === "object"
+          ? (current as Record<string, unknown>)[part]
+          : undefined,
+      value
+    )
+  );
 }
 
 export function isUrl(value: string): boolean {
@@ -121,16 +118,25 @@ export function isEqual(left: unknown, right: unknown): boolean {
   if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime();
   if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
   if (Array.isArray(left) || Array.isArray(right)) {
-    return Array.isArray(left) && Array.isArray(right) &&
-      left.length === right.length && left.every((value, index) => isEqual(value, right[index]));
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => isEqual(value, right[index]))
+    );
   }
   const leftRecord = left as Record<string, unknown>;
   const rightRecord = right as Record<string, unknown>;
   const leftKeys = Object.keys(leftRecord);
   const rightKeys = Object.keys(rightRecord);
-  return leftKeys.length === rightKeys.length &&
-    leftKeys.every(key => Object.prototype.hasOwnProperty.call(rightRecord, key) &&
-      isEqual(leftRecord[key], rightRecord[key]));
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+        isEqual(leftRecord[key], rightRecord[key])
+    )
+  );
 }
 
 export function cloneDeep<T>(value: T, seen = new WeakMap<object, unknown>()): T {
@@ -192,11 +198,14 @@ export function throttle<T extends (...args: never[]) => unknown>(
       return;
     }
     if (!timer) {
-      timer = setTimeout(() => {
-        timer = undefined;
-        lastCall = Date.now();
-        callback.apply(latestThis, latestArgs);
-      }, delay - (now - lastCall));
+      timer = setTimeout(
+        () => {
+          timer = undefined;
+          lastCall = Date.now();
+          callback.apply(latestThis, latestArgs);
+        },
+        delay - (now - lastCall)
+      );
     }
   };
 }
@@ -215,7 +224,11 @@ export function hasClass(element: Element | undefined, className: string): boole
   return Boolean(element?.classList.contains(className));
 }
 
-export function toggleClass(enabled: boolean, className: string, element: Element | undefined): void {
+export function toggleClass(
+  enabled: boolean,
+  className: string,
+  element: Element | undefined
+): void {
   element?.classList.toggle(className, enabled);
 }
 
@@ -254,8 +267,12 @@ export function svgRawToIcon(rawSvg: string): {
   const match = rawSvg.match(/<svg\b([^>]*)>([\s\S]*?)<\/svg>/i);
   if (!match) throw new Error("Invalid inline SVG icon");
   const attributes = match[1];
-  const attribute = (name: string) => attributes.match(new RegExp(`${name}=["']([^"']+)["']`, "i"))?.[1];
-  const viewBox = attribute("viewBox")?.trim().split(/[\s,]+/).map(Number);
+  const attribute = (name: string) =>
+    attributes.match(new RegExp(`${name}=["']([^"']+)["']`, "i"))?.[1];
+  const viewBox = attribute("viewBox")
+    ?.trim()
+    .split(/[\s,]+/)
+    .map(Number);
   const width = viewBox?.[2] || Number.parseFloat(attribute("width") ?? "24") || 24;
   const height = viewBox?.[3] || Number.parseFloat(attribute("height") ?? "24") || 24;
   return {

@@ -21,9 +21,7 @@ export const useNotificationStore = defineStore("notification", {
         return;
       }
       try {
-        const { getUnreadMessageCount } = await import(
-          "@/features/messages/messages.service"
-        );
+        const { getUnreadMessageCount } = await import("@/features/messages/messages.service");
         const count = await getUnreadMessageCount(receiverId);
         if (
           currentSubscriptionRevision === subscriptionRevision &&
@@ -79,7 +77,8 @@ export const useNotificationStore = defineStore("notification", {
             currentSubscriptionRevision !== subscriptionRevision ||
             subscribedReceiverId !== receiverId ||
             isExpectedSessionCurrent?.() === false
-          ) return;
+          )
+            return;
           this.messageRevision += 1;
           void this.refreshUnreadMessageCount(receiverId);
         },
@@ -88,7 +87,8 @@ export const useNotificationStore = defineStore("notification", {
             currentSubscriptionRevision !== subscriptionRevision ||
             subscribedReceiverId !== receiverId ||
             isExpectedSessionCurrent?.() === false
-          ) return;
+          )
+            return;
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             this.loadError = detail ?? "消息实时连接暂不可用";
           }

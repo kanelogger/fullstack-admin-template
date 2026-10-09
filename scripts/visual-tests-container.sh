@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-corepack enable
+mkdir -p /tmp/template-visual-bin
+export PATH="/tmp/template-visual-bin:$PATH"
+corepack enable --install-directory /tmp/template-visual-bin
 corepack prepare pnpm@12.3.4 --activate
 pnpm install --frozen-lockfile
 

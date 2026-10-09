@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseMenuRouteRegistry, parseRegisteredMenuRoutes } from "./menu-route-metadata.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const frontendRoot = path.join(projectRoot, "frontend");
@@ -45,22 +46,12 @@ const contractKeysBlock = capture(
   "ManagedRouteKeySchema"
 );
 const contractKeys = [...contractKeysBlock.matchAll(/"([^"]+)"/g)].map(match => match[1]);
-const registryBlock = capture(
-  registrySource,
-  /export const menuRouteRegistry\s*=\s*\{([\s\S]*?)\}\s*satisfies/,
-  "menuRouteRegistry"
-);
-const registryEntries = [...registryBlock.matchAll(
-  /^\s*"([^"]+)":\s*\(\)\s*=>\s*import\("([^"]+)"\)/gm
-)].map(match => ({ routeKey: match[1], specifier: match[2] }));
-const metadataBlock = capture(
-  registrySource,
-  /export const registeredMenuRoutes:[\s\S]*?=\s*\[([\s\S]*?)\];/,
-  "registeredMenuRoutes"
-);
-const metadataEntries = [...metadataBlock.matchAll(
-  /routeKey:\s*"([^"]+)"[^\n]*defaultPath:\s*"([^"]+)"[^\n]*requiredPermissionKey:\s*"([^"]+)"/g
-)].map(match => ({ routeKey: match[1], path: match[2], permission: match[3] }));
+const registryEntries = parseMenuRouteRegistry(registrySource);
+const metadataEntries = parseRegisteredMenuRoutes(registrySource).map(entry => ({
+  routeKey: entry.routeKey,
+  path: entry.defaultPath,
+  permission: entry.requiredPermissionKey
+}));
 const permissionPattern = new RegExp(capture(
   permissionSource,
   /PermissionKeySchema\s*=\s*z\s*\.string\(\)\s*\.regex\(\s*\/([^/]+)\//,

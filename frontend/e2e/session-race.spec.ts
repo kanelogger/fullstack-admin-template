@@ -88,7 +88,7 @@ test("logout prevents a delayed session refresh from restoring the PC browser se
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await profilePending;
   await page.getByLabel("用户菜单：普通用户").click();
-  await page.getByRole("button", { name: "退出系统" }).click();
+  await page.getByRole("menuitem", { name: "退出系统" }).click();
   await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
 
   releaseProfile();
@@ -350,7 +350,7 @@ test("a second tab can switch accounts while logout serializes Session changes",
     await page.goto("/#/operation/messages");
     await expect(page.getByRole("heading", { name: "消息中心" })).toBeVisible();
     await page.getByLabel("用户菜单：原账号").click();
-    await page.getByRole("button", { name: "退出系统" }).click();
+    await page.getByRole("menuitem", { name: "退出系统" }).click();
     await originalRevokePending;
 
     secondTab = await context.newPage();
@@ -444,7 +444,7 @@ test("a second tab can switch accounts while logout serializes Session changes",
     await secondTab.goto("/#/operation/messages");
     await expect(secondTab.getByRole("heading", { name: "消息中心" })).toBeVisible();
     await secondTab.getByLabel("用户菜单：原账号").click();
-    await secondTab.getByRole("button", { name: "退出系统" }).click();
+    await secondTab.getByRole("menuitem", { name: "退出系统" }).click();
     await expect(secondTab.getByRole("button", { name: "登录" })).toBeVisible();
     await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
 
@@ -622,11 +622,11 @@ test("same-account re-login during logout keeps the newer Auth Session", async (
   await expect(secondTab.getByLabel("用户菜单：同一账号")).toBeVisible();
 
   await page.getByLabel("用户菜单：同一账号").click();
-  await page.getByRole("button", { name: "退出系统" }).click();
+  await page.getByRole("menuitem", { name: "退出系统" }).click();
   await revokeStarted;
 
   await secondTab.getByLabel("用户菜单：同一账号").click();
-  await secondTab.getByRole("button", { name: "退出系统" }).click();
+  await secondTab.getByRole("menuitem", { name: "退出系统" }).click();
   await expect(secondTab.getByRole("button", { name: "登录" })).toBeVisible();
   await secondTab.getByRole("textbox", { name: "账号" }).fill("same-user");
   await secondTab.getByRole("textbox", { name: "密码" }).fill("same-user-password");

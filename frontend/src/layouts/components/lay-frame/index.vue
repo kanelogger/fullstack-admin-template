@@ -17,9 +17,7 @@ const { setMap, getMap, MAP, delMap } = useMultiFrame();
 
 const keep = computed(() => {
   return (
-    getConfig().KeepAlive &&
-    props.currRoute.meta?.keepAlive &&
-    !!props.currRoute.meta?.frameSrc
+    getConfig().KeepAlive && props.currRoute.meta?.keepAlive && !!props.currRoute.meta?.frameSrc
   );
 });
 // 避免重新渲染 LayFrame
@@ -29,11 +27,11 @@ watch(useTabsStoreHook().multiTags, (tags: RouteConfigs[]) => {
   if (!Array.isArray(tags) || !keep.value) {
     return;
   }
-  const iframeTags = tags.filter(i => i.meta?.frameSrc);
+  const iframeTags = tags.filter((i) => i.meta?.frameSrc);
   // tags必须是小于MAP，才是做了关闭动作，因为MAP插入的顺序在tags变化后发生
   if (iframeTags.length < MAP.size) {
     for (const i of MAP.keys()) {
-      if (!tags.some(s => s.path === i)) {
+      if (!tags.some((s) => s.path === i)) {
         delMap(i);
         compList.value = getMap();
       }
@@ -43,12 +41,12 @@ watch(useTabsStoreHook().multiTags, (tags: RouteConfigs[]) => {
 
 watch(
   () => props.currRoute.fullPath,
-  path => {
+  (path) => {
     const multiTags = useTabsStoreHook().multiTags as RouteConfigs[];
-    const iframeTags = multiTags.filter(i => i.meta?.frameSrc);
+    const iframeTags = multiTags.filter((i) => i.meta?.frameSrc);
     if (keep.value) {
       if (iframeTags.length !== MAP.size) {
-        const sameKey = [...MAP.keys()].find(i => path === i);
+        const sameKey = [...MAP.keys()].find((i) => path === i);
         if (!sameKey) {
           // 添加缓存
           setMap(path, props.currComp);

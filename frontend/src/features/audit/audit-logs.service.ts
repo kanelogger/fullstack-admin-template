@@ -86,12 +86,9 @@ function mapExceptionLog(value: unknown): ExceptionLog {
   });
 }
 
-function applyDateRange<T extends { gte: (column: string, value: string) => T; lt: (column: string, value: string) => T }>(
-  query: T,
-  column: string,
-  startAt?: string,
-  endAt?: string
-): T {
+function applyDateRange<
+  T extends { gte: (column: string, value: string) => T; lt: (column: string, value: string) => T }
+>(query: T, column: string, startAt?: string, endAt?: string): T {
   let result = query;
   if (startAt) result = result.gte(column, startOfUtcDay(startAt));
   if (endAt) result = result.lt(column, startOfNextUtcDay(endAt));
@@ -102,7 +99,10 @@ export async function getLoginLogs(input: unknown = {}): Promise<LoginLogPage> {
   const request = LoginLogListRequestSchema.parse(input);
   let query = getSupabaseClient()
     .from("login_log_read_model")
-    .select("id, user_id, login_name, login_ip, user_agent, login_result, failure_reason, logged_at", { count: "exact" });
+    .select(
+      "id, user_id, login_name, login_ip, user_agent, login_result, failure_reason, logged_at",
+      { count: "exact" }
+    );
   if (request.loginName) query = query.ilike("login_name", `%${escapeLike(request.loginName)}%`);
   if (request.loginResult !== undefined) query = query.eq("login_result", request.loginResult);
   query = applyDateRange(query, "logged_at", request.startAt, request.endAt);
@@ -124,7 +124,9 @@ export async function getLoginLog(idInput: unknown): Promise<LoginLog> {
   const id = BusinessIdSchema.parse(idInput);
   const { data, error } = await getSupabaseClient()
     .from("login_log_read_model")
-    .select("id, user_id, login_name, login_ip, user_agent, login_result, failure_reason, logged_at")
+    .select(
+      "id, user_id, login_name, login_ip, user_agent, login_result, failure_reason, logged_at"
+    )
     .eq("id", id)
     .maybeSingle();
   if (error || !data) throw failure("登录日志不存在或当前账号无读取权限");
@@ -135,11 +137,16 @@ export async function getOperationLogs(input: unknown = {}): Promise<OperationLo
   const request = OperationLogListRequestSchema.parse(input);
   let query = getSupabaseClient()
     .from("operation_log_read_model")
-    .select("id, operator_id, operator_name, module_code, operation_type, request_method, request_path, request_params, operation_result, error_message, operated_at", { count: "exact" });
-  if (request.operatorName) query = query.ilike("operator_name", `%${escapeLike(request.operatorName)}%`);
+    .select(
+      "id, operator_id, operator_name, module_code, operation_type, request_method, request_path, request_params, operation_result, error_message, operated_at",
+      { count: "exact" }
+    );
+  if (request.operatorName)
+    query = query.ilike("operator_name", `%${escapeLike(request.operatorName)}%`);
   if (request.moduleCode) query = query.eq("module_code", request.moduleCode);
   if (request.operationType) query = query.eq("operation_type", request.operationType);
-  if (request.operationResult !== undefined) query = query.eq("operation_result", request.operationResult);
+  if (request.operationResult !== undefined)
+    query = query.eq("operation_result", request.operationResult);
   query = applyDateRange(query, "operated_at", request.startAt, request.endAt);
   const from = (request.page - 1) * request.pageSize;
   const { data, count, error } = await query
@@ -159,7 +166,9 @@ export async function getOperationLog(idInput: unknown): Promise<OperationLog> {
   const id = BusinessIdSchema.parse(idInput);
   const { data, error } = await getSupabaseClient()
     .from("operation_log_read_model")
-    .select("id, operator_id, operator_name, module_code, operation_type, request_method, request_path, request_params, operation_result, error_message, operated_at")
+    .select(
+      "id, operator_id, operator_name, module_code, operation_type, request_method, request_path, request_params, operation_result, error_message, operated_at"
+    )
     .eq("id", id)
     .maybeSingle();
   if (error || !data) throw failure("操作日志不存在或当前账号无读取权限");
@@ -170,10 +179,15 @@ export async function getExceptionLogs(input: unknown = {}): Promise<ExceptionLo
   const request = ExceptionLogListRequestSchema.parse(input);
   let query = getSupabaseClient()
     .from("exception_log_read_model")
-    .select("id, request_path, request_method, error_type, error_message, stack_summary, handled_status, occurred_at", { count: "exact" });
-  if (request.requestPath) query = query.ilike("request_path", `%${escapeLike(request.requestPath)}%`);
+    .select(
+      "id, request_path, request_method, error_type, error_message, stack_summary, handled_status, occurred_at",
+      { count: "exact" }
+    );
+  if (request.requestPath)
+    query = query.ilike("request_path", `%${escapeLike(request.requestPath)}%`);
   if (request.errorType) query = query.ilike("error_type", `%${escapeLike(request.errorType)}%`);
-  if (request.handledStatus !== undefined) query = query.eq("handled_status", request.handledStatus);
+  if (request.handledStatus !== undefined)
+    query = query.eq("handled_status", request.handledStatus);
   query = applyDateRange(query, "occurred_at", request.startAt, request.endAt);
   const from = (request.page - 1) * request.pageSize;
   const { data, count, error } = await query
@@ -193,7 +207,9 @@ export async function getExceptionLog(idInput: unknown): Promise<ExceptionLog> {
   const id = BusinessIdSchema.parse(idInput);
   const { data, error } = await getSupabaseClient()
     .from("exception_log_read_model")
-    .select("id, request_path, request_method, error_type, error_message, stack_summary, handled_status, occurred_at")
+    .select(
+      "id, request_path, request_method, error_type, error_message, stack_summary, handled_status, occurred_at"
+    )
     .eq("id", id)
     .maybeSingle();
   if (error || !data) throw failure("异常日志不存在或当前账号无读取权限");

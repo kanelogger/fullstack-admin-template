@@ -38,7 +38,8 @@ async function sendResetLink() {
       <CardHeader>
         <CardTitle>重置密码</CardTitle>
         <CardDescription>
-          为保护账号，密码通过已验证邮箱重置。邮件中的链接只在本机 Supabase Auth 配置的有效期内可用。
+          为保护账号，密码通过已验证邮箱重置。邮件中的链接只在本机 Supabase Auth
+          配置的有效期内可用。
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">

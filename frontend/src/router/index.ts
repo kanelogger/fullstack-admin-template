@@ -18,11 +18,7 @@ import {
   formatTwoStageRoutes,
   formatFlatteningRoutes
 } from "./utils";
-import {
-  type RouteRecordRaw,
-  type Router,
-  createRouter
-} from "vue-router";
+import { type RouteRecordRaw, type Router, createRouter } from "vue-router";
 
 /** 自动导入全部静态路由，无需再手动引入！匹配 src/router/modules 目录（任何嵌套级别）中具有 .ts 扩展名的所有文件，除了 remaining.ts 文件
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
@@ -38,7 +34,7 @@ const modules = import.meta.glob<{ default: RouteRecordRaw }>(
 /** 原始静态路由（未做任何处理） */
 const routes: RouteRecordRaw[] = [];
 
-Object.keys(modules).forEach(key => {
+Object.keys(modules).forEach((key) => {
   routes.push(modules[key].default);
 });
 
@@ -57,7 +53,7 @@ export const constantMenus: RouteRecordRaw[] = [
 ];
 
 /** 不参与菜单的路由 */
-export const remainingPaths = remainingRouter.map(route => route.path);
+export const remainingPaths = remainingRouter.map((route) => route.path);
 
 /** 创建路由实例 */
 export const router: Router = createRouter({
@@ -65,13 +61,12 @@ export const router: Router = createRouter({
   routes: [...constantRoutes, ...remainingRouter],
   strict: true,
   scrollBehavior(to, from, savedPosition) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (savedPosition) {
         return savedPosition;
       } else {
         if (from.meta.saveSrollTop) {
-          const top: number =
-            document.documentElement.scrollTop || document.body.scrollTop;
+          const top: number = document.documentElement.scrollTop || document.body.scrollTop;
           resolve({ left: 0, top });
         }
       }
@@ -118,20 +113,16 @@ router.beforeEach(async (to: ToRouteType, from) => {
   }
 
   if (!externalLinkName(to.name)) {
-    to.matched.some(item => {
+    to.matched.some((item) => {
       if (!item.meta.title) return "";
       const title = getConfig().Title;
-      document.title = title ? `${item.meta.title} | ${title}` : item.meta.title as string;
+      document.title = title ? `${item.meta.title} | ${title}` : (item.meta.title as string);
     });
   }
 
-  if (
-    to.path === "/reset-password" ||
-    publicErrorPaths.has(to.path)
-  ) return true;
+  if (to.path === "/reset-password" || publicErrorPaths.has(to.path)) return true;
 
-  const unknownPath = to.name === "PageNotFound" &&
-    !findRegisteredMenuRouteByPath(to.path);
+  const unknownPath = to.name === "PageNotFound" && !findRegisteredMenuRouteByPath(to.path);
 
   let hasSession = false;
   const sessionStore = useSessionStoreHook();
@@ -156,12 +147,12 @@ router.beforeEach(async (to: ToRouteType, from) => {
 
   if (unknownPath) {
     try {
-      if (!await useSessionStoreHook().initSessionNavigation()) return false;
+      if (!(await useSessionStoreHook().initSessionNavigation())) return false;
     } catch {
       return { path: "/server-error" };
     }
     const resolved = router.resolve(to.fullPath);
-    if (!resolved.matched.some(record => record.meta.backstage)) return true;
+    if (!resolved.matched.some((record) => record.meta.backstage)) return true;
     // Re-enter the guard with the resolved server-filtered route metadata.
     return to.fullPath;
   }
@@ -179,17 +170,23 @@ router.beforeEach(async (to: ToRouteType, from) => {
     : defaultMenu
       ? [defaultMenu.requiredPermissionKey]
       : [];
-  if (!requiredPermissions.every(permission => permissionStore.permissionKeys.includes(permission))) {
+  if (
+    !requiredPermissions.every((permission) => permissionStore.permissionKeys.includes(permission))
+  ) {
     return { path: "/access-denied" };
   }
 
-  if (to.path === "/login" || (from.name === undefined && permissionStore.wholeMenus.length === 0)) {
+  if (
+    to.path === "/login" ||
+    (from.name === undefined && permissionStore.wholeMenus.length === 0)
+  ) {
     const sessionStore = useSessionStoreHook();
     const expectedIdentity = sessionStore.isAuthenticated
       ? { authUserId: sessionStore.authUserId, sessionId: sessionStore.authSessionId }
       : null;
     try {
-      if (!expectedIdentity || !await sessionStore.initSessionNavigation(expectedIdentity)) return false;
+      if (!expectedIdentity || !(await sessionStore.initSessionNavigation(expectedIdentity)))
+        return false;
     } catch {
       if (expectedIdentity) await sessionStore.logOut(expectedIdentity);
       return { path: "/login" };
@@ -201,10 +198,8 @@ router.beforeEach(async (to: ToRouteType, from) => {
     }
     if (to.path === "/login") return landingMenu.path;
 
-    const homeRoute = router.options.routes.find(route => route.name === "Home");
-    const currentMenu = homeRoute?.children
-      ? findRouteByPath(to.path, homeRoute.children)
-      : null;
+    const homeRoute = router.options.routes.find((route) => route.name === "Home");
+    const currentMenu = homeRoute?.children ? findRouteByPath(to.path, homeRoute.children) : null;
     if (currentMenu?.meta?.title) {
       const tagMenu = currentMenu.children?.length ? currentMenu.children[0] : currentMenu;
       useTabsStoreHook().handleTags("push", {
@@ -220,7 +215,7 @@ router.beforeEach(async (to: ToRouteType, from) => {
   return true;
 });
 
-router.afterEach(to => {
+router.afterEach((to) => {
   loadedPaths.add(to.path);
   NProgress.done();
 });

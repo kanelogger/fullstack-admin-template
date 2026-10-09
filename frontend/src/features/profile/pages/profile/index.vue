@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { computed, onMounted, reactive, ref } from "vue";
 import { message } from "@/utils/message";
 import { useSessionStoreHook } from "@/stores/modules/session";
@@ -7,7 +9,6 @@ import type { Profile, Session } from "@template/contracts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoaderCircle, RotateCw, Save } from "@lucide/vue";
 
 defineOptions({ name: "ProfileInfo" });
@@ -77,37 +78,59 @@ onMounted(loadProfile);
       </CardHeader>
 
       <CardContent>
-        <div v-if="loading" class="flex items-center gap-2 py-10 text-sm text-muted-foreground" role="status">
+        <div
+          v-if="loading"
+          class="flex items-center gap-2 py-10 text-sm text-muted-foreground"
+          role="status"
+        >
           <LoaderCircle class="size-4 animate-spin" aria-hidden="true" />
           正在读取个人资料…
         </div>
 
-        <div v-else-if="loadError" class="space-y-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4" role="alert">
-          <p class="text-sm text-destructive">{{ loadError }}</p>
-          <Button variant="outline" size="sm" @click="loadProfile">
-            <RotateCw class="size-4" aria-hidden="true" />
-            重试
-          </Button>
-        </div>
+        <Alert variant="destructive" v-else-if="loadError"
+          ><AlertDescription>
+            <p class="text-sm text-destructive">{{ loadError }}</p>
+            <Button variant="outline" size="sm" @click="loadProfile">
+              <RotateCw class="size-4" aria-hidden="true" />
+              重试
+            </Button>
+          </AlertDescription></Alert
+        >
 
-        <div v-else-if="profile" class="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)]">
-          <form class="space-y-5" @submit.prevent="saveProfile">
-            <div class="space-y-2">
-              <Label for="profile-display-name">姓名</Label>
-              <Input id="profile-display-name" v-model="form.displayName" maxlength="128" required />
-            </div>
-            <div class="space-y-2">
-              <Label for="profile-phone">手机号</Label>
-              <Input id="profile-phone" v-model="form.phone" type="tel" maxlength="32" autocomplete="tel" />
-            </div>
-            <div class="space-y-2">
-              <Label for="profile-login-name">登录名</Label>
-              <Input id="profile-login-name" :model-value="profile.loginName" disabled />
-            </div>
-            <div class="space-y-2">
-              <Label for="profile-email">已验证邮箱</Label>
-              <Input id="profile-email" :model-value="profile.email" disabled />
-            </div>
+        <div
+          v-else-if="profile"
+          class="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)]"
+        >
+          <form @submit.prevent="saveProfile">
+            <FieldGroup class="gap-5">
+              <Field class="space-y-2">
+                <FieldLabel for="profile-display-name">姓名</FieldLabel>
+                <Input
+                  id="profile-display-name"
+                  v-model="form.displayName"
+                  maxlength="128"
+                  required
+                />
+              </Field>
+              <Field class="space-y-2">
+                <FieldLabel for="profile-phone">手机号</FieldLabel>
+                <Input
+                  id="profile-phone"
+                  v-model="form.phone"
+                  type="tel"
+                  maxlength="32"
+                  autocomplete="tel"
+                />
+              </Field>
+              <Field class="space-y-2">
+                <FieldLabel for="profile-login-name">登录名</FieldLabel>
+                <Input id="profile-login-name" :model-value="profile.loginName" disabled />
+              </Field>
+              <Field class="space-y-2">
+                <FieldLabel for="profile-email">已验证邮箱</FieldLabel>
+                <Input id="profile-email" :model-value="profile.email" disabled />
+              </Field>
+            </FieldGroup>
           </form>
 
           <aside class="space-y-4 rounded-lg bg-muted/40 p-5">

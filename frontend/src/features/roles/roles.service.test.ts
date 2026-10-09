@@ -24,13 +24,26 @@ describe("roles service", () => {
   beforeEach(() => mocks.rpc.mockReset());
 
   it("passes catalog filters and preserves role bigint IDs as strings", async () => {
-    mocks.rpc.mockResolvedValue({ data: { roles: [role], permissions: [], menus: [], total: 1, page: 2, pageSize: 10 }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: { roles: [role], permissions: [], menus: [], total: 1, page: 2, pageSize: 10 },
+      error: null
+    });
 
-    const result = await getRoleCatalog({ name: "运营", code: "OPERATOR", status: "active", page: 2, pageSize: 10 });
+    const result = await getRoleCatalog({
+      name: "运营",
+      code: "OPERATOR",
+      status: "active",
+      page: 2,
+      pageSize: 10
+    });
 
     expect(result.roles[0]?.id).toBe(roleId);
     expect(mocks.rpc).toHaveBeenCalledWith("admin_roles_page", {
-      p_name: "运营", p_code: "OPERATOR", p_status: "active", p_page: 2, p_page_size: 10
+      p_name: "运营",
+      p_code: "OPERATOR",
+      p_status: "active",
+      p_page: 2,
+      p_page_size: 10
     });
   });
 
@@ -53,7 +66,13 @@ describe("roles service", () => {
   it("saves role metadata using the stable role ID", async () => {
     mocks.rpc.mockResolvedValue({ data: role, error: null });
 
-    const result = await saveRole({ id: roleId, code: role.code, name: role.name, description: role.description, isActive: true });
+    const result = await saveRole({
+      id: roleId,
+      code: role.code,
+      name: role.name,
+      description: role.description,
+      isActive: true
+    });
 
     expect(result.id).toBe(roleId);
     expect(mocks.rpc).toHaveBeenCalledWith("save_admin_role", {

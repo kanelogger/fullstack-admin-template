@@ -1,10 +1,31 @@
 <script setup lang="ts">
+import { useDialogReturnFocus } from "@/composables/use-dialog-return-focus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { requestConfirmation } from "@/composables/use-confirmation";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { ATTACHMENT_ACCEPT } from "@template/contracts/attachments";
+import { unrefElement } from "@vueuse/core";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { AttachmentListRequestSchema, type Attachment } from "@template/contracts";
 import {
   deleteAttachment,
@@ -28,9 +49,10 @@ const page = ref(1);
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 const pageError = ref("");
 const actionMessage = ref("");
-const selectedFile = ref<HTMLInputElement | null>(null);
+const selectedFile = ref<InstanceType<typeof Input> | null>(null);
 const previewUrl = ref("");
 const previewName = ref("");
+const { capture: capturePreviewFocus, restore: restorePreviewFocus } = useDialogReturnFocus();
 const filters = reactive({ originalName: "", businessModule: "", referenceStatus: "" });
 const uploadForm = reactive({ businessModule: "", businessRecordId: "" });
 
@@ -58,8 +80,7 @@ async function loadRows() {
     const request = AttachmentListRequestSchema.parse({
       originalName: filters.originalName.trim() || undefined,
       businessModule: filters.businessModule.trim() || undefined,
-      referenceStatus:
-        filters.referenceStatus === "" ? undefined : Number(filters.referenceStatus),
+      referenceStatus: filters.referenceStatus === "" ? undefined : Number(filters.referenceStatus),
       page: page.value,
       pageSize: PAGE_SIZE
     });
@@ -80,8 +101,10 @@ async function search() {
   await loadRows();
 }
 
-async function chooseFile() {
-  selectedFile.value?.click();
+function chooseFile() {
+  // `Input` is a component: its template ref is the component instance, not the native element.
+  const input = unrefElement(selectedFile);
+  if (input instanceof HTMLInputElement) input.click();
 }
 
 async function uploadSelectedFile(event: Event) {
@@ -125,6 +148,7 @@ async function download(row: Attachment) {
 
 async function preview(row: Attachment) {
   if (!row.mimeType.toLowerCase().startsWith("image/")) return;
+  capturePreviewFocus();
   actionMessage.value = "";
   try {
     const result = await downloadAttachment(row.id);
@@ -137,7 +161,7 @@ async function preview(row: Attachment) {
 }
 
 async function remove(row: Attachment) {
-  if (!window.confirm(`确认删除附件“${row.originalName}”？`)) return;
+  if (!(await requestConfirmation(`确认删除附件“${row.originalName}”？`))) return;
   actionMessage.value = "";
   try {
     await deleteAttachment(row.id);
@@ -170,16 +194,26 @@ onUnmounted(revokePreview);
         <CardTitle class="text-base">上传附件</CardTitle>
       </CardHeader>
       <CardContent class="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <div class="space-y-2">
-          <Label for="attachment-business-module">业务模块</Label>
-          <Input id="attachment-business-module" v-model="uploadForm.businessModule" maxlength="64" placeholder="可选" />
-        </div>
-        <div class="space-y-2">
-          <Label for="attachment-business-record">业务记录 ID</Label>
-          <Input id="attachment-business-record" v-model="uploadForm.businessRecordId" inputmode="numeric" placeholder="可选十进制 ID" />
-        </div>
+        <Field class="space-y-2">
+          <FieldLabel for="attachment-business-module">业务模块</FieldLabel>
+          <Input
+            id="attachment-business-module"
+            v-model="uploadForm.businessModule"
+            maxlength="64"
+            placeholder="可选"
+          />
+        </Field>
+        <Field class="space-y-2">
+          <FieldLabel for="attachment-business-record">业务记录 ID</FieldLabel>
+          <Input
+            id="attachment-business-record"
+            v-model="uploadForm.businessRecordId"
+            inputmode="numeric"
+            placeholder="可选十进制 ID"
+          />
+        </Field>
         <div class="flex items-center gap-3">
-          <input
+          <Input
             ref="selectedFile"
             class="sr-only"
             type="file"
@@ -200,103 +234,170 @@ onUnmounted(revokePreview);
         <CardTitle class="text-base">附件列表</CardTitle>
       </CardHeader>
       <CardContent class="space-y-4">
-        <form class="grid gap-3 sm:grid-cols-[1fr_1fr_180px_auto] sm:items-end" @submit.prevent="search">
-          <div class="space-y-2">
-            <Label for="attachment-search-name">文件名</Label>
-            <Input id="attachment-search-name" v-model="filters.originalName" maxlength="255" placeholder="搜索文件名" />
-          </div>
-          <div class="space-y-2">
-            <Label for="attachment-search-module">业务模块</Label>
-            <Input id="attachment-search-module" v-model="filters.businessModule" maxlength="64" placeholder="全部模块" />
-          </div>
-          <div class="space-y-2">
-            <Label for="attachment-search-reference">引用状态</Label>
-            <select
-              id="attachment-search-reference"
-              v-model="filters.referenceStatus"
-              class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">全部</option>
-              <option value="0">未引用</option>
-              <option value="1">已引用</option>
-            </select>
-          </div>
-          <Button type="submit" variant="outline">查询</Button>
+        <form @submit.prevent="search">
+          <FieldGroup class="grid gap-3 sm:grid-cols-[1fr_1fr_180px_auto] sm:items-end">
+            <Field class="space-y-2">
+              <FieldLabel for="attachment-search-name">文件名</FieldLabel>
+              <Input
+                id="attachment-search-name"
+                v-model="filters.originalName"
+                maxlength="255"
+                placeholder="搜索文件名"
+              />
+            </Field>
+            <Field class="space-y-2">
+              <FieldLabel for="attachment-search-module">业务模块</FieldLabel>
+              <Input
+                id="attachment-search-module"
+                v-model="filters.businessModule"
+                maxlength="64"
+                placeholder="全部模块"
+              />
+            </Field>
+            <Field class="space-y-2">
+              <FieldLabel for="attachment-search-reference">引用状态</FieldLabel>
+              <NativeSelect
+                wrapper-class="w-full"
+                id="attachment-search-reference"
+                v-model="filters.referenceStatus"
+                class="h-10 w-full"
+              >
+                <NativeSelectOption value="">全部</NativeSelectOption>
+                <NativeSelectOption value="0">未引用</NativeSelectOption>
+                <NativeSelectOption value="1">已引用</NativeSelectOption>
+              </NativeSelect>
+            </Field>
+            <Button type="submit" variant="outline">查询</Button>
+          </FieldGroup>
         </form>
 
-        <p v-if="actionMessage" role="status" class="text-sm text-muted-foreground">{{ actionMessage }}</p>
-        <div v-if="pageError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <p>{{ pageError }}</p>
-          <Button class="mt-3" size="sm" variant="outline" @click="loadRows">重试</Button>
-        </div>
+        <p v-if="actionMessage" role="status" class="text-sm text-muted-foreground">
+          {{ actionMessage }}
+        </p>
+        <Alert variant="destructive" v-if="pageError"
+          ><AlertDescription>
+            <p>{{ pageError }}</p>
+            <Button class="mt-3" size="sm" variant="outline" @click="loadRows">重试</Button>
+          </AlertDescription></Alert
+        >
 
         <div class="overflow-x-auto rounded-md border border-border">
-          <table class="w-full min-w-[850px] border-collapse text-left text-sm">
-            <thead class="bg-muted/60 text-muted-foreground">
-              <tr>
-                <th scope="col" class="px-4 py-3 font-medium">文件名</th>
-                <th scope="col" class="px-4 py-3 font-medium">MIME</th>
-                <th scope="col" class="px-4 py-3 font-medium">大小</th>
-                <th scope="col" class="px-4 py-3 font-medium">业务</th>
-                <th scope="col" class="px-4 py-3 font-medium">引用</th>
-                <th scope="col" class="px-4 py-3 font-medium">上传时间</th>
-                <th scope="col" class="px-4 py-3 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="loading">
-                <td colspan="7" class="px-4 py-10 text-center text-muted-foreground">正在加载附件…</td>
-              </tr>
-              <tr v-else-if="!pageError && rows.length === 0">
-                <td colspan="7" class="px-4 py-10 text-center text-muted-foreground">暂无附件</td>
-              </tr>
-              <tr v-for="row in rows" :key="row.id" class="border-t border-border">
-                <td class="max-w-64 truncate px-4 py-3 font-medium" :title="row.originalName">{{ row.originalName }}</td>
-                <td class="px-4 py-3 text-muted-foreground">{{ row.mimeType }}</td>
-                <td class="whitespace-nowrap px-4 py-3">{{ formatSize(row.fileSize) }}</td>
-                <td class="px-4 py-3">{{ row.businessModule ?? "—" }}<span v-if="row.businessRecordId"> / {{ row.businessRecordId }}</span></td>
-                <td class="px-4 py-3">
-                  <span class="rounded-full px-2 py-1 text-xs" :class="row.referenceStatus === 1 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'">
+          <Table class="w-full min-w-[850px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">文件名</TableHead>
+                <TableHead scope="col">MIME</TableHead>
+                <TableHead scope="col">大小</TableHead>
+                <TableHead scope="col">业务</TableHead>
+                <TableHead scope="col">引用</TableHead>
+                <TableHead scope="col">上传时间</TableHead>
+                <TableHead scope="col" class="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-if="loading">
+                <TableCell colspan="7" class="text-center">正在加载附件…</TableCell>
+              </TableRow>
+              <TableRow v-else-if="!pageError && rows.length === 0">
+                <TableCell colspan="7" class="text-center">暂无附件</TableCell>
+              </TableRow>
+              <TableRow v-for="row in rows" :key="row.id">
+                <TableCell class="max-w-64" :title="row.originalName">{{
+                  row.originalName
+                }}</TableCell>
+                <TableCell>{{ row.mimeType }}</TableCell>
+                <TableCell>{{ formatSize(row.fileSize) }}</TableCell>
+                <TableCell
+                  >{{ row.businessModule ?? "—"
+                  }}<span v-if="row.businessRecordId">
+                    / {{ row.businessRecordId }}</span
+                  ></TableCell
+                >
+                <TableCell>
+                  <span
+                    class="rounded-full px-2 py-1 text-xs"
+                    :class="
+                      row.referenceStatus === 1
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    "
+                  >
                     {{ row.referenceStatus === 1 ? "已引用" : "未引用" }}
                   </span>
-                </td>
-                <td class="whitespace-nowrap px-4 py-3 text-muted-foreground">{{ new Date(row.uploadedAt).toLocaleString() }}</td>
-                <td class="whitespace-nowrap px-4 py-3 text-right">
-                  <Button v-if="row.mimeType.toLowerCase().startsWith('image/')" size="sm" variant="ghost" @click="preview(row)">预览</Button>
+                </TableCell>
+                <TableCell>{{ new Date(row.uploadedAt).toLocaleString() }}</TableCell>
+                <TableCell class="text-right">
+                  <Button
+                    v-if="row.mimeType.toLowerCase().startsWith('image/')"
+                    size="sm"
+                    variant="ghost"
+                    @click="preview(row)"
+                    >预览</Button
+                  >
                   <Button size="sm" variant="ghost" @click="download(row)">下载</Button>
-                  <Button v-if="canDelete" size="sm" variant="ghost" class="text-destructive hover:text-destructive" @click="remove(row)">删除</Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <Button
+                    v-if="canDelete"
+                    size="sm"
+                    variant="ghost"
+                    class="text-destructive hover:text-destructive"
+                    @click="remove(row)"
+                    >删除</Button
+                  >
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
 
         <div class="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>共 {{ total }} 条</span>
           <div class="flex items-center gap-2">
-            <Button variant="outline" size="sm" :disabled="page <= 1 || loading" @click="changePage(page - 1)">上一页</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="page <= 1 || loading"
+              @click="changePage(page - 1)"
+              >上一页</Button
+            >
             <span>{{ page }} / {{ pageCount }}</span>
-            <Button variant="outline" size="sm" :disabled="page >= pageCount || loading" @click="changePage(page + 1)">下一页</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="page >= pageCount || loading"
+              @click="changePage(page + 1)"
+              >下一页</Button
+            >
           </div>
         </div>
       </CardContent>
     </Card>
 
-    <div
-      v-if="previewUrl"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`预览 ${previewName}`"
-      @click.self="revokePreview"
+    <Dialog
+      :open="Boolean(previewUrl)"
+      @update:open="
+        (open) => {
+          if (!open) revokePreview();
+        }
+      "
     >
-      <div class="relative max-h-[90vh] max-w-[90vw] rounded-lg bg-background p-3 shadow-xl">
-        <div class="mb-2 flex items-center justify-between gap-4">
-          <p class="max-w-[70vw] truncate text-sm font-medium">{{ previewName }}</p>
-          <Button size="sm" variant="outline" @click="revokePreview">关闭</Button>
-        </div>
-        <img class="max-h-[78vh] max-w-[85vw] object-contain" :src="previewUrl" :alt="previewName" />
-      </div>
-    </div>
+      <DialogContent
+        v-if="previewUrl"
+        class="max-h-[90vh] sm:max-w-[90vw]"
+        @close-auto-focus="restorePreviewFocus"
+      >
+        <DialogHeader class="mb-2 flex-row items-center justify-between gap-4">
+          <div>
+            <DialogTitle class="text-sm">{{ previewName }}</DialogTitle>
+            <DialogDescription>附件图像预览</DialogDescription>
+          </div>
+          <DialogClose as-child><Button size="sm" variant="outline">关闭</Button></DialogClose>
+        </DialogHeader>
+        <img
+          class="max-h-[78vh] max-w-[85vw] object-contain"
+          :src="previewUrl"
+          :alt="previewName"
+        />
+      </DialogContent>
+    </Dialog>
   </main>
 </template>

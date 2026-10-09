@@ -3,19 +3,8 @@ import "animate.css";
 // 引入 src/components/ReIcon/src/offlineIcon.ts 文件中所有使用addIcon添加过的本地图标
 import "@/components/ReIcon/src/offlineIcon";
 import { useUiStoreHook } from "@/stores/modules/ui";
-import {
-  h,
-  ref,
-  reactive,
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  defineComponent
-} from "vue";
-import {
-  useDark,
-  useResizeObserver
-} from "@vueuse/core";
+import { h, ref, reactive, computed, onBeforeUnmount, onMounted, defineComponent } from "vue";
+import { useDark, useResizeObserver } from "@vueuse/core";
 import { deviceDetection } from "@/utils/shared";
 import { useScroll } from "@vueuse/core";
 import { Button } from "@/components/ui/button";
@@ -75,7 +64,7 @@ function scrollMainToTop() {
 // 判断是否可自动关闭菜单栏
 let isAutoCloseSidebar = true;
 
-useResizeObserver(appWrapperRef, entries => {
+useResizeObserver(appWrapperRef, (entries) => {
   if (isMobile) return;
   const entry = entries[0];
   const [{ inlineSize: width, blockSize: height }] = entry.borderBoxSize;
@@ -124,13 +113,10 @@ const LayHeader = defineComponent({
       },
       {
         default: () => [
-          !hiddenSideBar &&
-          (layout.value.includes("vertical") || layout.value.includes("mix"))
+          !hiddenSideBar && (layout.value.includes("vertical") || layout.value.includes("mix"))
             ? h(LayNavbar)
             : null,
-          !hiddenSideBar && layout.value.includes("horizontal")
-            ? h(NavHorizontal)
-            : null,
+          !hiddenSideBar && layout.value.includes("horizontal") ? h(NavHorizontal) : null,
           h(LayTag)
         ]
       }
@@ -142,32 +128,24 @@ const LayHeader = defineComponent({
 <template>
   <div ref="appWrapperRef" :class="['app-wrapper', set.classes]">
     <div
-      v-show="
-        set.device === 'mobile' &&
-        set.sidebar.opened &&
-        layout.includes('vertical')
-      "
+      v-show="set.device === 'mobile' && set.sidebar.opened && layout.includes('vertical')"
       class="app-mask"
       @click="useUiStoreHook().toggleSideBar()"
     />
     <NavVertical
-      v-show="
-        !hiddenSideBar &&
-        (layout.includes('vertical') || layout.includes('mix'))
-      "
+      v-show="!hiddenSideBar && (layout.includes('vertical') || layout.includes('mix'))"
     />
-    <div
-      :class="[
-        'main-container',
-        hiddenSideBar ? 'main-hidden' : ''
-      ]"
-    >
+    <div :class="['main-container', hiddenSideBar ? 'main-hidden' : '']">
       <div v-if="fixedHeader">
         <LayHeader />
         <!-- 主体内容 -->
         <LayContent :fixed-header="fixedHeader" />
       </div>
-      <div v-else ref="mainScrollRef" class="app-scrollbar relative h-full overflow-x-hidden overflow-y-auto">
+      <div
+        v-else
+        ref="mainScrollRef"
+        class="app-scrollbar relative h-full overflow-x-hidden overflow-y-auto"
+      >
         <LayHeader />
         <!-- 主体内容 -->
         <LayContent :fixed-header="fixedHeader" />
@@ -179,7 +157,8 @@ const LayHeader = defineComponent({
         variant="outline"
         aria-label="回到顶部"
         @click="scrollMainToTop"
-      >↑</Button>
+        >↑</Button
+      >
     </div>
   </div>
 </template>

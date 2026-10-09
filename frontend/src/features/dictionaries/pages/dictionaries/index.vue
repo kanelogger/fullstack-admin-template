@@ -1,10 +1,31 @@
 <script setup lang="ts">
+import { useDialogReturnFocus } from "@/composables/use-dialog-return-focus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { requestConfirmation } from "@/composables/use-confirmation";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { computed, onMounted, reactive, ref } from "vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { DictionaryItem, DictionaryType } from "@template/contracts/dictionary";
 import {
   listDictionaryItems,
@@ -50,7 +71,7 @@ const typeCodeFilter = ref("");
 const typeStatusFilter = ref<StatusFilter>("all");
 
 const selectedType = computed(
-  () => typeRows.value.find(type => type.id === selectedTypeId.value) ?? null
+  () => typeRows.value.find((type) => type.id === selectedTypeId.value) ?? null
 );
 const typePageCount = computed(() => Math.max(1, Math.ceil(typeTotal.value / typePageSize.value)));
 
@@ -103,7 +124,7 @@ async function loadTypes() {
     });
     typeRows.value = result.items;
     typeTotal.value = result.total;
-    if (!typeRows.value.some(type => type.id === selectedTypeId.value)) {
+    if (!typeRows.value.some((type) => type.id === selectedTypeId.value)) {
       selectedTypeId.value = typeRows.value[0]?.id ?? "";
     }
     await loadItems();
@@ -190,7 +211,7 @@ async function toggleTypeStatus(type: DictionaryType) {
 }
 
 async function removeType(type: DictionaryType) {
-  if (!window.confirm(`确认删除字典类型“${type.dictName}”？`)) return;
+  if (!(await requestConfirmation(`确认删除字典类型“${type.dictName}”？`))) return;
   actionError.value = "";
   try {
     await softDeleteDictionaryType(type.id);
@@ -277,7 +298,7 @@ async function saveItemOrder() {
   try {
     await replaceDictionaryItemOrder({
       dictTypeId: selectedType.value.id,
-      items: itemRows.value.map(item => ({ id: item.id, sortOrder: Number(item.sortOrder) }))
+      items: itemRows.value.map((item) => ({ id: item.id, sortOrder: Number(item.sortOrder) }))
     });
     await loadItems();
   } catch (error) {
@@ -286,7 +307,7 @@ async function saveItemOrder() {
 }
 
 async function removeItem(item: DictionaryItem) {
-  if (!window.confirm(`确认删除字典项“${item.itemLabel}”？`)) return;
+  if (!(await requestConfirmation(`确认删除字典项“${item.itemLabel}”？`))) return;
   actionError.value = "";
   try {
     await softDeleteDictionaryItem(item.id);
@@ -297,6 +318,9 @@ async function removeItem(item: DictionaryItem) {
 }
 
 onMounted(loadTypes);
+
+const { restore: restoreTypeEditorOpenFocus } = useDialogReturnFocus(typeEditorOpen);
+const { restore: restoreItemEditorOpenFocus } = useDialogReturnFocus(itemEditorOpen);
 </script>
 
 <template>
@@ -304,53 +328,255 @@ onMounted(loadTypes);
     <Card>
       <CardHeader class="flex flex-wrap items-center justify-between gap-3">
         <CardTitle>数据字典</CardTitle>
-        <Button v-if="canCreate" data-testid="create-dictionary-type" @click="openCreateType">新增类型</Button>
+        <Button v-if="canCreate" data-testid="create-dictionary-type" @click="openCreateType"
+          >新增类型</Button
+        >
       </CardHeader>
       <CardContent class="space-y-4">
-        <form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_160px_auto]" @submit.prevent="searchTypes">
-          <div class="space-y-1.5"><Label for="dict-code-filter">字典编码</Label><Input id="dict-code-filter" v-model="typeCodeFilter" placeholder="按编码筛选" /></div>
-          <div class="space-y-1.5"><Label for="dict-name-filter">字典名称</Label><Input id="dict-name-filter" v-model="typeNameFilter" placeholder="按名称筛选" /></div>
-          <div class="space-y-1.5"><Label for="dict-status-filter">状态</Label><select id="dict-status-filter" v-model="typeStatusFilter" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="all">全部</option><option value="1">启用</option><option value="0">停用</option></select></div>
-          <div class="flex items-end"><Button type="submit" variant="outline">筛选</Button></div>
+        <form @submit.prevent="searchTypes">
+          <FieldGroup class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_160px_auto]">
+            <Field class="gap-2"
+              ><FieldLabel for="dict-code-filter">字典编码</FieldLabel
+              ><Input id="dict-code-filter" v-model="typeCodeFilter" placeholder="按编码筛选"
+            /></Field>
+            <Field class="gap-2"
+              ><FieldLabel for="dict-name-filter">字典名称</FieldLabel
+              ><Input id="dict-name-filter" v-model="typeNameFilter" placeholder="按名称筛选"
+            /></Field>
+            <Field class="gap-2"
+              ><FieldLabel for="dict-status-filter">状态</FieldLabel
+              ><NativeSelect
+                wrapper-class="w-full"
+                id="dict-status-filter"
+                v-model="typeStatusFilter"
+                class="h-9 w-full"
+                ><NativeSelectOption value="all">全部</NativeSelectOption
+                ><NativeSelectOption value="1">启用</NativeSelectOption
+                ><NativeSelectOption value="0">停用</NativeSelectOption></NativeSelect
+              ></Field
+            >
+            <div class="flex items-end"><Button type="submit" variant="outline">筛选</Button></div>
+          </FieldGroup>
         </form>
-        <p v-if="actionError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{{ actionError }}</p>
-        <p v-if="typeError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{{ typeError }}</p>
-        <div v-if="typeLoading" role="status" class="py-8 text-center text-sm text-muted-foreground">正在加载字典…</div>
-        <div v-else-if="typeError" class="text-center"><Button variant="outline" @click="loadTypes">重试</Button></div>
+        <Alert variant="destructive" v-if="actionError"
+          ><AlertDescription>{{ actionError }}</AlertDescription></Alert
+        >
+        <Alert variant="destructive" v-if="typeError"
+          ><AlertDescription>{{ typeError }}</AlertDescription></Alert
+        >
+        <div
+          v-if="typeLoading"
+          role="status"
+          class="py-8 text-center text-sm text-muted-foreground"
+        >
+          正在加载字典…
+        </div>
+        <div v-else-if="typeError" class="text-center">
+          <Button variant="outline" @click="loadTypes">重试</Button>
+        </div>
         <div v-else class="grid gap-4 xl:grid-cols-[minmax(360px,0.9fr)_minmax(560px,1.4fr)]">
           <Card class="min-w-0">
-            <CardHeader class="flex flex-row items-center justify-between gap-2"><CardTitle class="text-base">字典类型</CardTitle><span class="text-xs text-muted-foreground">{{ typeTotal }} 条</span></CardHeader>
+            <CardHeader class="flex flex-row items-center justify-between gap-2"
+              ><CardTitle class="text-base">字典类型</CardTitle
+              ><span class="text-xs text-muted-foreground">{{ typeTotal }} 条</span></CardHeader
+            >
             <CardContent class="space-y-3">
-              <div v-if="!typeRows.length" class="py-8 text-center text-sm text-muted-foreground">暂无字典类型</div>
+              <div v-if="!typeRows.length" class="py-8 text-center text-sm text-muted-foreground">
+                暂无字典类型
+              </div>
               <div v-else class="overflow-x-auto rounded-md border">
-                <table class="w-full min-w-[520px] text-left text-sm">
-                  <thead class="bg-muted/50 text-muted-foreground"><tr><th class="px-3 py-2 font-medium">编码 / 名称</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">操作</th></tr></thead>
-                  <tbody><tr v-for="type in typeRows" :key="type.id" :class="['cursor-pointer border-t', selectedTypeId === type.id ? 'bg-accent/50' : '']" @click="selectType(type)">
-                    <td class="px-3 py-2"><div class="font-mono text-xs">{{ type.dictCode }}</div><div class="font-medium">{{ type.dictName }}</div></td>
-                    <td class="px-3 py-2"><Badge :variant="type.status === 1 ? 'default' : 'secondary'">{{ type.status === 1 ? "启用" : "停用" }}</Badge></td>
-                    <td class="px-3 py-2"><div class="flex gap-1" @click.stop><Button v-if="canUpdate" size="sm" variant="outline" @click="openEditType(type)">编辑</Button><Button v-if="canUpdate" size="sm" variant="ghost" @click="toggleTypeStatus(type)">{{ type.status === 1 ? "停用" : "启用" }}</Button><Button v-if="canDelete" size="sm" variant="ghost" class="text-destructive" @click="removeType(type)">删除</Button></div></td>
-                  </tr></tbody>
-                </table>
+                <Table class="w-full min-w-[520px] text-left">
+                  <TableHeader
+                    ><TableRow
+                      ><TableHead>编码 / 名称</TableHead><TableHead>状态</TableHead
+                      ><TableHead>操作</TableHead></TableRow
+                    ></TableHeader
+                  >
+                  <TableBody
+                    ><TableRow
+                      v-for="type in typeRows"
+                      :key="type.id"
+                      :class="[
+                        'cursor-pointer border-t',
+                        selectedTypeId === type.id ? 'bg-accent/50' : ''
+                      ]"
+                      @click="selectType(type)"
+                    >
+                      <TableCell
+                        ><div class="font-mono text-xs">{{ type.dictCode }}</div>
+                        <div class="font-medium">{{ type.dictName }}</div></TableCell
+                      >
+                      <TableCell
+                        ><Badge :variant="type.status === 1 ? 'default' : 'secondary'">{{
+                          type.status === 1 ? "启用" : "停用"
+                        }}</Badge></TableCell
+                      >
+                      <TableCell
+                        ><div class="flex gap-1" @click.stop>
+                          <Button
+                            v-if="canUpdate"
+                            size="sm"
+                            variant="outline"
+                            @click="openEditType(type)"
+                            >编辑</Button
+                          ><Button
+                            v-if="canUpdate"
+                            size="sm"
+                            variant="ghost"
+                            @click="toggleTypeStatus(type)"
+                            >{{ type.status === 1 ? "停用" : "启用" }}</Button
+                          ><Button
+                            v-if="canDelete"
+                            size="sm"
+                            variant="ghost"
+                            class="text-destructive"
+                            @click="removeType(type)"
+                            >删除</Button
+                          >
+                        </div></TableCell
+                      >
+                    </TableRow></TableBody
+                  >
+                </Table>
               </div>
               <div class="flex items-center justify-end gap-2 text-xs">
-                <Button size="sm" variant="outline" :disabled="typePage <= 1" @click="typePage--; loadTypes()">上一页</Button><span>第 {{ typePage }} / {{ typePageCount }} 页</span><Button size="sm" variant="outline" :disabled="typePage >= typePageCount" @click="typePage++; loadTypes()">下一页</Button>
-                <select v-model.number="typePageSize" aria-label="每页类型数" class="h-8 rounded-md border bg-background px-2" @change="typePage = 1; loadTypes()"><option :value="10">10</option><option :value="20">20</option><option :value="50">50</option></select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="typePage <= 1"
+                  @click="
+                    typePage--;
+                    loadTypes();
+                  "
+                  >上一页</Button
+                ><span>第 {{ typePage }} / {{ typePageCount }} 页</span
+                ><Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="typePage >= typePageCount"
+                  @click="
+                    typePage++;
+                    loadTypes();
+                  "
+                  >下一页</Button
+                >
+                <NativeSelect
+                  v-model.number="typePageSize"
+                  aria-label="每页类型数"
+                  class="h-8"
+                  @update:model-value="
+                    typePage = 1;
+                    loadTypes();
+                  "
+                  ><NativeSelectOption :value="10">10</NativeSelectOption
+                  ><NativeSelectOption :value="20">20</NativeSelectOption
+                  ><NativeSelectOption :value="50">50</NativeSelectOption></NativeSelect
+                >
               </div>
             </CardContent>
           </Card>
 
           <Card class="min-w-0">
-            <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-3"><div><CardTitle class="text-base">{{ selectedType?.dictName ?? "字典项" }}</CardTitle><p class="text-xs text-muted-foreground">{{ selectedType?.dictCode ?? "选择一个字典类型查看字典项" }}</p></div><div class="flex gap-2"><Button v-if="canUpdate" variant="outline" :disabled="!selectedType || !itemRows.length" @click="saveItemOrder">保存排序</Button><Button v-if="canCreate" :disabled="!selectedType" @click="openCreateItem">新增字典项</Button></div></CardHeader>
+            <CardHeader class="flex flex-row flex-wrap items-center justify-between gap-3"
+              ><div>
+                <CardTitle class="text-base">{{ selectedType?.dictName ?? "字典项" }}</CardTitle>
+                <p class="text-xs text-muted-foreground">
+                  {{ selectedType?.dictCode ?? "选择一个字典类型查看字典项" }}
+                </p>
+              </div>
+              <div class="flex gap-2">
+                <Button
+                  v-if="canUpdate"
+                  variant="outline"
+                  :disabled="!selectedType || !itemRows.length"
+                  @click="saveItemOrder"
+                  >保存排序</Button
+                ><Button v-if="canCreate" :disabled="!selectedType" @click="openCreateItem"
+                  >新增字典项</Button
+                >
+              </div></CardHeader
+            >
             <CardContent>
-              <p v-if="itemError" role="alert" class="mb-3 text-sm text-destructive">{{ itemError }} <Button size="sm" variant="outline" @click="loadItems()">重试</Button></p>
-              <div v-if="itemLoading" role="status" class="py-8 text-center text-sm text-muted-foreground">正在加载字典项…</div>
-              <div v-else-if="!selectedType" class="py-8 text-center text-sm text-muted-foreground">请先选择字典类型</div>
-              <div v-else-if="!itemError && !itemRows.length" class="py-8 text-center text-sm text-muted-foreground">该类型暂无字典项</div>
+              <Alert variant="destructive" v-if="itemError" class="mb-3"
+                ><AlertDescription
+                  >{{ itemError }}
+                  <Button size="sm" variant="outline" @click="loadItems()"
+                    >重试</Button
+                  ></AlertDescription
+                ></Alert
+              >
+              <div
+                v-if="itemLoading"
+                role="status"
+                class="py-8 text-center text-sm text-muted-foreground"
+              >
+                正在加载字典项…
+              </div>
+              <div v-else-if="!selectedType" class="py-8 text-center text-sm text-muted-foreground">
+                请先选择字典类型
+              </div>
+              <div
+                v-else-if="!itemError && !itemRows.length"
+                class="py-8 text-center text-sm text-muted-foreground"
+              >
+                该类型暂无字典项
+              </div>
               <div v-else-if="!itemError" class="overflow-x-auto rounded-md border">
-                <table class="w-full min-w-[700px] text-left text-sm">
-                  <thead class="bg-muted/50 text-muted-foreground"><tr><th class="px-3 py-2 font-medium">字典值</th><th class="px-3 py-2 font-medium">字典标签</th><th class="px-3 py-2 font-medium">排序</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">操作</th></tr></thead>
-                  <tbody><tr v-for="item in itemRows" :key="item.id" class="border-t"><td class="px-3 py-2 font-mono text-xs">{{ item.itemValue }}</td><td class="px-3 py-2"><div class="font-medium">{{ item.itemLabel }}</div><div class="text-xs text-muted-foreground">{{ item.description || "" }}</div></td><td class="px-3 py-2"><Input v-model.number="item.sortOrder" type="number" min="0" class="h-8 w-24" :aria-label="`${item.itemLabel}排序`" :disabled="!canUpdate" /></td><td class="px-3 py-2"><Badge :variant="item.status === 1 ? 'default' : 'secondary'">{{ item.status === 1 ? "启用" : "停用" }}</Badge></td><td class="px-3 py-2"><div class="flex gap-1"><Button v-if="canUpdate" size="sm" variant="outline" @click="openEditItem(item)">编辑</Button><Button v-if="canUpdate" size="sm" variant="ghost" @click="toggleItemStatus(item)">{{ item.status === 1 ? "停用" : "启用" }}</Button><Button v-if="canDelete" size="sm" variant="ghost" class="text-destructive" @click="removeItem(item)">删除</Button></div></td></tr></tbody>
-                </table>
+                <Table class="w-full min-w-[700px] text-left">
+                  <TableHeader
+                    ><TableRow
+                      ><TableHead>字典值</TableHead><TableHead>字典标签</TableHead
+                      ><TableHead>排序</TableHead><TableHead>状态</TableHead
+                      ><TableHead>操作</TableHead></TableRow
+                    ></TableHeader
+                  >
+                  <TableBody
+                    ><TableRow v-for="item in itemRows" :key="item.id"
+                      ><TableCell class="font-mono">{{ item.itemValue }}</TableCell
+                      ><TableCell
+                        ><div class="font-medium">{{ item.itemLabel }}</div>
+                        <div class="text-xs text-muted-foreground">
+                          {{ item.description || "" }}
+                        </div></TableCell
+                      ><TableCell
+                        ><Input
+                          v-model.number="item.sortOrder"
+                          type="number"
+                          min="0"
+                          class="h-8 w-24"
+                          :aria-label="`${item.itemLabel}排序`"
+                          :disabled="!canUpdate" /></TableCell
+                      ><TableCell
+                        ><Badge :variant="item.status === 1 ? 'default' : 'secondary'">{{
+                          item.status === 1 ? "启用" : "停用"
+                        }}</Badge></TableCell
+                      ><TableCell
+                        ><div class="flex gap-1">
+                          <Button
+                            v-if="canUpdate"
+                            size="sm"
+                            variant="outline"
+                            @click="openEditItem(item)"
+                            >编辑</Button
+                          ><Button
+                            v-if="canUpdate"
+                            size="sm"
+                            variant="ghost"
+                            @click="toggleItemStatus(item)"
+                            >{{ item.status === 1 ? "停用" : "启用" }}</Button
+                          ><Button
+                            v-if="canDelete"
+                            size="sm"
+                            variant="ghost"
+                            class="text-destructive"
+                            @click="removeItem(item)"
+                            >删除</Button
+                          >
+                        </div></TableCell
+                      ></TableRow
+                    ></TableBody
+                  >
+                </Table>
               </div>
             </CardContent>
           </Card>
@@ -358,16 +584,117 @@ onMounted(loadTypes);
       </CardContent>
     </Card>
 
-    <div v-if="typeEditorOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="typeEditorOpen = false">
-      <section role="dialog" aria-modal="true" aria-labelledby="dict-type-dialog-title" class="w-full max-w-lg rounded-lg border bg-background p-5 shadow-lg"><h2 id="dict-type-dialog-title" class="text-lg font-semibold">{{ typeEditorMode === "create" ? "新增字典类型" : "编辑字典类型" }}</h2>
-        <form class="mt-4 space-y-4" @submit.prevent="saveType"><div class="space-y-1.5"><Label for="dict-type-code">字典编码</Label><Input id="dict-type-code" v-model="typeForm.dictCode" required maxlength="64" /></div><div class="space-y-1.5"><Label for="dict-type-name">字典名称</Label><Input id="dict-type-name" v-model="typeForm.dictName" required maxlength="128" /></div><div class="space-y-1.5"><Label for="dict-type-description">说明</Label><textarea id="dict-type-description" v-model="typeForm.description" maxlength="255" rows="2" class="w-full rounded-md border bg-background px-3 py-2 text-sm" /></div><label class="flex items-center gap-2 text-sm"><input v-model="typeForm.status" type="checkbox" :true-value="1" :false-value="0" />类型启用</label><p v-if="actionError" role="alert" class="text-sm text-destructive">{{ actionError }}</p><div class="flex justify-end gap-2"><Button type="button" variant="outline" @click="typeEditorOpen = false">取消</Button><Button type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存" }}</Button></div></form>
-      </section>
-    </div>
+    <Dialog v-model:open="typeEditorOpen"
+      ><DialogContent
+        @close-auto-focus="restoreTypeEditorOpenFocus"
+        class="w-full max-w-lg"
+        :aria-describedby="undefined"
+        ><DialogHeader
+          ><DialogTitle>{{
+            typeEditorMode === "create" ? "新增字典类型" : "编辑字典类型"
+          }}</DialogTitle></DialogHeader
+        >
+        <form @submit.prevent="saveType">
+          <FieldGroup class="mt-4 gap-4"
+            ><Field class="gap-2"
+              ><FieldLabel for="dict-type-code">字典编码</FieldLabel
+              ><Input
+                id="dict-type-code"
+                v-model="typeForm.dictCode"
+                required
+                maxlength="64" /></Field
+            ><Field class="gap-2"
+              ><FieldLabel for="dict-type-name">字典名称</FieldLabel
+              ><Input
+                id="dict-type-name"
+                v-model="typeForm.dictName"
+                required
+                maxlength="128" /></Field
+            ><Field class="gap-2"
+              ><FieldLabel for="dict-type-description">说明</FieldLabel
+              ><Textarea
+                id="dict-type-description"
+                v-model="typeForm.description"
+                maxlength="255"
+                rows="2"
+                class="w-full" /></Field
+            ><label class="flex items-center gap-2 text-sm"
+              ><Switch
+                :model-value="typeForm.status === 1"
+                @update:model-value="typeForm.status = $event === true ? 1 : 0"
+              />类型启用</label
+            ><Alert variant="destructive" v-if="actionError"
+              ><AlertDescription>{{ actionError }}</AlertDescription></Alert
+            >
+            <div class="flex justify-end gap-2">
+              <DialogClose as-child
+                ><Button type="button" variant="outline">取消</Button></DialogClose
+              ><Button type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存" }}</Button>
+            </div></FieldGroup
+          >
+        </form>
+      </DialogContent></Dialog
+    >
 
-    <div v-if="itemEditorOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="itemEditorOpen = false">
-      <section role="dialog" aria-modal="true" aria-labelledby="dict-item-dialog-title" class="w-full max-w-lg rounded-lg border bg-background p-5 shadow-lg"><h2 id="dict-item-dialog-title" class="text-lg font-semibold">{{ itemEditorMode === "create" ? "新增字典项" : "编辑字典项" }} · {{ selectedType?.dictName }}</h2>
-        <form class="mt-4 space-y-4" @submit.prevent="saveItem"><div class="space-y-1.5"><Label for="dict-item-value">字典值</Label><Input id="dict-item-value" v-model="itemForm.itemValue" required maxlength="64" /></div><div class="space-y-1.5"><Label for="dict-item-label">字典标签</Label><Input id="dict-item-label" v-model="itemForm.itemLabel" required maxlength="128" /></div><div class="grid gap-3 sm:grid-cols-2"><div class="space-y-1.5"><Label for="dict-item-order">排序号</Label><Input id="dict-item-order" v-model.number="itemForm.sortOrder" type="number" min="0" required /></div><label class="flex items-center gap-2 self-end pb-2 text-sm"><input v-model="itemForm.status" type="checkbox" :true-value="1" :false-value="0" />字典项启用</label></div><div class="space-y-1.5"><Label for="dict-item-description">说明</Label><textarea id="dict-item-description" v-model="itemForm.description" maxlength="255" rows="2" class="w-full rounded-md border bg-background px-3 py-2 text-sm" /></div><p v-if="actionError" role="alert" class="text-sm text-destructive">{{ actionError }}</p><div class="flex justify-end gap-2"><Button type="button" variant="outline" @click="itemEditorOpen = false">取消</Button><Button type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存" }}</Button></div></form>
-      </section>
-    </div>
+    <Dialog v-model:open="itemEditorOpen"
+      ><DialogContent
+        @close-auto-focus="restoreItemEditorOpenFocus"
+        class="w-full max-w-lg"
+        :aria-describedby="undefined"
+        ><DialogHeader
+          ><DialogTitle
+            >{{ itemEditorMode === "create" ? "新增字典项" : "编辑字典项" }} ·
+            {{ selectedType?.dictName }}</DialogTitle
+          ></DialogHeader
+        >
+        <form @submit.prevent="saveItem">
+          <FieldGroup class="mt-4 gap-4"
+            ><Field class="gap-2"
+              ><FieldLabel for="dict-item-value">字典值</FieldLabel
+              ><Input
+                id="dict-item-value"
+                v-model="itemForm.itemValue"
+                required
+                maxlength="64" /></Field
+            ><Field class="gap-2"
+              ><FieldLabel for="dict-item-label">字典标签</FieldLabel
+              ><Input id="dict-item-label" v-model="itemForm.itemLabel" required maxlength="128"
+            /></Field>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <Field class="gap-2"
+                ><FieldLabel for="dict-item-order">排序号</FieldLabel
+                ><Input
+                  id="dict-item-order"
+                  v-model.number="itemForm.sortOrder"
+                  type="number"
+                  min="0"
+                  required /></Field
+              ><label class="flex items-center gap-2 self-end pb-2 text-sm"
+                ><Switch
+                  :model-value="itemForm.status === 1"
+                  @update:model-value="itemForm.status = $event === true ? 1 : 0"
+                />字典项启用</label
+              >
+            </div>
+            <Field class="gap-2"
+              ><FieldLabel for="dict-item-description">说明</FieldLabel
+              ><Textarea
+                id="dict-item-description"
+                v-model="itemForm.description"
+                maxlength="255"
+                rows="2"
+                class="w-full" /></Field
+            ><Alert variant="destructive" v-if="actionError"
+              ><AlertDescription>{{ actionError }}</AlertDescription></Alert
+            >
+            <div class="flex justify-end gap-2">
+              <DialogClose as-child
+                ><Button type="button" variant="outline">取消</Button></DialogClose
+              ><Button type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存" }}</Button>
+            </div></FieldGroup
+          >
+        </form>
+      </DialogContent></Dialog
+    >
   </main>
 </template>

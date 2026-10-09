@@ -18,7 +18,9 @@ export function getAuthSessionIdentity(
   try {
     const encodedPayload = tokenParts[1].replaceAll("-", "+").replaceAll("_", "/");
     const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
-    const payloadBytes = Uint8Array.from(atob(paddedPayload), character => character.charCodeAt(0));
+    const payloadBytes = Uint8Array.from(atob(paddedPayload), (character) =>
+      character.charCodeAt(0)
+    );
     const claims: unknown = JSON.parse(new TextDecoder().decode(payloadBytes));
     if (typeof claims !== "object" || claims === null) return null;
     const record = claims as Record<string, unknown>;
@@ -26,7 +28,8 @@ export function getAuthSessionIdentity(
       record.sub !== session.user.id ||
       typeof record.session_id !== "string" ||
       !sessionIdPattern.test(record.session_id)
-    ) return null;
+    )
+      return null;
     return {
       authUserId: session.user.id,
       sessionId: record.session_id,
@@ -41,5 +44,7 @@ export function isSameAuthSession(
   left: Pick<AuthSessionIdentity, "authUserId" | "sessionId"> | null | undefined,
   right: Pick<AuthSessionIdentity, "authUserId" | "sessionId"> | null | undefined
 ): boolean {
-  return Boolean(left && right && left.authUserId === right.authUserId && left.sessionId === right.sessionId);
+  return Boolean(
+    left && right && left.authUserId === right.authUserId && left.sessionId === right.sessionId
+  );
 }

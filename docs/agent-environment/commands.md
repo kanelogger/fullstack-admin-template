@@ -14,6 +14,8 @@
 | 开发 | `pnpm dev` | Supabase Local 已运行；同时启动 Edge Function server 和 Vite PC 应用 `127.0.0.1:8848` |
 | 文档引用 | `pnpm check:docs` | 检查活动 Markdown 相对链接和 workspace script 引用 |
 | 类型检查 | `pnpm typecheck` | 前端 Vue/TypeScript、共享 Zod package、全部 Deno functions |
+| 前端格式检查 | `pnpm format:check` | Prettier 固定版本检查业务页面、composables 与 message 适配层；CI 执行该检查 |
+| 前端格式修复 | `pnpm format` | 只格式化上述前端文件，不修改设计文档 |
 | 源码 lint | `pnpm lint` | ESLint 检查 Vue/TypeScript、共享合同、脚本；Deno lint 检查 Edge Functions |
 | RouteKey 合同 | `pnpm check:routes` | 检查前端注册、菜单元数据、权限键与未忽略的页面导入；CI 另要求页面文件已跟踪 |
 | 测试架构 | `pnpm check:test-architecture` | 检查 Playwright 六类 spec 白名单、待退出 spec 与逐断言替代映射 |

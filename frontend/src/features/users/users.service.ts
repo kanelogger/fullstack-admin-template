@@ -35,11 +35,10 @@ async function functionError(error: unknown): Promise<Error | null> {
 
 async function invoke(action: unknown): Promise<unknown> {
   const request = UserManagementRequestSchema.parse(action);
-  const { data, error } = await getSupabaseClient().functions.invoke(
-    "user-management",
-    { body: request }
-  );
-  if (error) throw await functionError(error) ?? failure("用户管理请求失败");
+  const { data, error } = await getSupabaseClient().functions.invoke("user-management", {
+    body: request
+  });
+  if (error) throw (await functionError(error)) ?? failure("用户管理请求失败");
   if (!data || typeof data !== "object") throw failure("用户管理服务返回了无效数据");
   const envelope = data as Record<string, unknown>;
   if (envelope.success !== true) {

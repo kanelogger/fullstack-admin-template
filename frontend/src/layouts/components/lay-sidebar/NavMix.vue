@@ -11,7 +11,10 @@ const menus = computed(() => permissionStore.wholeMenus);
 </script>
 
 <template>
-  <header v-if="appStore.device !== 'mobile'" class="horizontal-header flex min-w-0 items-center border-b border-border bg-background text-foreground">
+  <header
+    v-if="appStore.device !== 'mobile'"
+    class="horizontal-header flex min-w-0 items-center border-b border-border bg-background text-foreground"
+  >
     <HorizontalMenu :items="menus" label="一级导航" />
     <SidebarHeaderActions class="horizontal-header-right" />
   </header>

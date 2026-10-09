@@ -10,14 +10,16 @@ import {
 
 describe("tree utilities", () => {
   it("populates hierarchy metadata and preserves the tree nodes", () => {
-    const tree = [
-      { name: "root", children: [{ name: "child" }] },
-      { name: "other" }
-    ];
+    const tree = [{ name: "root", children: [{ name: "child" }] }, { name: "other" }];
 
     expect(buildHierarchyTree(tree)).toBe(tree);
     expect(tree).toMatchObject([
-      { id: 0, parentId: null, pathList: [0], children: [{ id: 0, parentId: 0, pathList: [0, 0] }] },
+      {
+        id: 0,
+        parentId: null,
+        pathList: [0],
+        children: [{ id: 0, parentId: 0, pathList: [0, 0] }]
+      },
       { id: 1, parentId: null, pathList: [1] }
     ]);
   });
@@ -39,7 +41,12 @@ describe("tree utilities", () => {
   });
 
   it("builds a flat-list hierarchy while treating numeric and string IDs consistently", () => {
-    type FlatNode = { id: number; parentId: number | string | null; name: string; children?: FlatNode[] };
+    type FlatNode = {
+      id: number;
+      parentId: number | string | null;
+      name: string;
+      children?: FlatNode[];
+    };
     const rows: FlatNode[] = [
       { id: 1, parentId: null, name: "root" },
       { id: 2, parentId: "1", name: "child" }
@@ -50,9 +57,8 @@ describe("tree utilities", () => {
   });
 
   it("extracts unique IDs from the current tree level", () => {
-    expect(extractPathList([
-      { uniqueId: 1, children: [{ uniqueId: 2 }] },
-      { uniqueId: "three" }
-    ])).toEqual([1, "three"]);
+    expect(
+      extractPathList([{ uniqueId: 1, children: [{ uniqueId: 2 }] }, { uniqueId: "three" }])
+    ).toEqual([1, "three"]);
   });
 });

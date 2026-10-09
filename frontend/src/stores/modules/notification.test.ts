@@ -21,7 +21,7 @@ const bobId = "9007199254740995";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>(done => {
+  const promise = new Promise<T>((done) => {
     resolve = done;
   });
   return { promise, resolve };
@@ -50,12 +50,8 @@ describe("notification session ownership", () => {
 
   it("ignores a delayed previous-account count after the recipient changes", async () => {
     const aliceCount = deferred<number>();
-    messageMocks.currentReceiverId
-      .mockResolvedValueOnce(aliceId)
-      .mockResolvedValueOnce(bobId);
-    messageMocks.unreadCount
-      .mockReturnValueOnce(aliceCount.promise)
-      .mockResolvedValueOnce(3);
+    messageMocks.currentReceiverId.mockResolvedValueOnce(aliceId).mockResolvedValueOnce(bobId);
+    messageMocks.unreadCount.mockReturnValueOnce(aliceCount.promise).mockResolvedValueOnce(3);
     const notifications = useNotificationStore(createPinia());
 
     const aliceStart = notifications.startMessageUpdates(aliceId);

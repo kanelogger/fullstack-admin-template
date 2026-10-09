@@ -31,7 +31,7 @@ export function buildNavigationRoutes(entries: MenuEntry[]): DynamicRoute[] {
 
   const sortTree = (siblings: NavigationNode[]) => {
     siblings.sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
-    siblings.forEach(node => sortTree(node.children));
+    siblings.forEach((node) => sortTree(node.children));
   };
   sortTree(roots);
 
@@ -39,7 +39,9 @@ export function buildNavigationRoutes(entries: MenuEntry[]): DynamicRoute[] {
   const mapNode = (node: NavigationNode): DynamicRoute | null => {
     if (visited.has(node.id)) throw new Error("Supabase navigation contains a cycle");
     visited.add(node.id);
-    const children = node.children.map(mapNode).filter((route): route is DynamicRoute => route !== null);
+    const children = node.children
+      .map(mapNode)
+      .filter((route): route is DynamicRoute => route !== null);
 
     if (node.kind === "group") {
       if (children.length === 0) return null;

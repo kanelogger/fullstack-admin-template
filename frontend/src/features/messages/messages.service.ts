@@ -105,7 +105,9 @@ export async function getMessage(idInput: unknown): Promise<MessageDetail> {
   const receiverId = await getCurrentMessageReceiverId();
   const { data, error } = await getSupabaseClient()
     .from("message_read_model")
-    .select("id, receiver_id, sender_id, title, summary, content, message_type, read_status, sent_at, read_at")
+    .select(
+      "id, receiver_id, sender_id, title, summary, content, message_type, read_status, sent_at, read_at"
+    )
     .eq("id", id)
     .eq("receiver_id", receiverId)
     .maybeSingle();
@@ -147,9 +149,10 @@ export async function markMessagesRead(input: unknown): Promise<{ count: number 
 }
 
 export async function getUnreadMessageCount(receiverIdInput?: unknown): Promise<number> {
-  const receiverId = receiverIdInput === undefined
-    ? await getCurrentMessageReceiverId()
-    : BusinessIdSchema.parse(receiverIdInput);
+  const receiverId =
+    receiverIdInput === undefined
+      ? await getCurrentMessageReceiverId()
+      : BusinessIdSchema.parse(receiverIdInput);
   const { count, error } = await getSupabaseClient()
     .from("messages")
     .select("id", { count: "exact", head: true })

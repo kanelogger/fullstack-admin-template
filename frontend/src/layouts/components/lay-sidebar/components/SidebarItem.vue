@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { RouterLink, useRoute } from "vue-router";
 import { resolveMenuIcon } from "@/features/menus/menu-icons";
 import type { menuType } from "@/layouts/types";
@@ -18,13 +19,15 @@ const children = computed(() => props.item.children ?? []);
 const singleVisibleChild = computed(
   () => children.value.length === 1 && !props.item.meta?.showParent
 );
-const displayItem = computed(() =>
-  singleVisibleChild.value ? children.value[0] : props.item
-);
+const displayItem = computed(() => (singleVisibleChild.value ? children.value[0] : props.item));
 const itemPath = computed(() => resolvePath(props.basePath ?? "", displayItem.value.path ?? ""));
 const active = computed(() => {
   const target = String(route.meta.activePath ?? route.path);
   return target === itemPath.value || target.startsWith(`${itemPath.value}/`);
+});
+const expanded = ref(active.value);
+watch(active, (value) => {
+  expanded.value = value;
 });
 const icon = computed(() =>
   displayItem.value.meta?.icon || props.item.meta?.icon
@@ -46,14 +49,14 @@ function resolvePath(base: string, path: string): string {
 
 <template>
   <li class="min-w-0 list-none">
-    <details
+    <Collapsible
       v-if="children.length && !singleVisibleChild"
       class="group"
-      :open="active"
+      v-model:open="expanded"
       :aria-label="item.meta?.title"
     >
-      <summary
-        class="flex min-h-10 cursor-pointer list-none items-center gap-3 rounded-md px-3 text-sm text-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+      <CollapsibleTrigger
+        class="flex w-full min-h-10 cursor-pointer list-none items-center gap-3 rounded-md px-3 text-sm text-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
         :class="[
           active ? 'bg-accent text-accent-foreground' : '',
           collapsed ? 'justify-center px-2' : '',
@@ -63,22 +66,31 @@ function resolvePath(base: string, path: string): string {
       >
         <component v-if="icon" :is="icon" class="size-4 shrink-0" aria-hidden="true" />
         <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.meta?.title }}</span>
-        <span v-if="!collapsed" class="text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-      </summary>
-      <ul
-        class="ml-4 mt-1 space-y-1 border-l border-border pl-2"
-        :class="horizontal ? 'absolute z-20 min-w-52 rounded-md border bg-popover p-2 shadow-md' : ''"
-      >
-        <SidebarItem
-          v-for="child in children"
-          :key="`${itemPath}/${child.path}`"
-          :item="child"
-          :base-path="itemPath"
-          :collapsed="false"
-          :horizontal="horizontal"
-        />
-      </ul>
-    </details>
+        <span
+          v-if="!collapsed"
+          class="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+          aria-hidden="true"
+          >›</span
+        >
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul
+          class="ml-4 mt-1 space-y-1 border-l border-border pl-2"
+          :class="
+            horizontal ? 'absolute z-20 min-w-52 rounded-md border bg-popover p-2 shadow-md' : ''
+          "
+        >
+          <SidebarItem
+            v-for="child in children"
+            :key="`${itemPath}/${child.path}`"
+            :item="child"
+            :base-path="itemPath"
+            :collapsed="false"
+            :horizontal="horizontal"
+          />
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
     <a
       v-else-if="externalUrl"
       :href="externalUrl"
@@ -103,7 +115,11 @@ function resolvePath(base: string, path: string): string {
     >
       <component v-if="icon" :is="icon" class="size-4 shrink-0" aria-hidden="true" />
       <span v-if="!collapsed" class="min-w-0 truncate">{{ displayItem.meta?.title }}</span>
-      <span v-if="!collapsed && displayItem.meta?.extraIcon" class="ml-auto text-muted-foreground">{{ displayItem.meta.extraIcon }}</span>
+      <span
+        v-if="!collapsed && displayItem.meta?.extraIcon"
+        class="ml-auto text-muted-foreground"
+        >{{ displayItem.meta.extraIcon }}</span
+      >
     </RouterLink>
   </li>
 </template>

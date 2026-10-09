@@ -370,7 +370,7 @@ test("local PC browser completes Auth, dictionary CRUD, Realtime, refresh, permi
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await profilePending;
     await page.getByLabel(`用户菜单：${profile.display_name}`).click();
-    await page.getByRole("button", { name: "退出系统" }).click();
+    await page.getByRole("menuitem", { name: "退出系统" }).click();
     await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
 
     releaseProfile();

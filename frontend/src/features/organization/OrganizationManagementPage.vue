@@ -1,14 +1,33 @@
 <script setup lang="ts">
+import { useDialogReturnFocus } from "@/composables/use-dialog-return-focus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { requestConfirmation } from "@/composables/use-confirmation";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { computed, onMounted, reactive, ref } from "vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Department, Post } from "@template/contracts/organization";
@@ -36,10 +55,10 @@ type Row = {
 
 const props = defineProps<{ kind: Kind }>();
 const permissions = computed(() => new Set(usePermissionStoreHook().permissionKeys));
-const resource = computed(() => props.kind === "department" ? "departments" : "posts");
-const label = computed(() => props.kind === "department" ? "部门" : "岗位");
-const codeLabel = computed(() => props.kind === "department" ? "部门编码" : "岗位编码");
-const nameLabel = computed(() => props.kind === "department" ? "部门名称" : "岗位名称");
+const resource = computed(() => (props.kind === "department" ? "departments" : "posts"));
+const label = computed(() => (props.kind === "department" ? "部门" : "岗位"));
+const codeLabel = computed(() => (props.kind === "department" ? "部门编码" : "岗位编码"));
+const nameLabel = computed(() => (props.kind === "department" ? "部门名称" : "岗位名称"));
 const canRead = computed(() => permissions.value.has(`organization.${resource.value}.read`));
 const canCreate = computed(() => permissions.value.has(`organization.${resource.value}.create`));
 const canUpdate = computed(() => permissions.value.has(`organization.${resource.value}.update`));
@@ -58,6 +77,8 @@ const codeFilter = ref("");
 const nameFilter = ref("");
 const statusFilter = ref<"all" | "0" | "1">("all");
 const editorOpen = ref(false);
+const { restore: restoreEditorFocus } = useDialogReturnFocus(editorOpen);
+
 const editorMode = ref<"create" | "edit">("create");
 const form = reactive({
   id: "" as string | undefined,
@@ -69,12 +90,24 @@ const form = reactive({
 });
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
-const departmentById = computed(() => new Map(departmentOptions.value.map(department => [department.id, department])));
+const departmentById = computed(
+  () => new Map(departmentOptions.value.map((department) => [department.id, department]))
+);
 
-const selectableParents = computed(() => departmentOptions.value
-  .filter(department => department.id !== form.id && !isDepartmentDescendant(department.id, form.id, departmentById.value))
-  .sort((left, right) => departmentPath(left.deptName, left.parentId, left.id)
-    .localeCompare(departmentPath(right.deptName, right.parentId, right.id), "zh-CN")));
+const selectableParents = computed(() =>
+  departmentOptions.value
+    .filter(
+      (department) =>
+        department.id !== form.id &&
+        !isDepartmentDescendant(department.id, form.id, departmentById.value)
+    )
+    .sort((left, right) =>
+      departmentPath(left.deptName, left.parentId, left.id).localeCompare(
+        departmentPath(right.deptName, right.parentId, right.id),
+        "zh-CN"
+      )
+    )
+);
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -100,7 +133,11 @@ function toRow(value: Department | Post): Row {
       };
 }
 
-function isDepartmentDescendant(candidateId: string, ancestorId: string | undefined, byId: Map<string, Department>): boolean {
+function isDepartmentDescendant(
+  candidateId: string,
+  ancestorId: string | undefined,
+  byId: Map<string, Department>
+): boolean {
   if (!ancestorId) return false;
   let parentId = byId.get(candidateId)?.parentId ?? null;
   const visited = new Set<string>();
@@ -145,11 +182,20 @@ async function loadRows() {
     const commonFilters = {
       page: page.value,
       pageSize: pageSize.value,
-      status: statusFilter.value === "all" ? undefined : Number(statusFilter.value) as Status
+      status: statusFilter.value === "all" ? undefined : (Number(statusFilter.value) as Status)
     };
-    const result = props.kind === "department"
-      ? await getDepartments({ ...commonFilters, deptCode: codeFilter.value, deptName: nameFilter.value })
-      : await getPosts({ ...commonFilters, postCode: codeFilter.value, postName: nameFilter.value });
+    const result =
+      props.kind === "department"
+        ? await getDepartments({
+            ...commonFilters,
+            deptCode: codeFilter.value,
+            deptName: nameFilter.value
+          })
+        : await getPosts({
+            ...commonFilters,
+            postCode: codeFilter.value,
+            postName: nameFilter.value
+          });
     if (props.kind === "department") {
       departmentOptions.value = await listDepartmentOptions();
     }
@@ -243,7 +289,12 @@ async function toggleStatus(row: Row) {
       description: row.description
     };
     if (props.kind === "department") {
-      await saveDepartment({ ...common, parentId: row.parentId, deptCode: row.code, deptName: row.name });
+      await saveDepartment({
+        ...common,
+        parentId: row.parentId,
+        deptCode: row.code,
+        deptName: row.name
+      });
     } else {
       await savePost({ ...common, postCode: row.code, postName: row.name });
     }
@@ -254,7 +305,7 @@ async function toggleStatus(row: Row) {
 }
 
 async function remove(row: Row) {
-  if (!window.confirm(`确认删除${label.value}“${row.name}”？`)) return;
+  if (!(await requestConfirmation(`确认删除${label.value}“${row.name}”？`))) return;
   actionError.value = "";
   try {
     if (props.kind === "department") await deleteDepartment(row.id);
@@ -275,185 +326,264 @@ onMounted(() => void loadRows());
 
 <template>
   <main class="space-y-4 p-4" :data-testid="`${kind}-management`">
-    <header class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p class="text-sm font-medium text-primary">系统管理</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ label }}管理</h1>
-      </div>
-      <Button v-if="canCreate" data-testid="create-organization" @click="openCreate">
-        新增{{ label }}
-      </Button>
-    </header>
+    <Dialog v-model:open="editorOpen">
+      <header class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-primary">系统管理</p>
+          <h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ label }}管理</h1>
+        </div>
+        <DialogTrigger v-if="canCreate" as-child>
+          <Button data-testid="create-organization" @click="openCreate">新增{{ label }}</Button>
+        </DialogTrigger>
+      </header>
 
-    <Card>
-      <CardHeader>
-        <CardTitle class="text-base">筛选{{ label }}</CardTitle>
-        <CardDescription>按编码、名称和状态查找{{ label }}。</CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_160px_auto]" @submit.prevent="search">
-          <div class="space-y-1.5">
-            <Label for="organization-code-filter">{{ codeLabel }}</Label>
-            <Input id="organization-code-filter" v-model="codeFilter" :placeholder="`搜索${codeLabel}`" />
+      <Card>
+        <CardHeader>
+          <CardTitle class="text-base">筛选{{ label }}</CardTitle>
+          <CardDescription>按编码、名称和状态查找{{ label }}。</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <form @submit.prevent="search">
+            <FieldGroup class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_160px_auto]">
+              <Field class="gap-2">
+                <FieldLabel for="organization-code-filter">{{ codeLabel }}</FieldLabel>
+                <Input
+                  id="organization-code-filter"
+                  v-model="codeFilter"
+                  :placeholder="`搜索${codeLabel}`"
+                />
+              </Field>
+              <Field class="gap-2">
+                <FieldLabel for="organization-name-filter">{{ nameLabel }}</FieldLabel>
+                <Input
+                  id="organization-name-filter"
+                  v-model="nameFilter"
+                  :placeholder="`搜索${nameLabel}`"
+                />
+              </Field>
+              <Field class="gap-2">
+                <FieldLabel for="organization-status-filter">状态</FieldLabel>
+                <NativeSelect
+                  wrapper-class="w-full"
+                  id="organization-status-filter"
+                  v-model="statusFilter"
+                  class="h-10 w-full"
+                >
+                  <NativeSelectOption value="all">全部</NativeSelectOption>
+                  <NativeSelectOption value="1">启用</NativeSelectOption>
+                  <NativeSelectOption value="0">停用</NativeSelectOption>
+                </NativeSelect>
+              </Field>
+              <div class="flex items-end gap-2">
+                <Button type="submit" variant="outline">查询</Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  @click="
+                    codeFilter = '';
+                    nameFilter = '';
+                    statusFilter = 'all';
+                    search();
+                  "
+                >
+                  重置
+                </Button>
+              </div>
+            </FieldGroup>
+          </form>
+
+          <Alert variant="destructive" v-if="actionError"
+            ><AlertDescription>
+              {{ actionError }}
+            </AlertDescription></Alert
+          >
+          <Alert variant="destructive" v-if="!canRead"
+            ><AlertDescription> 当前账号没有读取{{ label }}的权限。 </AlertDescription></Alert
+          >
+          <div
+            v-else-if="loading"
+            role="status"
+            class="py-10 text-center text-sm text-muted-foreground"
+          >
+            正在加载{{ label }}…
           </div>
-          <div class="space-y-1.5">
-            <Label for="organization-name-filter">{{ nameLabel }}</Label>
-            <Input id="organization-name-filter" v-model="nameFilter" :placeholder="`搜索${nameLabel}`" />
-          </div>
-          <div class="space-y-1.5">
-            <Label for="organization-status-filter">状态</Label>
-            <select
-              id="organization-status-filter"
-              v-model="statusFilter"
-              class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <div
+            v-else-if="loadError"
+            class="space-y-3 rounded-md border border-destructive/40 p-4 text-center"
+          >
+            <Alert variant="destructive"
+              ><AlertDescription>{{ loadError }}</AlertDescription></Alert
             >
-              <option value="all">全部</option>
-              <option value="1">启用</option>
-              <option value="0">停用</option>
-            </select>
+            <Button variant="outline" @click="loadRows">重试</Button>
           </div>
-          <div class="flex items-end gap-2">
-            <Button type="submit" variant="outline">查询</Button>
-            <Button
-              type="button"
-              variant="ghost"
-              @click="codeFilter = ''; nameFilter = ''; statusFilter = 'all'; search()"
+          <div
+            v-else-if="!rows.length"
+            role="status"
+            class="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground"
+          >
+            {{ total ? "当前页没有数据" : `暂无${label}数据` }}
+          </div>
+          <div v-else class="overflow-x-auto rounded-md border">
+            <Table class="w-full min-w-[760px] text-left">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{{ codeLabel }}</TableHead>
+                  <TableHead>{{ nameLabel }}</TableHead>
+                  <TableHead v-if="kind === 'department'">部门层级</TableHead>
+                  <TableHead>说明</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="row in rows" :key="row.id">
+                  <TableCell class="font-mono">{{ row.code }}</TableCell>
+                  <TableCell>{{ row.name }}</TableCell>
+                  <TableCell v-if="kind === 'department'">{{
+                    departmentPath(row.name, row.parentId, row.id)
+                  }}</TableCell>
+                  <TableCell>{{ row.description || "—" }}</TableCell>
+                  <TableCell>
+                    <Badge :variant="row.status === 1 ? 'default' : 'secondary'">
+                      {{ row.status === 1 ? "启用" : "停用" }}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div class="flex flex-wrap gap-2">
+                      <Button v-if="canUpdate" size="sm" variant="outline" @click="openEdit(row)"
+                        >编辑</Button
+                      >
+                      <Button v-if="canUpdate" size="sm" variant="ghost" @click="toggleStatus(row)">
+                        {{ row.status === 1 ? "停用" : "启用" }}
+                      </Button>
+                      <Button v-if="canDelete" size="sm" variant="destructive" @click="remove(row)"
+                        >删除</Button
+                      >
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          <div
+            v-if="canRead && !loading && !loadError"
+            class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground"
+          >
+            <span>共 {{ total }} 条，第 {{ page }} / {{ pageCount }} 页</span>
+            <Field class="flex items-center gap-2">
+              <FieldLabel :for="`${kind}-page-size`">每页</FieldLabel>
+              <NativeSelect
+                :id="`${kind}-page-size`"
+                v-model.number="pageSize"
+                class="h-9"
+                @update:model-value="search"
+              >
+                <NativeSelectOption :value="10">10</NativeSelectOption>
+                <NativeSelectOption :value="20">20</NativeSelectOption>
+                <NativeSelectOption :value="50">50</NativeSelectOption>
+                <NativeSelectOption :value="100">100</NativeSelectOption>
+              </NativeSelect>
+              <Button
+                size="sm"
+                variant="outline"
+                :disabled="page <= 1"
+                @click="changePage(page - 1)"
+                >上一页</Button
+              >
+              <Button
+                size="sm"
+                variant="outline"
+                :disabled="page >= pageCount"
+                @click="changePage(page + 1)"
+                >下一页</Button
+              >
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
+
+      <DialogContent
+        class="max-h-[90vh] w-full sm:max-w-xl overflow-y-auto"
+        @close-auto-focus="restoreEditorFocus"
+      >
+        <DialogHeader>
+          <DialogTitle>
+            {{ editorMode === "create" ? `新增${label}` : `编辑${label}` }}
+          </DialogTitle>
+          <DialogDescription>保存前会由数据库再次校验字段、权限和引用约束。</DialogDescription>
+        </DialogHeader>
+        <form @submit.prevent="save">
+          <FieldGroup class="gap-4 p-5">
+            <Alert variant="destructive" v-if="actionError"
+              ><AlertDescription>
+                {{ actionError }}
+              </AlertDescription></Alert
             >
-              重置
-            </Button>
-          </div>
+            <Field class="gap-2">
+              <FieldLabel :for="`${kind}-code`">{{ codeLabel }}</FieldLabel>
+              <Input :id="`${kind}-code`" v-model="form.code" required maxlength="64" />
+            </Field>
+            <Field class="gap-2">
+              <FieldLabel :for="`${kind}-name`">{{ nameLabel }}</FieldLabel>
+              <Input :id="`${kind}-name`" v-model="form.name" required maxlength="128" />
+            </Field>
+            <Field v-if="kind === 'department'" class="gap-2">
+              <FieldLabel for="department-parent">上级部门</FieldLabel>
+              <NativeSelect
+                wrapper-class="w-full"
+                id="department-parent"
+                v-model="form.parentId"
+                class="h-10 w-full"
+              >
+                <NativeSelectOption value="">无上级部门</NativeSelectOption>
+                <NativeSelectOption
+                  v-for="department in selectableParents"
+                  :key="department.id"
+                  :value="department.id"
+                >
+                  {{ departmentPath(department.deptName, department.parentId, department.id) }}
+                </NativeSelectOption>
+              </NativeSelect>
+            </Field>
+            <Field class="gap-2">
+              <FieldLabel :for="`${kind}-description`">说明</FieldLabel>
+              <Textarea
+                :id="`${kind}-description`"
+                v-model="form.description"
+                maxlength="255"
+                rows="3"
+                class="w-full"
+              />
+            </Field>
+            <div class="flex items-center gap-2">
+              <Switch
+                :id="`${kind}-active`"
+                :model-value="form.status === 1"
+                @update:model-value="form.status = $event === true ? 1 : 0"
+              />
+              <Label :for="`${kind}-active`">启用</Label>
+            </div>
+            <DialogFooter>
+              <DialogClose as-child
+                ><Button type="button" variant="outline" :disabled="saving"
+                  >取消</Button
+                ></DialogClose
+              >
+              <Button
+                type="submit"
+                :disabled="
+                  saving ||
+                  (!canCreate && editorMode === 'create') ||
+                  (!canUpdate && editorMode === 'edit')
+                "
+              >
+                {{ saving ? "保存中…" : "保存" }}
+              </Button>
+            </DialogFooter>
+          </FieldGroup>
         </form>
-
-        <p v-if="actionError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-          {{ actionError }}
-        </p>
-        <p v-if="!canRead" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-          当前账号没有读取{{ label }}的权限。
-        </p>
-        <div v-else-if="loading" role="status" class="py-10 text-center text-sm text-muted-foreground">
-          正在加载{{ label }}…
-        </div>
-        <div v-else-if="loadError" class="space-y-3 rounded-md border border-destructive/40 p-4 text-center">
-          <p role="alert" class="text-sm text-destructive">{{ loadError }}</p>
-          <Button variant="outline" @click="loadRows">重试</Button>
-        </div>
-        <div v-else-if="!rows.length" role="status" class="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
-          {{ total ? "当前页没有数据" : `暂无${label}数据` }}
-        </div>
-        <div v-else class="overflow-x-auto rounded-md border">
-          <table class="w-full min-w-[760px] text-left text-sm">
-            <thead class="bg-muted/50 text-muted-foreground">
-              <tr>
-                <th class="px-3 py-2 font-medium">{{ codeLabel }}</th>
-                <th class="px-3 py-2 font-medium">{{ nameLabel }}</th>
-                <th v-if="kind === 'department'" class="px-3 py-2 font-medium">部门层级</th>
-                <th class="px-3 py-2 font-medium">说明</th>
-                <th class="px-3 py-2 font-medium">状态</th>
-                <th class="px-3 py-2 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in rows" :key="row.id" class="border-t">
-                <td class="px-3 py-3 font-mono text-xs">{{ row.code }}</td>
-                <td class="px-3 py-3 font-medium">{{ row.name }}</td>
-                <td v-if="kind === 'department'" class="px-3 py-3 text-muted-foreground">{{ departmentPath(row.name, row.parentId, row.id) }}</td>
-                <td class="px-3 py-3 text-muted-foreground">{{ row.description || "—" }}</td>
-                <td class="px-3 py-3">
-                  <Badge :variant="row.status === 1 ? 'default' : 'secondary'">
-                    {{ row.status === 1 ? "启用" : "停用" }}
-                  </Badge>
-                </td>
-                <td class="px-3 py-3">
-                  <div class="flex flex-wrap gap-2">
-                    <Button v-if="canUpdate" size="sm" variant="outline" @click="openEdit(row)">编辑</Button>
-                    <Button v-if="canUpdate" size="sm" variant="ghost" @click="toggleStatus(row)">
-                      {{ row.status === 1 ? "停用" : "启用" }}
-                    </Button>
-                    <Button v-if="canDelete" size="sm" variant="destructive" @click="remove(row)">删除</Button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-if="canRead && !loading && !loadError" class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>共 {{ total }} 条，第 {{ page }} / {{ pageCount }} 页</span>
-          <div class="flex items-center gap-2">
-            <Label :for="`${kind}-page-size`">每页</Label>
-            <select
-              :id="`${kind}-page-size`"
-              v-model.number="pageSize"
-              class="h-9 rounded-md border border-input bg-background px-2"
-              @change="search"
-            >
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-            </select>
-            <Button size="sm" variant="outline" :disabled="page <= 1" @click="changePage(page - 1)">上一页</Button>
-            <Button size="sm" variant="outline" :disabled="page >= pageCount" @click="changePage(page + 1)">下一页</Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <div v-if="editorOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" @click.self="editorOpen = false">
-      <section role="dialog" aria-modal="true" :aria-labelledby="`${kind}-editor-title`" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-card text-card-foreground shadow-xl">
-        <form class="space-y-4 p-5" @submit.prevent="save">
-          <header>
-            <h2 :id="`${kind}-editor-title`" class="text-lg font-semibold">
-              {{ editorMode === "create" ? `新增${label}` : `编辑${label}` }}
-            </h2>
-            <p class="mt-1 text-sm text-muted-foreground">保存前会由数据库再次校验字段、权限和引用约束。</p>
-          </header>
-          <p v-if="actionError" role="alert" class="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            {{ actionError }}
-          </p>
-          <div class="space-y-1.5">
-            <Label :for="`${kind}-code`">{{ codeLabel }}</Label>
-            <Input :id="`${kind}-code`" v-model="form.code" required maxlength="64" />
-          </div>
-          <div class="space-y-1.5">
-            <Label :for="`${kind}-name`">{{ nameLabel }}</Label>
-            <Input :id="`${kind}-name`" v-model="form.name" required maxlength="128" />
-          </div>
-          <div v-if="kind === 'department'" class="space-y-1.5">
-            <Label for="department-parent">上级部门</Label>
-            <select
-              id="department-parent"
-              v-model="form.parentId"
-              class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">无上级部门</option>
-              <option v-for="department in selectableParents" :key="department.id" :value="department.id">
-                {{ departmentPath(department.deptName, department.parentId, department.id) }}
-              </option>
-            </select>
-          </div>
-          <div class="space-y-1.5">
-            <Label :for="`${kind}-description`">说明</Label>
-            <textarea
-              :id="`${kind}-description`"
-              v-model="form.description"
-              maxlength="255"
-              rows="3"
-              class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <input :id="`${kind}-active`" v-model="form.status" type="checkbox" :true-value="1" :false-value="0" class="size-4 accent-primary" />
-            <Label :for="`${kind}-active`">启用</Label>
-          </div>
-          <footer class="flex justify-end gap-2">
-            <Button type="button" variant="outline" :disabled="saving" @click="editorOpen = false">取消</Button>
-            <Button type="submit" :disabled="saving || !canCreate && editorMode === 'create' || !canUpdate && editorMode === 'edit'">
-              {{ saving ? "保存中…" : "保存" }}
-            </Button>
-          </footer>
-        </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   </main>
 </template>

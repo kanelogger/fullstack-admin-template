@@ -20,10 +20,4 @@ export {
   isUrl,
   storageLocal
 } from "@/utils/shared";
-export type {
-  uiType,
-  sessionType,
-  tabType,
-  cacheType,
-  positionType
-} from "./types";
+export type { uiType, sessionType, tabType, cacheType, positionType } from "./types";

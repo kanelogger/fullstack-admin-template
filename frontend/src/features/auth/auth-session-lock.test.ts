@@ -17,7 +17,10 @@ describe("withAuthSessionLock", () => {
         expect(options.mode).toBe("exclusive");
         requested.push(name);
         const current = queue.then(callback);
-        queue = current.then(() => undefined, () => undefined);
+        queue = current.then(
+          () => undefined,
+          () => undefined
+        );
         return current;
       }
     };
@@ -27,10 +30,14 @@ describe("withAuthSessionLock", () => {
     let releaseFirst!: () => void;
     const first = withAuthSessionLock(async () => {
       order.push("first-start");
-      await new Promise<void>(resolve => { releaseFirst = resolve; });
+      await new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
       order.push("first-end");
     });
-    const second = withAuthSessionLock(async () => { order.push("second"); });
+    const second = withAuthSessionLock(async () => {
+      order.push("second");
+    });
     await Promise.resolve();
     expect(order).toEqual(["first-start"]);
     releaseFirst();
@@ -45,6 +52,8 @@ describe("withAuthSessionLock", () => {
 
   it("fails closed when the browser has no Web Locks API", async () => {
     Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
-    await expect(withAuthSessionLock(async () => true)).rejects.toThrow("does not support safe cross-tab");
+    await expect(withAuthSessionLock(async () => true)).rejects.toThrow(
+      "does not support safe cross-tab"
+    );
   });
 });

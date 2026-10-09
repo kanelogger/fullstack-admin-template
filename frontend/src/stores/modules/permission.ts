@@ -56,8 +56,7 @@ export const usePermissionStore = defineStore("permission", {
       let cacheLength = this.cachePageList.length;
       const nameList = getKeyList(useTabsStoreHook().multiTags, "name");
       while (cacheLength > 0) {
-        nameList.findIndex(v => v === this.cachePageList[cacheLength - 1]) ===
-          -1 &&
+        nameList.findIndex((v) => v === this.cachePageList[cacheLength - 1]) === -1 &&
           this.cachePageList.splice(
             this.cachePageList.indexOf(this.cachePageList[cacheLength - 1]),
             1
@@ -66,10 +65,10 @@ export const usePermissionStore = defineStore("permission", {
       }
     },
     cacheOperate({ mode, name }: cacheType) {
-      const delIndex = this.cachePageList.findIndex(v => v === name);
+      const delIndex = this.cachePageList.findIndex((v) => v === name);
       switch (mode) {
         case "refresh":
-          this.cachePageList = this.cachePageList.filter(v => v !== name);
+          this.cachePageList = this.cachePageList.filter((v) => v !== name);
           this.clearCache();
           break;
         case "add":

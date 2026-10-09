@@ -1,5 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { parseRegisteredMenuRoutes } from "../../scripts/menu-route-metadata.mjs";
 import { installSupabaseSessionMock } from "./helpers/supabase-session";
 
 const actorId = "910000000000003";
@@ -34,12 +35,11 @@ type RegisteredRoute = {
 async function registeredRoutes(): Promise<RegisteredRoute[]> {
   const source = await readFile(new URL("../src/features/menus/menu-routes.registry.ts", import.meta.url), "utf8");
   const seed = await readFile(new URL("../../supabase/seed.sql", import.meta.url), "utf8");
-  const block = source.match(/export const registeredMenuRoutes:[\s\S]*?=\s*\[([\s\S]*?)\];/)?.[1];
-  if (!block) throw new Error("Could not read registered RouteKey metadata for the layout matrix");
+  const entries = parseRegisteredMenuRoutes(source);
   const seedMenus = new Map([...seed.matchAll(/\(\s*\d+,\s*(?:null|\d+),\s*'route',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)]
     .map(([, routeKey, path, title, icon]) => [routeKey, { path, title, icon }]));
-  const routes = [...block.matchAll(/routeKey:\s*"([^"]+)"[^\n]*label:\s*"([^"]+)"[^\n]*defaultPath:\s*"([^"]+)"[^\n]*requiredPermissionKey:\s*"([^"]+)"/g)]
-    .map(([, routeKey, , path, permission]) => {
+  const routes = entries
+    .map(({ routeKey, defaultPath: path, requiredPermissionKey: permission }) => {
       const seeded = seedMenus.get(routeKey);
       if (!seeded || seeded.path !== path) throw new Error(`Route ${routeKey} is missing matching seed metadata`);
       const pageHeading = pageHeadingByRouteKey[routeKey as keyof typeof pageHeadingByRouteKey];

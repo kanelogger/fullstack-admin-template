@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 
 const route = useRoute();
 const breadcrumbs = computed(() =>
-  route.matched.filter(record => {
+  route.matched.filter((record) => {
     const title = record.meta.title;
     return typeof title === "string" && title.length > 0 && title !== "Layout";
   })
@@ -14,7 +14,11 @@ const breadcrumbs = computed(() =>
 <template>
   <nav aria-label="面包屑" class="min-w-0">
     <ol class="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-      <li v-for="(record, index) in breadcrumbs" :key="record.path" class="flex min-w-0 items-center gap-2">
+      <li
+        v-for="(record, index) in breadcrumbs"
+        :key="record.path"
+        class="flex min-w-0 items-center gap-2"
+      >
         <span v-if="index > 0" aria-hidden="true" class="text-border">/</span>
         <RouterLink
           v-if="index < breadcrumbs.length - 1 && record.name"

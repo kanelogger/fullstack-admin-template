@@ -1,12 +1,17 @@
+import { requestConfirmation } from "@/composables/use-confirmation";
 import { computed, onMounted, reactive, ref } from "vue";
 import type { ManagedMenu } from "@template/contracts/menu-management";
-import type { ManagedPermission, ManagedRole, RoleMember } from "@template/contracts/role-management";
+import type {
+  ManagedPermission,
+  ManagedRole,
+  RoleMember
+} from "@template/contracts/role-management";
 import {
-deleteRole,
-getRoleCatalog,
-getRoleMembers,
-replaceRoleAuthorization,
-saveRole
+  deleteRole,
+  getRoleCatalog,
+  getRoleMembers,
+  replaceRoleAuthorization,
+  saveRole
 } from "@/features/roles/roles.service";
 import { useSessionStoreHook } from "@/stores/modules/session";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
@@ -18,7 +23,9 @@ export function useRolesPage() {
   const canCreate = computed(() => permissionSet.value.has("administration.roles.create"));
   const canUpdate = computed(() => permissionSet.value.has("administration.roles.update"));
   const canDelete = computed(() => permissionSet.value.has("administration.roles.delete"));
-  const canAssign = computed(() => permissionSet.value.has("administration.roles.assign_permissions"));
+  const canAssign = computed(() =>
+    permissionSet.value.has("administration.roles.assign_permissions")
+  );
 
   const loading = ref(false);
   const saving = ref(false);
@@ -58,9 +65,14 @@ export function useRolesPage() {
 
   const pageRoles = computed(() => roles.value);
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
-  const menuPermissionKeys = computed(() => new Set(menus.value
-    .filter(menu => menu.kind === "route" && menu.requiredPermissionKey)
-    .map(menu => menu.requiredPermissionKey!)));
+  const menuPermissionKeys = computed(
+    () =>
+      new Set(
+        menus.value
+          .filter((menu) => menu.kind === "route" && menu.requiredPermissionKey)
+          .map((menu) => menu.requiredPermissionKey!)
+      )
+  );
   const menuRows = computed(() => {
     const byParent = new Map<string | null, ManagedMenu[]>();
     for (const menu of menus.value) {
@@ -81,7 +93,9 @@ export function useRolesPage() {
   });
   const groupedPermissions = computed(() => {
     const groups = new Map<string, ManagedPermission[]>();
-    for (const permission of permissions.value.filter(item => !menuPermissionKeys.value.has(item.key))) {
+    for (const permission of permissions.value.filter(
+      (item) => !menuPermissionKeys.value.has(item.key)
+    )) {
       const groupName = permission.key.split(".")[0] ?? "other";
       groups.set(groupName, [...(groups.get(groupName) ?? []), permission]);
     }
@@ -180,8 +194,12 @@ export function useRolesPage() {
 
   function openPermissionEditor(role: ManagedRole) {
     editingRole.value = role;
-    selectedMenuPermissionKeys.value = role.permissionKeys.filter(key => menuPermissionKeys.value.has(key));
-    selectedActionPermissionKeys.value = role.permissionKeys.filter(key => !menuPermissionKeys.value.has(key));
+    selectedMenuPermissionKeys.value = role.permissionKeys.filter((key) =>
+      menuPermissionKeys.value.has(key)
+    );
+    selectedActionPermissionKeys.value = role.permissionKeys.filter(
+      (key) => !menuPermissionKeys.value.has(key)
+    );
     actionError.value = "";
     permissionEditorOpen.value = true;
   }
@@ -199,13 +217,15 @@ export function useRolesPage() {
       }
     }
     return menus.value
-      .filter(menu => descendants.has(menu.id) && menu.kind === "route" && menu.requiredPermissionKey)
-      .map(menu => menu.requiredPermissionKey!);
+      .filter(
+        (menu) => descendants.has(menu.id) && menu.kind === "route" && menu.requiredPermissionKey
+      )
+      .map((menu) => menu.requiredPermissionKey!);
   }
 
   function menuNodeChecked(menu: ManagedMenu): boolean {
     const keys = descendantMenuKeys(menu.id);
-    return keys.length > 0 && keys.every(key => selectedMenuPermissionKeys.value.includes(key));
+    return keys.length > 0 && keys.every((key) => selectedMenuPermissionKeys.value.includes(key));
   }
 
   function toggleMenuAuthorization(menu: ManagedMenu, checked: boolean) {
@@ -220,7 +240,7 @@ export function useRolesPage() {
   function toggleActionPermission(key: string, checked: boolean) {
     selectedActionPermissionKeys.value = checked
       ? [...new Set([...selectedActionPermissionKeys.value, key])]
-      : selectedActionPermissionKeys.value.filter(value => value !== key);
+      : selectedActionPermissionKeys.value.filter((value) => value !== key);
   }
 
   async function saveAuthorization() {
@@ -289,7 +309,7 @@ export function useRolesPage() {
 
   async function removeRole(role: ManagedRole) {
     if (role.isSystem) return;
-    if (!window.confirm(`确认删除角色“${role.name}”？`)) return;
+    if (!(await requestConfirmation(`确认删除角色“${role.name}”？`))) return;
     actionError.value = "";
     try {
       await deleteRole(role.id);
@@ -314,15 +334,58 @@ export function useRolesPage() {
   onMounted(loadRoles);
 
   return {
-    canRead, canCreate, canUpdate, canDelete, canAssign, loading, saving, roles,
-    permissions, menus, total, loadError, actionError, searchName, searchCode,
-    statusFilter, page, pageSize, editorOpen, permissionEditorOpen, memberDialogOpen,
-    memberRole, memberRows, membersLoading, memberError, memberPage, memberPageSize,
-    memberTotal, editorMode, editingRole, selectedMenuPermissionKeys,
-    selectedActionPermissionKeys, form, pageRoles, totalPages, menuRows,
-    groupedPermissions, loadRoles, openCreate, openEdit, saveRoleMetadata,
-    openPermissionEditor, descendantMenuKeys, menuNodeChecked, toggleMenuAuthorization,
-    toggleActionPermission, saveAuthorization, loadMembers, openMembers, toggleActive,
-    removeRole, updateSearch, changeRolePage
+    canRead,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canAssign,
+    loading,
+    saving,
+    roles,
+    permissions,
+    menus,
+    total,
+    loadError,
+    actionError,
+    searchName,
+    searchCode,
+    statusFilter,
+    page,
+    pageSize,
+    editorOpen,
+    permissionEditorOpen,
+    memberDialogOpen,
+    memberRole,
+    memberRows,
+    membersLoading,
+    memberError,
+    memberPage,
+    memberPageSize,
+    memberTotal,
+    editorMode,
+    editingRole,
+    selectedMenuPermissionKeys,
+    selectedActionPermissionKeys,
+    form,
+    pageRoles,
+    totalPages,
+    menuRows,
+    groupedPermissions,
+    loadRoles,
+    openCreate,
+    openEdit,
+    saveRoleMetadata,
+    openPermissionEditor,
+    descendantMenuKeys,
+    menuNodeChecked,
+    toggleMenuAuthorization,
+    toggleActionPermission,
+    saveAuthorization,
+    loadMembers,
+    openMembers,
+    toggleActive,
+    removeRole,
+    updateSearch,
+    changeRolePage
   };
 }

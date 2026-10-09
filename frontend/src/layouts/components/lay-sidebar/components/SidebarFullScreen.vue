@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Maximize, Minimize } from "@lucide/vue";
 
 const { isFullscreen, toggle } = useFullscreen();
-const title = computed(() => isFullscreen.value ? "退出全屏" : "进入全屏");
+const title = computed(() => (isFullscreen.value ? "退出全屏" : "进入全屏"));
 </script>
 
 <template>

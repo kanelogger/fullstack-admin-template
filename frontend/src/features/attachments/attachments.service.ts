@@ -84,7 +84,10 @@ async function currentBusinessUserId(): Promise<string> {
 }
 
 function safeExtension(filename: string): string {
-  const extension = filename.split(/[\\/]/).at(-1)?.match(/\.([a-z0-9]{1,32})$/i)?.[1];
+  const extension = filename
+    .split(/[\\/]/)
+    .at(-1)
+    ?.match(/\.([a-z0-9]{1,32})$/i)?.[1];
   return extension?.toLowerCase() ?? "";
 }
 
@@ -166,10 +169,9 @@ export async function downloadAttachment(idInput: unknown): Promise<{
 export async function deleteAttachment(idInput: unknown): Promise<void> {
   const id = BusinessIdSchema.parse(idInput);
   const client = getSupabaseClient();
-  const { data: path, error: pathError } = await client.rpc(
-    "attachment_storage_path_for_delete",
-    { p_attachment_id: id }
-  );
+  const { data: path, error: pathError } = await client.rpc("attachment_storage_path_for_delete", {
+    p_attachment_id: id
+  });
   if (pathError || typeof path !== "string") {
     throw failure("附件不存在或当前账号无删除权限");
   }

@@ -59,7 +59,8 @@ test("user creation opens the email reset form without a password input", async 
   };
   let users = [existingUser];
   const actions: string[] = [];
-  page.on("dialog", dialog => dialog.accept());
+  let nativeDialogCount = 0;
+  page.on("dialog", dialog => { nativeDialogCount++; void dialog.dismiss(); });
   await installSupabaseSessionMock(page, {
     userId: businessUserId,
     authUserId,
@@ -166,10 +167,30 @@ test("user creation opens the email reset form without a password input", async 
   await expect(dialog.getByLabel("邮箱")).toBeVisible();
   await expect(dialog.getByLabel("密码")).toHaveCount(0);
   await expect(dialog.getByText("邮箱用于接收密码重置邮件，不作为登录名。", { exact: true })).toBeVisible();
+  await dialog.getByRole("checkbox", { name: "普通用户" }).check();
+  await expect(dialog.getByRole("checkbox", { name: "普通用户" })).toBeChecked();
+  await dialog.getByLabel("部门").selectOption("9007199254740994");
+  await expect(dialog.getByLabel("部门")).toHaveValue("9007199254740994");
   await dialog.getByRole("button", { name: "取消" }).click();
-  await existingRow.getByRole("button", { name: "删除" }).click();
+  await expect(page.getByRole("button", { name: "新增用户" })).toBeFocused();
+  const deleteButton = existingRow.getByRole("button", { name: "删除" });
+  await deleteButton.click();
+  const confirmation = page.getByRole("alertdialog", { name: "确认操作" });
+  await expect(confirmation).toContainText("员工一百");
+  await confirmation.getByRole("button", { name: "取消" }).click();
+  await expect(existingRow).toHaveCount(1);
+  expect(actions).not.toContain("delete");
+  await expect(deleteButton).toBeFocused();
+  await deleteButton.click();
+  await expect(confirmation).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(confirmation).not.toBeVisible();
+  expect(actions).not.toContain("delete");
+  await deleteButton.click();
+  await confirmation.getByRole("button", { name: "确认", exact: true }).click();
   await expect(existingRow).toHaveCount(0);
-  expect(actions).toContain("delete");
+  await expect.poll(() => actions.filter(action => action === "delete").length).toBe(1);
+  expect(nativeDialogCount).toBe(0);
 });
 
 test("role members dialog renders the returned user identity", async ({ page }) => {
@@ -442,7 +463,7 @@ test("local sign-out reports an unconfirmed server revoke instead of treating it
   await page.goto("/#/operation/messages");
   await expect(page.getByRole("heading", { name: "消息中心" })).toBeVisible();
   await page.getByLabel("用户菜单：撤销失败用户").click();
-  await page.getByRole("button", { name: "退出系统" }).click();
+  await page.getByRole("menuitem", { name: "退出系统" }).click();
   await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
   await expect(page.getByText("本机已退出，但服务端未确认撤销会话；请检查网络后重新登录。"))
     .toBeVisible();

@@ -10,17 +10,17 @@ import { FontIcon, IconifyIconOnline, IconifyIconOffline } from "../index";
  * @param attrs 可选 iconType 属性
  * @returns Component
  */
-export function useRenderIcon(icon: string | Component | IconifyIconData, attrs?: iconType): Component {
+export function useRenderIcon(
+  icon: string | Component | IconifyIconData,
+  attrs?: iconType
+): Component {
   // iconfont
   const ifReg = /^IF-/;
   // typeof icon === "function" 属于SVG
   if (typeof icon === "string" && ifReg.test(icon)) {
     // iconfont
     const name = icon.split(ifReg)[1];
-    const iconName = name.slice(
-      0,
-      name.indexOf(" ") == -1 ? name.length : name.indexOf(" ")
-    );
+    const iconName = name.slice(0, name.indexOf(" ") == -1 ? name.length : name.indexOf(" "));
     const iconType = name.slice(name.indexOf(" ") + 1, name.length);
     return defineComponent({
       name: "FontIcon",
@@ -50,9 +50,7 @@ export function useRenderIcon(icon: string | Component | IconifyIconData, attrs?
       render() {
         if (!icon) return;
         if (typeof icon !== "string") return;
-        const IconifyIcon = icon.includes(":")
-          ? IconifyIconOnline
-          : IconifyIconOffline;
+        const IconifyIcon = icon.includes(":") ? IconifyIconOnline : IconifyIconOffline;
         return h(IconifyIcon, {
           icon,
           ...attrs

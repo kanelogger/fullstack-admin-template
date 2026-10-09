@@ -12,17 +12,20 @@ describe("configuration service", () => {
   beforeEach(() => mocks.rpc.mockReset());
 
   it("normalizes configuration value types and saves using exact text IDs", async () => {
-    mocks.rpc.mockResolvedValue({ data: {
-      id: configId,
-      configCode: "UI_THEME",
-      configName: "界面主题",
-      configValue: "dark",
-      valueType: "STRING",
-      status: 1,
-      description: null,
-      createdAt: now,
-      updatedAt: now
-    }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: {
+        id: configId,
+        configCode: "UI_THEME",
+        configName: "界面主题",
+        configValue: "dark",
+        valueType: "STRING",
+        status: 1,
+        description: null,
+        createdAt: now,
+        updatedAt: now
+      },
+      error: null
+    });
 
     const result = await saveSystemConfiguration({
       id: configId,

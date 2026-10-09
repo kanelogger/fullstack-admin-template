@@ -22,6 +22,7 @@
     "eslint": "^10.12.0",
     "eslint-plugin-vue": "^10.11.1",
     "globals": "^17.13.0",
+    "prettier": "3.8.3",
     "typescript-eslint": "^8.71.0"
   },
   "scripts": {
@@ -56,6 +57,8 @@
     "supabase:start": "node scripts/local-supabase-cli.mjs start",
     "supabase:stop": "node scripts/local-supabase-cli.mjs stop",
     "supabase:status": "node scripts/local-supabase-cli.mjs status",
-    "supabase:db:reset": "pnpm --filter fullstack-admin-frontend run supabase:db:reset"
+    "supabase:db:reset": "pnpm --filter fullstack-admin-frontend run supabase:db:reset",
+    "format": "prettier --write \"frontend/src/**/*.{vue,ts}\"",
+    "format:check": "prettier --check \"frontend/src/**/*.{vue,ts}\""
   }
 }

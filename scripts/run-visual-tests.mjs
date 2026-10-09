@@ -60,6 +60,9 @@ async function execute() {
     const pnpmStore = resolve(pnpmStoreResult.stdout.trim());
     const dockerResult = spawnSync("docker", [
       "run", "--rm", "--init", "--ipc=host",
+      ...(typeof process.getuid === "function" ? ["--user", `${process.getuid()}:${process.getgid()}`] : []),
+      "-e", "HOME=/tmp/template-visual-home",
+      "-e", "COREPACK_HOME=/tmp/template-visual-corepack",
       "--platform", "linux/amd64",
       "-e", `VISUAL_MODE=${mode.mode}`,
       "-e", "CI=1",

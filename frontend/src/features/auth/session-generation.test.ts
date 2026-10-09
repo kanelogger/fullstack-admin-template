@@ -75,7 +75,9 @@ describe("auth operation revisions", () => {
     expect(isCurrentAuthOperation(operation)).toBe(false);
     expect(isCurrentSessionTransition(oldTransition)).toBe(false);
     expect(getPendingSessionLogout()).toBeNull();
-    expect(beginSessionLogout({ authUserId: "alice", sessionId: "session-new" })).toBeGreaterThan(operation);
+    expect(beginSessionLogout({ authUserId: "alice", sessionId: "session-new" })).toBeGreaterThan(
+      operation
+    );
   });
 
   it("does not invalidate a login when Auth reports the Session created by that operation", () => {
@@ -85,10 +87,12 @@ describe("auth operation revisions", () => {
       pendingLogout: null,
       pendingLogin: { authUserId: "alice", sessionId: "new-session" }
     };
-    expect(reduceSessionCoordinator(state, {
-      type: "auth-session-observed",
-      owner: { authUserId: "alice", sessionId: "new-session" }
-    })).toEqual(state);
+    expect(
+      reduceSessionCoordinator(state, {
+        type: "auth-session-observed",
+        owner: { authUserId: "alice", sessionId: "new-session" }
+      })
+    ).toEqual(state);
   });
 
   it("does not install a delayed navigation result after a newer Session takes ownership", async () => {
@@ -102,10 +106,10 @@ describe("auth operation revisions", () => {
     };
     let resolveNavigation!: (identity: typeof oldIdentity) => void;
     let installed = false;
-    const delayedNavigation = new Promise<typeof oldIdentity>(resolve => {
+    const delayedNavigation = new Promise<typeof oldIdentity>((resolve) => {
       resolveNavigation = resolve;
     });
-    const commitPendingNavigation = delayedNavigation.then(identity =>
+    const commitPendingNavigation = delayedNavigation.then((identity) =>
       commitForCurrentAuthSession(guard, identity, () => {
         installed = true;
       })
@@ -130,10 +134,10 @@ describe("auth operation revisions", () => {
     };
     let resolvePersistedIdentity!: (value: typeof identity) => void;
     let applied = false;
-    const delayedRead = new Promise<typeof identity>(resolve => {
+    const delayedRead = new Promise<typeof identity>((resolve) => {
       resolvePersistedIdentity = resolve;
     });
-    const applyPendingLogin = delayedRead.then(currentIdentity =>
+    const applyPendingLogin = delayedRead.then((currentIdentity) =>
       commitForCurrentAuthSession(guard, currentIdentity, () => {
         applied = true;
       })

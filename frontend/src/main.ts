@@ -17,11 +17,7 @@ import "./style/index.scss";
 const app = createApp(App);
 
 // 全局注册@iconify/vue图标库
-import {
-  IconifyIconOffline,
-  IconifyIconOnline,
-  FontIcon
-} from "./components/ReIcon";
+import { IconifyIconOffline, IconifyIconOnline, FontIcon } from "./components/ReIcon";
 app.component("IconifyIconOffline", IconifyIconOffline);
 app.component("IconifyIconOnline", IconifyIconOnline);
 app.component("FontIcon", FontIcon);
@@ -29,14 +25,8 @@ app.component("FontIcon", FontIcon);
 getPlatformConfig(app).then(async () => {
   const platformConfig = getConfig();
   const configuredPrimary = platformConfig.PrimaryColor;
-  if (
-    typeof configuredPrimary === "string" &&
-    CSS.supports("color", configuredPrimary)
-  ) {
-    document.documentElement.style.setProperty(
-      "--app-primary",
-      configuredPrimary
-    );
+  if (typeof configuredPrimary === "string" && CSS.supports("color", configuredPrimary)) {
+    document.documentElement.style.setProperty("--app-primary", configuredPrimary);
   }
 
   setupStore(app);
@@ -45,31 +35,34 @@ getPlatformConfig(app).then(async () => {
   supabase?.auth.onAuthStateChange((event, authSession) => {
     if (event === "SIGNED_OUT") {
       window.setTimeout(() => {
-        void supabase.auth.getSession().then(({ data, error }) => {
-          if (error) return;
-          const currentIdentity = getAuthSessionIdentity(data.session);
-          if (currentIdentity) {
-            userStore.observeAuthSession(currentIdentity);
-            void userStore.refreshAuthorization(true);
-            return;
-          }
-          if (userStore.isAuthenticated || !userStore.authReady) userStore.clearLocalSession();
-          if (
-            router.currentRoute.value.path !== "/login" &&
-            router.currentRoute.value.path !== "/reset-password"
-          ) {
-            void router.replace("/login");
-          }
-        }).catch(() => undefined);
+        void supabase.auth
+          .getSession()
+          .then(({ data, error }) => {
+            if (error) return;
+            const currentIdentity = getAuthSessionIdentity(data.session);
+            if (currentIdentity) {
+              userStore.observeAuthSession(currentIdentity);
+              void userStore.refreshAuthorization(true);
+              return;
+            }
+            if (userStore.isAuthenticated || !userStore.authReady) userStore.clearLocalSession();
+            if (
+              router.currentRoute.value.path !== "/login" &&
+              router.currentRoute.value.path !== "/reset-password"
+            ) {
+              void router.replace("/login");
+            }
+          })
+          .catch(() => undefined);
       }, 0);
       return;
     }
 
     const identity = getAuthSessionIdentity(authSession);
-    const sessionChanged = identity && userStore.authReady
-      ? userStore.observeAuthSession(identity)
-      : false;
-    const signedInSessionNeedsRestore = event === "SIGNED_IN" &&
+    const sessionChanged =
+      identity && userStore.authReady ? userStore.observeAuthSession(identity) : false;
+    const signedInSessionNeedsRestore =
+      event === "SIGNED_IN" &&
       Boolean(identity) &&
       userStore.authReady &&
       !userStore.isAuthenticated;
@@ -88,17 +81,15 @@ getPlatformConfig(app).then(async () => {
           userStore.isAuthenticated &&
           userStore.authUserId === identity.authUserId &&
           userStore.authSessionId === identity.sessionId
-        ) return;
+        )
+          return;
         void userStore.refreshAuthorization(true);
       }, 0);
     }
   });
 
   const refreshVisibleSession = (forceRefresh: boolean) => {
-    if (
-      document.visibilityState !== "visible" ||
-      !userStore.isAuthenticated
-    ) return;
+    if (document.visibilityState !== "visible" || !userStore.isAuthenticated) return;
     void userStore.refreshAuthorization(forceRefresh, forceRefresh);
   };
   document.addEventListener("visibilitychange", () => refreshVisibleSession(true));

@@ -40,7 +40,9 @@ const legacyElementIcons: Record<string, Component> = {
 };
 
 /** Resolve persisted menu icon aliases to bundled Lucide icons. */
-export function resolveMenuIcon(iconName: string | Component | null | undefined): Component | undefined {
+export function resolveMenuIcon(
+  iconName: string | Component | null | undefined
+): Component | undefined {
   if (!iconName) return undefined;
   if (typeof iconName !== "string") return iconName;
   return legacyElementIcons[iconName] ?? useRenderIcon(iconName);

@@ -18,10 +18,7 @@ const statusMap: Record<number, string> = {
 </script>
 
 <template>
-  <div
-    class="status-illustration"
-    :style="{ '--status-theme-color': props.color }"
-  >
+  <div class="status-illustration" :style="{ '--status-theme-color': props.color }">
     <div class="status-badge">
       <span class="status-code">{{ code }}</span>
       <span class="status-label">{{ statusMap[code] ?? "Error" }}</span>

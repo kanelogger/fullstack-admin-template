@@ -54,18 +54,26 @@ describe("organization contracts and read-model mapping", () => {
 
   it("validates save fields, nullable descriptions, and PostgreSQL IDs", () => {
     expect(
-      SaveDepartmentRequestSchema.parse({ deptCode: " OPS ", deptName: " 运营部 ", description: "  " })
+      SaveDepartmentRequestSchema.parse({
+        deptCode: " OPS ",
+        deptName: " 运营部 ",
+        description: "  "
+      })
     ).toMatchObject({ deptCode: "OPS", deptName: "运营部", status: 1, description: null });
-    expect(SaveDepartmentRequestSchema.parse({
-      parentId: "9007199254740993",
-      deptCode: "OPS-CHILD",
-      deptName: "运营子部门"
-    }).parentId).toBe("9007199254740993");
-    expect(SaveDepartmentRequestSchema.safeParse({
-      parentId: 42,
-      deptCode: "OPS-CHILD",
-      deptName: "运营子部门"
-    }).success).toBe(false);
+    expect(
+      SaveDepartmentRequestSchema.parse({
+        parentId: "9007199254740993",
+        deptCode: "OPS-CHILD",
+        deptName: "运营子部门"
+      }).parentId
+    ).toBe("9007199254740993");
+    expect(
+      SaveDepartmentRequestSchema.safeParse({
+        parentId: 42,
+        deptCode: "OPS-CHILD",
+        deptName: "运营子部门"
+      }).success
+    ).toBe(false);
     expect(
       SavePostRequestSchema.parse({
         id: "9007199254740993",
@@ -75,34 +83,40 @@ describe("organization contracts and read-model mapping", () => {
         description: null
       })
     ).toMatchObject({ id: "9007199254740993", postCode: "AUDITOR", status: 0 });
-    expect(SaveDepartmentRequestSchema.safeParse({
-      deptCode: "",
-      deptName: "空编码",
-      status: 1,
-      description: null
-    }).success).toBe(false);
-    expect(SavePostRequestSchema.safeParse({
-      id: 42,
-      postCode: "ADMIN",
-      postName: "管理员",
-      status: 1,
-      description: null
-    }).success).toBe(false);
+    expect(
+      SaveDepartmentRequestSchema.safeParse({
+        deptCode: "",
+        deptName: "空编码",
+        status: 1,
+        description: null
+      }).success
+    ).toBe(false);
+    expect(
+      SavePostRequestSchema.safeParse({
+        id: 42,
+        postCode: "ADMIN",
+        postName: "管理员",
+        status: 1,
+        description: null
+      }).success
+    ).toBe(false);
   });
 
   it("rejects a database page whose identifier was already rounded to a number", () => {
     expect(
       DepartmentPageSchema.safeParse({
-        items: [{
-          id: Number("9007199254740993"),
-          parentId: null,
-          deptCode: "HQ",
-          deptName: "总部",
-          status: 1,
-          description: null,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }],
+        items: [
+          {
+            id: Number("9007199254740993"),
+            parentId: null,
+            deptCode: "HQ",
+            deptName: "总部",
+            status: 1,
+            description: null,
+            createdAt: timestamp,
+            updatedAt: timestamp
+          }
+        ],
         total: 1,
         page: 1,
         pageSize: 10

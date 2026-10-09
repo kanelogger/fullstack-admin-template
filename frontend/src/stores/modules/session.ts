@@ -17,7 +17,11 @@ import {
   rejectAuthSession
 } from "@/features/auth/session-generation";
 import { withAuthSessionLock } from "@/features/auth/auth-session-lock";
-import { getAuthSessionIdentity, isSameAuthSession, type AuthSessionIdentity } from "@/features/auth/session-identity";
+import {
+  getAuthSessionIdentity,
+  isSameAuthSession,
+  type AuthSessionIdentity
+} from "@/features/auth/session-identity";
 import { isAuthError } from "@supabase/supabase-js";
 import {
   isAuthSessionRejectedError,
@@ -27,10 +31,7 @@ import { useTabsStoreHook } from "./tabs";
 import { usePermissionStoreHook } from "./permission";
 import { useNotificationStoreHook } from "./notification";
 import { storageLocal } from "@/utils/shared";
-import {
-  getSupabaseClient,
-  getSupabaseClientIfConfigured
-} from "@/lib/supabase/client";
+import { getSupabaseClient, getSupabaseClientIfConfigured } from "@/lib/supabase/client";
 import type { Session } from "@template/contracts";
 
 type SessionLoginOutcome =
@@ -44,7 +45,9 @@ function sessionChangedLoginFailure(): SessionLoginOutcome {
 let lastAuthorizationRefreshAt = 0;
 let sessionLoad: { key: string; promise: Promise<Session | null> } | undefined;
 
-function loadSessionOnce(identity: Pick<AuthSessionIdentity, "authUserId" | "sessionId">): Promise<Session | null> {
+function loadSessionOnce(
+  identity: Pick<AuthSessionIdentity, "authUserId" | "sessionId">
+): Promise<Session | null> {
   const key = `${identity.authUserId}\0${identity.sessionId}`;
   if (sessionLoad?.key === key) return sessionLoad.promise;
   const promise = import("@/features/auth/auth.service")
@@ -103,7 +106,9 @@ export const useSessionStore = defineStore("session", {
       const expectedIdentity = { authUserId: session.profile.authUserId, sessionId };
       void useNotificationStoreHook().startMessageUpdates(
         session.profile.id,
-        () => this.isAuthenticated && this.authUserId === expectedIdentity.authUserId &&
+        () =>
+          this.isAuthenticated &&
+          this.authUserId === expectedIdentity.authUserId &&
           this.authSessionId === expectedIdentity.sessionId
       );
     },
@@ -126,13 +131,20 @@ export const useSessionStore = defineStore("session", {
       this.authReady = true;
       this.mustResetPassword = false;
     },
-    isLogoutPendingForAnotherAccount(authUserId?: string | null, sessionId?: string | null): boolean {
+    isLogoutPendingForAnotherAccount(
+      authUserId?: string | null,
+      sessionId?: string | null
+    ): boolean {
       const pending = getPendingSessionLogout();
-      return Boolean(pending && (authUserId !== pending.authUserId || sessionId !== pending.sessionId));
+      return Boolean(
+        pending && (authUserId !== pending.authUserId || sessionId !== pending.sessionId)
+      );
     },
     isLogoutPendingForAccount(authUserId?: string | null, sessionId?: string | null): boolean {
       const pending = getPendingSessionLogout();
-      return Boolean(pending && authUserId === pending.authUserId && sessionId === pending.sessionId);
+      return Boolean(
+        pending && authUserId === pending.authUserId && sessionId === pending.sessionId
+      );
     },
     observeAuthSession(identity: Pick<AuthSessionIdentity, "authUserId" | "sessionId">): boolean {
       const pending = getPendingSessionLogout();
@@ -140,10 +152,11 @@ export const useSessionStore = defineStore("session", {
         observeAuthSession(identity);
         return true;
       }
-      if (this.isAuthenticated && isSameAuthSession(
-        { authUserId: this.authUserId, sessionId: this.authSessionId },
-        identity
-      )) return false;
+      if (
+        this.isAuthenticated &&
+        isSameAuthSession({ authUserId: this.authUserId, sessionId: this.authSessionId }, identity)
+      )
+        return false;
       if (this.isLogoutPendingForAccount(identity.authUserId, identity.sessionId)) return false;
       observeAuthSession(identity);
       return true;
@@ -155,13 +168,16 @@ export const useSessionStore = defineStore("session", {
         !this.isAuthenticated ||
         this.authUserId !== identity.authUserId ||
         this.authSessionId !== identity.sessionId
-      ) return false;
+      )
+        return false;
       const { data, error } = await getSupabaseClient().auth.getSession();
-      return !error &&
+      return (
+        !error &&
         this.isAuthenticated &&
         this.authUserId === identity.authUserId &&
         this.authSessionId === identity.sessionId &&
-        isSameAuthSession(getAuthSessionIdentity(data.session), identity);
+        isSameAuthSession(getAuthSessionIdentity(data.session), identity)
+      );
     },
     async initSessionNavigation(
       expectedIdentity?: Pick<AuthSessionIdentity, "authUserId" | "sessionId">
@@ -174,18 +190,17 @@ export const useSessionStore = defineStore("session", {
         !this.isAuthenticated ||
         !identity.authUserId ||
         !identity.sessionId ||
-        !isSameAuthSession(
-          { authUserId: this.authUserId, sessionId: this.authSessionId },
-          identity
-        )
-      ) return false;
+        !isSameAuthSession({ authUserId: this.authUserId, sessionId: this.authSessionId }, identity)
+      )
+        return false;
       const transitionRevision = getSessionTransitionRevision();
       const authOperationRevision = getAuthOperationRevision();
-      if (!await this.isCurrentPersistedAuthSession(identity)) return false;
+      if (!(await this.isCurrentPersistedAuthSession(identity))) return false;
       if (
         !isCurrentSessionTransition(transitionRevision) ||
         !isCurrentAuthOperation(authOperationRevision)
-      ) return false;
+      )
+        return false;
       return initRouter({ identity, transitionRevision, authOperationRevision });
     },
     async restoreSession(forceRefresh = false): Promise<boolean> {
@@ -221,7 +236,8 @@ export const useSessionStore = defineStore("session", {
         pendingLogout &&
         pendingLogout.authUserId === identity.authUserId &&
         pendingLogout.sessionId === identity.sessionId
-      ) return false;
+      )
+        return false;
 
       if (pendingLogout && !isSameAuthSession(pendingLogout, identity)) {
         observeAuthSession(identity);
@@ -229,10 +245,7 @@ export const useSessionStore = defineStore("session", {
         authOperationRevision = getAuthOperationRevision();
       } else if (
         this.isAuthenticated &&
-        !isSameAuthSession(
-          { authUserId: this.authUserId, sessionId: this.authSessionId },
-          identity
-        )
+        !isSameAuthSession({ authUserId: this.authUserId, sessionId: this.authSessionId }, identity)
       ) {
         observeAuthSession(identity);
         this.clearLocalSession(false);
@@ -258,13 +271,16 @@ export const useSessionStore = defineStore("session", {
         if (
           !isCurrentSessionTransition(transitionRevision) ||
           !isCurrentAuthOperation(authOperationRevision) ||
-          (this.isAuthenticated && !isSameAuthSession(
-            { authUserId: this.authUserId, sessionId: this.authSessionId },
-            identity
-          ))
-        ) return this.isAuthenticated;
+          (this.isAuthenticated &&
+            !isSameAuthSession(
+              { authUserId: this.authUserId, sessionId: this.authSessionId },
+              identity
+            ))
+        )
+          return this.isAuthenticated;
         if (!this.isAuthenticated) {
-          const { clearRejectedSupabaseSessionIfCurrent } = await import("@/features/auth/auth.service");
+          const { clearRejectedSupabaseSessionIfCurrent } =
+            await import("@/features/auth/auth.service");
           const cleared = await clearRejectedSupabaseSessionIfCurrent(identity);
           if (
             !cleared &&
@@ -285,7 +301,8 @@ export const useSessionStore = defineStore("session", {
           latestError ||
           !isCurrentSessionTransition(transitionRevision) ||
           !isCurrentAuthOperation(authOperationRevision)
-        ) return this.isAuthenticated;
+        )
+          return this.isAuthenticated;
         const latestIdentity = getAuthSessionIdentity(latest.session);
         if (!isSameAuthSession(latestIdentity, identity)) {
           if (latestIdentity) {
@@ -314,7 +331,8 @@ export const useSessionStore = defineStore("session", {
       if (
         !isCurrentSessionTransition(transitionRevision) ||
         !isCurrentAuthOperation(authOperationRevision)
-      ) return this.isAuthenticated;
+      )
+        return this.isAuthenticated;
       if (!session) {
         this.clearLocalSession();
         return false;
@@ -325,7 +343,8 @@ export const useSessionStore = defineStore("session", {
       if (
         !isCurrentSessionTransition(transitionRevision) ||
         !isCurrentAuthOperation(authOperationRevision)
-      ) return this.isAuthenticated;
+      )
+        return this.isAuthenticated;
       if (!isSameAuthSession(latestIdentity, identity)) {
         if (latestIdentity) {
           this.observeAuthSession(latestIdentity);
@@ -337,10 +356,7 @@ export const useSessionStore = defineStore("session", {
       this.applySession(session, identity.sessionId);
       return true;
     },
-    async refreshAuthorization(
-      refreshNavigation = false,
-      forceRefresh = true
-    ): Promise<boolean> {
+    async refreshAuthorization(refreshNavigation = false, forceRefresh = true): Promise<boolean> {
       const previousAuthUserId = this.authUserId;
       const previousAuthSessionId = this.authSessionId;
       const permissionStore = usePermissionStoreHook();
@@ -363,7 +379,8 @@ export const useSessionStore = defineStore("session", {
           this.isAuthenticated ||
           !isCurrentSessionTransition(transitionRevision) ||
           !isCurrentAuthOperation(operationRevision)
-        ) return this.isAuthenticated;
+        )
+          return this.isAuthenticated;
         if (
           currentPath !== "/login" &&
           currentPath !== "/reset-password" &&
@@ -374,25 +391,27 @@ export const useSessionStore = defineStore("session", {
             !isCurrentSessionTransition(transitionRevision) ||
             !isCurrentAuthOperation(operationRevision) ||
             this.isAuthenticated
-          ) return this.isAuthenticated;
+          )
+            return this.isAuthenticated;
           await router.replace("/login");
         }
         return false;
       }
 
-      const sessionChanged = previousAuthUserId !== this.authUserId
-        || previousAuthSessionId !== this.authSessionId
-        || previousRoleCodes.join("\0") !== permissionStore.roleCodes.join("\0")
-        || previousPermissionKeys.join("\0") !== permissionStore.permissionKeys.join("\0");
+      const sessionChanged =
+        previousAuthUserId !== this.authUserId ||
+        previousAuthSessionId !== this.authSessionId ||
+        previousRoleCodes.join("\0") !== permissionStore.roleCodes.join("\0") ||
+        previousPermissionKeys.join("\0") !== permissionStore.permissionKeys.join("\0");
       if (sessionChanged || refreshNavigation) {
         const expectedIdentity = { authUserId: this.authUserId, sessionId: this.authSessionId };
-        if (!await this.isCurrentPersistedAuthSession(expectedIdentity)) {
+        if (!(await this.isCurrentPersistedAuthSession(expectedIdentity))) {
           return this.isAuthenticated;
         }
         const acceptedRevision = getSessionTransitionRevision();
         const acceptedOperation = getAuthOperationRevision();
         try {
-          if (!await this.initSessionNavigation(expectedIdentity)) return this.isAuthenticated;
+          if (!(await this.initSessionNavigation(expectedIdentity))) return this.isAuthenticated;
         } catch {
           // Preserve the last installed navigation if a temporary request fails.
           return this.isAuthenticated;
@@ -400,13 +419,15 @@ export const useSessionStore = defineStore("session", {
         if (
           !isCurrentSessionTransition(acceptedRevision) ||
           !isCurrentAuthOperation(acceptedOperation) ||
-          !await this.isCurrentPersistedAuthSession(expectedIdentity)
-        ) return this.isAuthenticated;
+          !(await this.isCurrentPersistedAuthSession(expectedIdentity))
+        )
+          return this.isAuthenticated;
         if (sessionChanged) {
           useTabsStoreHook().handleTags("equal", [...routerArrays]);
         }
         if (currentPath === "/login") {
-          if (!await this.isCurrentPersistedAuthSession(expectedIdentity)) return this.isAuthenticated;
+          if (!(await this.isCurrentPersistedAuthSession(expectedIdentity)))
+            return this.isAuthenticated;
           const landingMenu = getTopMenu(true);
           await router.replace(landingMenu?.path ?? "/access-denied");
         } else if (
@@ -415,15 +436,18 @@ export const useSessionStore = defineStore("session", {
           currentPath !== "/access-denied" &&
           currentPath !== "/server-error"
         ) {
-          if (!await this.isCurrentPersistedAuthSession(expectedIdentity)) return this.isAuthenticated;
+          if (!(await this.isCurrentPersistedAuthSession(expectedIdentity)))
+            return this.isAuthenticated;
           const activeRoute = router.resolve(currentPath);
           const activePermissions = Array.isArray(activeRoute.meta.auths)
             ? activeRoute.meta.auths
             : [];
-          const stillRegistered = activeRoute.matched.some(record => record.meta.backstage);
+          const stillRegistered = activeRoute.matched.some((record) => record.meta.backstage);
           if (
             !stillRegistered ||
-            activePermissions.some(permission => !permissionStore.permissionKeys.includes(String(permission)))
+            activePermissions.some(
+              (permission) => !permissionStore.permissionKeys.includes(String(permission))
+            )
           ) {
             await router.replace("/access-denied");
           } else {
@@ -435,21 +459,29 @@ export const useSessionStore = defineStore("session", {
       if (await this.isCurrentPersistedAuthSession(expectedIdentity)) {
         void useNotificationStoreHook().startMessageUpdates(
           this.userId,
-          () => this.isAuthenticated && this.authUserId === expectedIdentity.authUserId &&
+          () =>
+            this.isAuthenticated &&
+            this.authUserId === expectedIdentity.authUserId &&
             this.authSessionId === expectedIdentity.sessionId
         );
       }
       return true;
     },
     /** Sign in with the sole supported method: login name and password. */
-    async loginByUsername(data: { username: string; password: string }): Promise<SessionLoginOutcome> {
+    async loginByUsername(data: {
+      username: string;
+      password: string;
+    }): Promise<SessionLoginOutcome> {
       const operationRevision = beginAuthOperation();
       const transitionRevision = getSessionTransitionRevision();
       const { loginWithSupabase } = await import("@/features/auth/auth.service");
-      const result = await loginWithSupabase({
-        loginName: data.username,
-        password: data.password
-      }, operationRevision);
+      const result = await loginWithSupabase(
+        {
+          loginName: data.username,
+          password: data.password
+        },
+        operationRevision
+      );
       if ("error" in result) return { success: false, error: result.error };
       if (
         isCurrentAuthOperation(operationRevision) &&
@@ -460,15 +492,17 @@ export const useSessionStore = defineStore("session", {
           sessionId: result.authSessionId
         };
         const { data: current, error } = await getSupabaseClient().auth.getSession();
-        const applied = !error && commitForCurrentAuthSession(
-          {
-            identity,
-            transitionRevision,
-            authOperationRevision: operationRevision
-          },
-          getAuthSessionIdentity(current.session),
-          () => this.applySession(result.data, identity.sessionId)
-        );
+        const applied =
+          !error &&
+          commitForCurrentAuthSession(
+            {
+              identity,
+              transitionRevision,
+              authOperationRevision: operationRevision
+            },
+            getAuthSessionIdentity(current.session),
+            () => this.applySession(result.data, identity.sessionId)
+          );
         if (applied) {
           return { success: true as const, data: result.data, authSessionId: result.authSessionId };
         } else if (!error && current.session) {
@@ -518,7 +552,8 @@ export const useSessionStore = defineStore("session", {
             isCurrentAuthOperation(operationRevision) &&
             !this.isAuthenticated &&
             router.currentRoute.value.path !== "/login"
-          ) await router.replace("/login");
+          )
+            await router.replace("/login");
         });
       } catch {
         return { serverSessionRevoked: false, ...(expectedIdentity ? { ignored: true } : {}) };
@@ -561,7 +596,11 @@ export const useSessionStore = defineStore("session", {
             isSameAuthSession(latestIdentity, loggingOutIdentity)
           ) {
             await client.auth.signOut({ scope: "local" }).catch(() => undefined);
-          } else if (!error && latestIdentity && !isSameAuthSession(latestIdentity, loggingOutIdentity)) {
+          } else if (
+            !error &&
+            latestIdentity &&
+            !isSameAuthSession(latestIdentity, loggingOutIdentity)
+          ) {
             this.observeAuthSession(latestIdentity);
             void this.refreshAuthorization(true);
           }

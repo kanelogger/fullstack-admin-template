@@ -10,7 +10,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/client", () => ({ getSupabaseClient: () => mocks.client }));
 
-import { deleteAttachment, downloadAttachment, getAttachments, uploadAttachment } from "./attachments.service";
+import {
+  deleteAttachment,
+  downloadAttachment,
+  getAttachments,
+  uploadAttachment
+} from "./attachments.service";
 
 const actorId = "9007199254740993";
 const attachmentId = "9007199254740995";
@@ -52,7 +57,12 @@ describe("attachments service", () => {
     const query = readQuery({ data: [attachmentRow], count: 1, error: null });
     mocks.client.from.mockReturnValue(query);
 
-    const result = await getAttachments({ originalName: "项目_%", businessModule: "PROJECT", page: 2, pageSize: 10 });
+    const result = await getAttachments({
+      originalName: "项目_%",
+      businessModule: "PROJECT",
+      page: 2,
+      pageSize: 10
+    });
 
     expect(result.items[0]?.id).toBe(attachmentId);
     expect(query.ilike).toHaveBeenCalledWith("original_name", "%项目\\_\\%%");
@@ -60,24 +70,34 @@ describe("attachments service", () => {
   });
 
   it("rejects unsupported file types before storage and removes an uploaded object after metadata failure", async () => {
-    const bucket = { upload: vi.fn().mockResolvedValue({ error: null }), remove: vi.fn().mockResolvedValue({ error: null }) };
+    const bucket = {
+      upload: vi.fn().mockResolvedValue({ error: null }),
+      remove: vi.fn().mockResolvedValue({ error: null })
+    };
     mocks.client.storage.from.mockReturnValue(bucket);
     mocks.client.rpc
       .mockResolvedValueOnce({ data: actorId, error: null })
       .mockResolvedValueOnce({ data: null, error: { message: "permission denied" } });
 
-    await expect(uploadAttachment(new File(["x"], "bad.exe", { type: "application/octet-stream" })))
-      .rejects.toThrow("文件格式不支持");
+    await expect(
+      uploadAttachment(new File(["x"], "bad.exe", { type: "application/octet-stream" }))
+    ).rejects.toThrow("文件格式不支持");
     expect(mocks.client.rpc).not.toHaveBeenCalled();
 
     const file = new File(["png!"], "sample.png", { type: "image/png" });
     await expect(uploadAttachment(file)).rejects.toThrow("元数据保存失败");
     expect(mocks.client.storage.from).toHaveBeenCalledWith("admin-attachments");
-    expect(bucket.upload).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^${actorId}/.+\\.png$`)), file, expect.objectContaining({
-      contentType: "image/png",
-      upsert: false
-    }));
-    expect(bucket.remove).toHaveBeenCalledWith([expect.stringMatching(new RegExp(`^${actorId}/.+\\.png$`))]);
+    expect(bucket.upload).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^${actorId}/.+\\.png$`)),
+      file,
+      expect.objectContaining({
+        contentType: "image/png",
+        upsert: false
+      })
+    );
+    expect(bucket.remove).toHaveBeenCalledWith([
+      expect.stringMatching(new RegExp(`^${actorId}/.+\\.png$`))
+    ]);
   });
 
   it("downloads and deletes metadata using the same exact string ID", async () => {
@@ -99,7 +119,11 @@ describe("attachments service", () => {
     expect(downloaded.blob.size).toBe(4);
     expect(query.eq).toHaveBeenCalledWith("id", attachmentId);
     expect(bucket.download).toHaveBeenCalledWith(attachmentRow.storage_path);
-    expect(mocks.client.rpc).toHaveBeenNthCalledWith(1, "attachment_storage_path_for_delete", { p_attachment_id: attachmentId });
-    expect(mocks.client.rpc).toHaveBeenNthCalledWith(2, "delete_attachment_metadata", { p_attachment_id: attachmentId });
+    expect(mocks.client.rpc).toHaveBeenNthCalledWith(1, "attachment_storage_path_for_delete", {
+      p_attachment_id: attachmentId
+    });
+    expect(mocks.client.rpc).toHaveBeenNthCalledWith(2, "delete_attachment_metadata", {
+      p_attachment_id: attachmentId
+    });
   });
 });

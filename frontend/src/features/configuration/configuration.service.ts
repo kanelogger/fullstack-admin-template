@@ -28,7 +28,9 @@ export async function listSystemConfigurations(input: unknown): Promise<SystemCo
   return SystemConfigListPageSchema.parse(data);
 }
 
-export async function getSystemConfigurationValue(configCodeInput: unknown): Promise<SystemConfigValue> {
+export async function getSystemConfigurationValue(
+  configCodeInput: unknown
+): Promise<SystemConfigValue> {
   const configCode = SaveSystemConfigRequestSchema.shape.configCode.parse(configCodeInput);
   const { data, error } = await getSupabaseClient().rpc("system_configuration_value", {
     p_config_code: configCode

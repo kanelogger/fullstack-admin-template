@@ -6,6 +6,10 @@
 
 组织管理支持多级部门：编辑部门时可选择上级部门，列表显示完整层级路径；数据库限制循环关系、失效上级引用和仍有子部门的父级删除。
 
+## UI 开发
+
+先复用 `frontend/src/components/ui/` 中的官方 shadcn-vue 组件；缺少组件时按 `frontend/components.json` 使用 `pnpm dlx shadcn-vue@latest add <component>`，不要套用 React CLI。编辑弹窗用 Dialog，确认操作用 AlertDialog，数据列表用 Table，表单用 Field 与对应控件；菜单、弹层和 Toast 使用库组件。业务代码保留数据与权限逻辑，交互行为由组件库处理。
+
 ## 本地启动
 
 环境要求：Node.js `>=22.13.0`，推荐使用项目锁定的 Node 24.18.0 与 pnpm 12.3.4。macOS 本地 Supabase 使用 OrbStack 或兼容 Docker API 的容器 runtime。
@@ -32,12 +36,31 @@ pnpm dev
 
 ## 验证
 
+日常改动先运行以下最小检查（无需启动数据库）：
+
+```sh
+pnpm check:docs
+pnpm check:routes
+pnpm check:test-architecture
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test:unit
+pnpm build
+```
+
+`pnpm format:check` 按 `.prettierrc.json` 检查 `frontend/src/**/*.{vue,ts}`，CLI 生成的 `frontend/src/components/ui/` 由 `.prettierignore` 排除；`pnpm format` 用同一范围写入。Markdown 与设计文档不参与格式化。
+
+涉及 UI 再运行 `pnpm test:browser`；涉及登录或数据访问再运行 `pnpm test:browser:local`。它们有不同前置条件，见[环境命令](docs/agent-environment/commands.md)。下面是完整入口清单；`test:unit` 已包含组件测试。最小检查不等于真实 Supabase 全链路验收。 `check:test-architecture` 同时校验验收证据；产品源码变化后，旧报告摘要会失效，需要重跑对应真实场景并刷新账本。
+
+
 ```sh
 pnpm typecheck
 pnpm lint
 pnpm check:docs
 pnpm check:routes
 pnpm check:test-architecture
+pnpm format:check
 pnpm build
 pnpm test:unit
 pnpm test:components
@@ -63,7 +86,8 @@ pnpm test:agent:start -- --scenario <scenario> --browser <instance-id>
 
 ## 架构资料
 
-- [目标架构、约束与验收](docs/diagram/architecture.md)
+- [设计文档、目标架构与验收](docs/diagram/architecture.md)
+- [当前实施说明与设计对照](docs/diagram/architecture-implementation.md)
 - [当前架构与接口事实](specs/architecture.md)
 - [本地命令与副作用](docs/agent-environment/commands.md)
 - [环境服务](docs/agent-environment/services.md)

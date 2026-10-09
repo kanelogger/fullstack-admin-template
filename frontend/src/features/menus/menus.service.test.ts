@@ -13,14 +13,16 @@ describe("menus service", () => {
       data: {
         permissionKey: "administration.roles.read",
         sharedMenuCount: 1,
-        roles: [{
-          id: "9007199254740995",
-          code: "SUPPORT_AGENT",
-          name: "客服专员",
-          isActive: true,
-          isSystem: false,
-          authorized: true
-        }]
+        roles: [
+          {
+            id: "9007199254740995",
+            code: "SUPPORT_AGENT",
+            name: "客服专员",
+            isActive: true,
+            isSystem: false,
+            authorized: true
+          }
+        ]
       },
       error: null
     });

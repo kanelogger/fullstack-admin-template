@@ -1,6 +1,7 @@
 # PC 浏览器管理后台目标架构
 
 > **状态**：已实施，本机完整隔离验收通过；GitHub Actions 等待首次远程运行。
+> **状态补充（2026-10-09）**：上行保留原设计记录；当前实施与验收状态见 [`architecture-implementation.md`](./architecture-implementation.md)，远程运行情况见该文档的 CI 核实记录。
 > **适用范围**：桌面浏览器端管理后台；不要求移动端布局和移动浏览器验收。
 > **当前事实**：以 [`specs/architecture.md`](../../specs/architecture.md)、源码和验证结果为准。
 > **架构图**：[`architecture.svg`](./architecture.svg)
@@ -157,3 +158,9 @@ PC 浏览器最低验收路径固定为：
 - Supabase `service_role` 与 secret key 仅用于本地 Node 脚本或 Edge Function 服务端，不进入前端 bundle。
 - 迁移与 seed 可从空库重复执行；验证只操作确认的本地测试栈。
 - 真实 Auth、RLS、浏览器和 migration replay 按各自证据分别报告。
+
+## 12. 文档维护与实施记录
+
+本文件是设计文档，原有内容只能增补，不得删减或改写。需要整理实施事实、核实偏差或更新阶段性状态时，新增独立文档，不通过精简本文件替代原设计。
+
+当前实施说明见 [`architecture-implementation.md`](./architecture-implementation.md)；当前接口与实现事实继续见 [`specs/architecture.md`](../../specs/architecture.md)。

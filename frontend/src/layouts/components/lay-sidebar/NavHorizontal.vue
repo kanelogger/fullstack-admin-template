@@ -14,9 +14,18 @@ const menus = computed(() => permissionStore.wholeMenus);
 </script>
 
 <template>
-  <header class="horizontal-header flex min-w-0 items-center border-b border-border bg-background text-foreground">
-    <RouterLink v-if="showLogo" :to="homePath" class="horizontal-header-left shrink-0 text-sm text-foreground">
-      <span class="grid size-8 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">{{ title.slice(0, 1).toUpperCase() }}</span>
+  <header
+    class="horizontal-header flex min-w-0 items-center border-b border-border bg-background text-foreground"
+  >
+    <RouterLink
+      v-if="showLogo"
+      :to="homePath"
+      class="horizontal-header-left shrink-0 text-sm text-foreground"
+    >
+      <span
+        class="grid size-8 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
+        >{{ title.slice(0, 1).toUpperCase() }}</span
+      >
       <span class="truncate">{{ title }}</span>
     </RouterLink>
     <HorizontalMenu :items="menus" label="主导航" />

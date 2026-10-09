@@ -10,9 +10,7 @@ export default defineComponent({
   components: { IconifyIcon },
   props: {
     icon: {
-      type: [String, Object] as PropType<
-        string | IconifyIconData | Component
-      >,
+      type: [String, Object] as PropType<string | IconifyIconData | Component>,
       default: null
     }
   },
@@ -22,11 +20,7 @@ export default defineComponent({
       ? Object.assign(attrs.style, { outline: "none" })
       : { outline: "none" };
 
-    if (
-      this.icon &&
-      typeof this.icon === "object" &&
-      "body" in this.icon
-    ) {
+    if (this.icon && typeof this.icon === "object" && "body" in this.icon) {
       return h(IconifyIcon, {
         icon: this.icon as IconifyIconData,
         "aria-hidden": false,

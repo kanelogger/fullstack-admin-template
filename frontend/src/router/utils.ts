@@ -30,8 +30,7 @@ import { getAuthSessionIdentity } from "@/features/auth/session-identity";
 function handRank(routeInfo: RouteRecordRaw & { parentId?: unknown }) {
   const { name, path, parentId, meta } = routeInfo;
   return isAllEmpty(parentId)
-    ? isAllEmpty(meta?.rank) ||
-      (meta?.rank === 0 && name !== "Home" && path !== "/")
+    ? isAllEmpty(meta?.rank) || (meta?.rank === 0 && name !== "Home" && path !== "/")
       ? true
       : false
     : false;
@@ -43,17 +42,15 @@ function ascending(arr: RouteRecordRaw[]) {
     // 当rank不存在时，根据顺序自动创建，首页路由永远在第一位
     if (handRank(v)) v.meta.rank = index + 2;
   });
-  return arr.sort(
-    (a, b) => {
-      return (a.meta?.rank ?? 0) - (b.meta?.rank ?? 0);
-    }
-  );
+  return arr.sort((a, b) => {
+    return (a.meta?.rank ?? 0) - (b.meta?.rank ?? 0);
+  });
 }
 
 /** 过滤meta中showLink为false的菜单 */
 function filterTree(data: RouteRecordRaw[]) {
-  const newTree = cloneDeep(data).filter(v => v.meta?.showLink !== false);
-  newTree.forEach(v => {
+  const newTree = cloneDeep(data).filter((v) => v.meta?.showLink !== false);
+  newTree.forEach((v) => {
     if (v.children) v.children = filterTree(v.children);
   });
   return newTree;
@@ -61,8 +58,8 @@ function filterTree(data: RouteRecordRaw[]) {
 
 /** 过滤children长度为0的的目录，当目录下没有菜单时，会过滤此目录，目录没有赋予roles权限，当目录下只要有一个菜单有显示权限，那么此目录就会显示 */
 function filterChildrenTree(data: RouteRecordRaw[]) {
-  const newTree = cloneDeep(data).filter(v => v.children?.length !== 0);
-  newTree.forEach(v => {
+  const newTree = cloneDeep(data).filter((v) => v.children?.length !== 0);
+  newTree.forEach((v) => {
     if (v.children) v.children = filterTree(v.children);
   });
   return newTree;
@@ -113,10 +110,7 @@ function findRouteByPath(path: string, routes: RouteRecordRaw[]) {
     return isProxy(res) ? toRaw(res) : res;
   } else {
     for (let i = 0; i < routes.length; i++) {
-      if (
-        routes[i].children instanceof Array &&
-        routes[i].children.length > 0
-      ) {
+      if (routes[i].children instanceof Array && routes[i].children.length > 0) {
         res = findRouteByPath(path, routes[i].children);
         if (res) {
           return isProxy(res) ? toRaw(res) : res;
@@ -130,7 +124,7 @@ function findRouteByPath(path: string, routes: RouteRecordRaw[]) {
 /** 处理动态路由（后端返回的路由） */
 function handleAsyncRoutes(routeList) {
   const routes = addAsyncRoutes(routeList ?? []);
-  const homeRoute = router.options.routes.find(route => route.name === "Home");
+  const homeRoute = router.options.routes.find((route) => route.name === "Home");
   if (!homeRoute) throw new Error("The application layout route is missing");
 
   homeRoute.children = routes as RouteRecordRaw[];
@@ -142,9 +136,7 @@ function handleAsyncRoutes(routeList) {
   if (!useTabsStoreHook().getMultiTagsCache) {
     useTabsStoreHook().handleTags("equal", [
       ...routerArrays,
-      ...usePermissionStoreHook().flatteningRoutes.filter(
-        v => v?.meta?.fixedTag
-      )
+      ...usePermissionStoreHook().flatteningRoutes.filter((v) => v?.meta?.fixedTag)
     ]);
   }
 }
@@ -155,10 +147,8 @@ async function initRouter(guard: AuthSessionCommitGuard): Promise<boolean> {
   const routes = buildNavigationRoutes(entries);
   const { data, error } = await getSupabaseClient().auth.getSession();
   if (error) throw error;
-  return commitForCurrentAuthSession(
-    guard,
-    getAuthSessionIdentity(data.session),
-    () => handleAsyncRoutes(routes)
+  return commitForCurrentAuthSession(guard, getAuthSessionIdentity(data.session), () =>
+    handleAsyncRoutes(routes)
   );
 }
 
@@ -299,7 +289,7 @@ function hasAuth(value: string | Array<string>): boolean {
 
 function handleTopMenu(route) {
   if (route?.children?.length && !route.meta?.showParent) {
-    return route.children.find(cur => cur.path === route.redirect) ?? route.children[0];
+    return route.children.find((cur) => cur.path === route.redirect) ?? route.children[0];
   } else {
     return route;
   }

@@ -33,9 +33,9 @@ function throwDatabaseError(
   }
   if (error.code === "23503") {
     if (kind === "department") {
-      throw fail(fallback.includes("删除")
-        ? "部门已被用户或子部门引用，不能删除"
-        : "上级部门不存在或已删除");
+      throw fail(
+        fallback.includes("删除") ? "部门已被用户或子部门引用，不能删除" : "上级部门不存在或已删除"
+      );
     }
     throw fail(fallback.includes("删除") ? "岗位已被用户引用，不能删除" : fallback);
   }
@@ -237,11 +237,7 @@ export async function savePost(input: unknown): Promise<Post> {
     if (!data || count === 0) throw fail("岗位不存在或当前账号无更新权限");
     code = data.post_code;
   } else {
-    const { data, error } = await client
-      .from("posts")
-      .insert(values)
-      .select("post_code")
-      .single();
+    const { data, error } = await client.from("posts").insert(values).select("post_code").single();
     throwDatabaseError(error, "岗位创建失败", "post");
     code = data.post_code;
   }

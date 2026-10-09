@@ -33,7 +33,7 @@ vi.mock("@/stores/modules/notification", async () => {
   };
 });
 
-vi.mock("vue-router", async importOriginal => {
+vi.mock("vue-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("vue-router")>();
   return {
     ...actual,
@@ -47,31 +47,37 @@ import { useNotificationStore } from "@/stores/modules/notification";
 const overview = (messageTitle: string): DashboardOverview => ({
   todoCount: 1,
   unreadMessageCount: 1,
-  todoMessages: [{
-    id: "9007199254740996",
-    title: messageTitle,
-    summary: "待办摘要",
-    messageType: "NOTICE",
-    readStatus: false,
-    sentAt: "2026-10-02T09:30:00.000Z"
-  }],
-  recentOperations: [{
-    id: "9007199254740993",
-    operatorName: "试点管理员",
-    moduleCode: "AGENT_PILOT",
-    operationType: "VERIFY",
-    requestParams: { accessToken: "must-not-render" },
-    operationResult: 1,
-    operatedAt: "2026-10-02T10:00:00.000Z"
-  }],
-  recentMessages: [{
-    id: "9007199254740995",
-    title: "最近通知",
-    summary: "最近通知摘要",
-    messageType: "ANNOUNCEMENT",
-    readStatus: false,
-    sentAt: "2026-10-02T09:00:00.000Z"
-  }],
+  todoMessages: [
+    {
+      id: "9007199254740996",
+      title: messageTitle,
+      summary: "待办摘要",
+      messageType: "NOTICE",
+      readStatus: false,
+      sentAt: "2026-10-02T09:30:00.000Z"
+    }
+  ],
+  recentOperations: [
+    {
+      id: "9007199254740993",
+      operatorName: "试点管理员",
+      moduleCode: "AGENT_PILOT",
+      operationType: "VERIFY",
+      requestParams: { accessToken: "must-not-render" },
+      operationResult: 1,
+      operatedAt: "2026-10-02T10:00:00.000Z"
+    }
+  ],
+  recentMessages: [
+    {
+      id: "9007199254740995",
+      title: "最近通知",
+      summary: "最近通知摘要",
+      messageType: "ANNOUNCEMENT",
+      readStatus: false,
+      sentAt: "2026-10-02T09:00:00.000Z"
+    }
+  ],
   adminStats: {
     userCount: 3,
     roleCount: 2,
@@ -119,7 +125,9 @@ describe("Dashboard component", () => {
     expect(page.text()).toContain("AGENT_PILOT / VERIFY");
     expect(page.text()).not.toContain("must-not-render");
 
-    const todoButton = page.findAll("button").find(button => button.text().includes("待处理消息"));
+    const todoButton = page
+      .findAll("button")
+      .find((button) => button.text().includes("待处理消息"));
     if (!todoButton) throw new Error("Dashboard todo button was not rendered");
     await todoButton.trigger("click");
     expect(dashboardMocks.push).toHaveBeenCalledWith({

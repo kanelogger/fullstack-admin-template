@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { Skeleton } from "@/components/ui/skeleton";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import type { RouteConfigs } from "@/layouts/types";
 import { Button } from "@/components/ui/button";
 import { getConfig } from "@/config";
-import { emitter } from "@/utils/mitt";
 import { useUiStoreHook } from "@/stores/modules/ui";
 import { usePermissionStoreHook } from "@/stores/modules/permission";
 import { useSessionStoreHook } from "@/stores/modules/session";
@@ -35,7 +35,7 @@ const menuData = computed(() => {
 
 watch(
   () => permissionStore.wholeMenus,
-  menus => {
+  (menus) => {
     if (emptyTimer) clearTimeout(emptyTimer);
     menuError.value = "";
     if (menus.length) {
@@ -50,20 +50,11 @@ watch(
   { immediate: true }
 );
 
-watch(
-  () => [route.path, permissionStore.wholeMenus],
-  () => {
-    if (!route.path.includes("/redirect")) {
-      emitter.emit("changLayoutRoute", route.path);
-    }
-  }
-);
-
 async function retryMenus() {
   loadState.value = "loading";
   menuError.value = "";
   try {
-    if (!await sessionStore.initSessionNavigation()) return;
+    if (!(await sessionStore.initSessionNavigation())) return;
     loadState.value = permissionStore.wholeMenus.length ? "ready" : "empty";
     if (!permissionStore.wholeMenus.length) {
       menuError.value = "服务器没有返回可用菜单，请检查当前账号的菜单授权。";
@@ -133,10 +124,19 @@ onBeforeUnmount(() => {
           :collapsed="collapsed"
         />
       </ul>
-      <div v-else-if="loadState === 'loading'" class="space-y-3 p-3" role="status" aria-label="正在加载菜单">
-        <div v-for="index in 5" :key="index" class="h-9 animate-pulse rounded-md bg-muted/70" />
+      <div
+        v-else-if="loadState === 'loading'"
+        class="space-y-3 p-3"
+        role="status"
+        aria-label="正在加载菜单"
+      >
+        <Skeleton v-for="index in 5" :key="index" class="h-9" />
       </div>
-      <div v-else-if="loadState === 'empty'" class="space-y-2 p-3 text-sm text-muted-foreground" role="status">
+      <div
+        v-else-if="loadState === 'empty'"
+        class="space-y-2 p-3 text-sm text-muted-foreground"
+        role="status"
+      >
         <p>当前账号没有可用菜单。</p>
         <Button size="sm" variant="outline" class="w-full" @click="retryMenus">重新加载</Button>
       </div>

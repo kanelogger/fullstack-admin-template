@@ -22,6 +22,8 @@ jobs:
           cache: pnpm
       - name: Install workspace
         run: pnpm install --frozen-lockfile
+      - name: Check frontend formatting
+        run: pnpm format:check
       - name: Check route registry
         run: pnpm check:routes
       - name: Check test architecture

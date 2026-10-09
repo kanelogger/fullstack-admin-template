@@ -9,17 +9,19 @@ const show = ref(false);
 
 <template>
   <div>
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      class="search-container navbar-bg-hover"
-      aria-label="搜索菜单"
-      title="搜索菜单"
-      @click="show = true"
-    >
-      <Search class="size-4" aria-hidden="true" />
-    </Button>
-    <SearchModal v-model:value="show" />
+    <SearchModal v-model:value="show">
+      <template #trigger>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          class="search-container navbar-bg-hover"
+          aria-label="搜索菜单"
+          title="搜索菜单"
+        >
+          <Search class="size-4" aria-hidden="true" />
+        </Button>
+      </template>
+    </SearchModal>
   </div>
 </template>

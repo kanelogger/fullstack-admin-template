@@ -66,7 +66,6 @@ export async function replaceRoleAuthorization(input: unknown): Promise<void> {
   resultError(error, "角色授权保存失败");
 }
 
-
 export async function deleteRole(idInput: unknown): Promise<void> {
   const request = DeleteRoleRequestSchema.parse({ id: idInput });
   const { error } = await getSupabaseClient().rpc("delete_admin_role", {

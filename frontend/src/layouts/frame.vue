@@ -47,7 +47,7 @@ let isRedirect = false;
 
 watch(
   () => currentRoute.fullPath,
-  path => {
+  (path) => {
     if (
       currentRoute.name === "Redirect" &&
       props.frameInfo?.fullPath &&

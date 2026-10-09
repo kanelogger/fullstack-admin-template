@@ -1,7 +1,4 @@
-import {
-  DashboardOverviewSchema,
-  type DashboardOverview
-} from "@template/contracts";
+import { DashboardOverviewSchema, type DashboardOverview } from "@template/contracts";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 export async function getDashboardOverview(): Promise<DashboardOverview> {

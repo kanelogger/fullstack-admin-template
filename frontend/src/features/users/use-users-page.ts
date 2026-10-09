@@ -1,3 +1,4 @@
+import { requestConfirmation } from "@/composables/use-confirmation";
 import { computed, onMounted, reactive, ref } from "vue";
 import { message } from "@/utils/message";
 import { useSessionStoreHook } from "@/stores/modules/session";
@@ -15,13 +16,7 @@ import {
   setManagedUserActive,
   updateManagedUser
 } from "@/features/users/users.service";
-import type {
-  Department,
-  ManagedUser,
-  Post,
-  UserManagementRoleOption
-} from "@template/contracts";
-
+import type { Department, ManagedUser, Post, UserManagementRoleOption } from "@template/contracts";
 
 export function useUsersPage() {
   type StatusFilter = "" | "active" | "inactive";
@@ -42,7 +37,9 @@ export function useUsersPage() {
   const canCreate = computed(() => permissions.value.has("administration.users.create"));
   const canUpdate = computed(() => permissions.value.has("administration.users.update"));
   const canDelete = computed(() => permissions.value.has("administration.users.delete"));
-  const canResetPassword = computed(() => permissions.value.has("administration.users.reset_password"));
+  const canResetPassword = computed(() =>
+    permissions.value.has("administration.users.reset_password")
+  );
   const canAssignRoles = computed(() => permissions.value.has("administration.users.assign_roles"));
   const canReadDepartments = computed(() => permissions.value.has("organization.departments.read"));
   const canReadPosts = computed(() => permissions.value.has("organization.posts.read"));
@@ -143,48 +140,52 @@ export function useUsersPage() {
   async function loadOrganizationOptions() {
     const tasks: Promise<void>[] = [];
     if (canReadDepartments.value) {
-      tasks.push((async () => {
-        try {
-          departments.value = await listDepartmentOptions();
-          departmentOptionsError.value = "";
-        } catch (error) {
-          departmentOptionsError.value = resolveError(error, "部门选项加载失败");
-        }
-      })());
+      tasks.push(
+        (async () => {
+          try {
+            departments.value = await listDepartmentOptions();
+            departmentOptionsError.value = "";
+          } catch (error) {
+            departmentOptionsError.value = resolveError(error, "部门选项加载失败");
+          }
+        })()
+      );
     }
     if (canReadPosts.value) {
-      tasks.push((async () => {
-        try {
-          posts.value = await listPostOptions();
-          postOptionsError.value = "";
-        } catch (error) {
-          postOptionsError.value = resolveError(error, "岗位选项加载失败");
-        }
-      })());
+      tasks.push(
+        (async () => {
+          try {
+            posts.value = await listPostOptions();
+            postOptionsError.value = "";
+          } catch (error) {
+            postOptionsError.value = resolveError(error, "岗位选项加载失败");
+          }
+        })()
+      );
     }
     await Promise.all(tasks);
   }
 
   function departmentLabel(id: string | null): string {
     if (!id) return "—";
-    const department = departments.value.find(item => item.id === id);
+    const department = departments.value.find((item) => item.id === id);
     if (!department) return `部门 ID ${id}`;
     return `${department.deptName}${department.status === 0 ? "（停用）" : ""}`;
   }
 
   function postLabel(id: string | null): string {
     if (!id) return "—";
-    const post = posts.value.find(item => item.id === id);
+    const post = posts.value.find((item) => item.id === id);
     if (!post) return `岗位 ID ${id}`;
     return `${post.postName}${post.status === 0 ? "（停用）" : ""}`;
   }
 
   function hasDepartmentOption(id: string): boolean {
-    return departments.value.some(item => item.id === id);
+    return departments.value.some((item) => item.id === id);
   }
 
   function hasPostOption(id: string): boolean {
-    return posts.value.some(item => item.id === id);
+    return posts.value.some((item) => item.id === id);
   }
 
   async function search() {
@@ -226,7 +227,7 @@ export function useUsersPage() {
       phone: user.phone ?? "",
       departmentId: user.departmentId ?? "",
       postId: user.postId ?? "",
-      roleIds: user.roles.map(role => role.id)
+      roleIds: user.roles.map((role) => role.id)
     });
     await Promise.all([
       canAssignRoles.value ? loadRoleOptions() : Promise.resolve(),
@@ -237,11 +238,11 @@ export function useUsersPage() {
 
   function toggleRole(id: string, checked: boolean) {
     if (checked && !form.roleIds.includes(id)) form.roleIds.push(id);
-    if (!checked) form.roleIds = form.roleIds.filter(roleId => roleId !== id);
+    if (!checked) form.roleIds = form.roleIds.filter((roleId) => roleId !== id);
   }
 
-  function handleRoleCheckbox(id: string, event: Event) {
-    toggleRole(id, (event.target as HTMLInputElement).checked);
+  function handleRoleCheckbox(id: string, checked: boolean | "indeterminate") {
+    toggleRole(id, checked === true);
   }
 
   async function saveUser() {
@@ -301,7 +302,8 @@ export function useUsersPage() {
 
   async function toggleStatus(user: ManagedUser) {
     const nextActive = !user.isActive;
-    if (!window.confirm(`${nextActive ? "启用" : "停用"}用户 ${user.displayName}？`)) return;
+    if (!(await requestConfirmation(`${nextActive ? "启用" : "停用"}用户 ${user.displayName}？`)))
+      return;
     try {
       const updated = await setManagedUserActive(user.id, nextActive);
       if (updated.id === userStore.userId) {
@@ -315,7 +317,7 @@ export function useUsersPage() {
   }
 
   async function resetPassword(user: ManagedUser) {
-    if (!window.confirm(`向 ${user.email} 发送密码重置邮件？`)) return;
+    if (!(await requestConfirmation(`向 ${user.email} 发送密码重置邮件？`))) return;
     try {
       const result = await sendManagedUserPasswordReset(user.id);
       message(result, { type: "success" });
@@ -325,7 +327,8 @@ export function useUsersPage() {
   }
 
   async function removeUser(user: ManagedUser) {
-    if (!window.confirm(`删除用户 ${user.displayName}？该用户将立即无法登录。`)) return;
+    if (!(await requestConfirmation(`删除用户 ${user.displayName}？该用户将立即无法登录。`)))
+      return;
     try {
       await deleteManagedUser(user.id);
       if (user.id === userStore.userId) {
@@ -351,12 +354,47 @@ export function useUsersPage() {
   });
 
   return {
-    userStore, permissions, canCreate, canUpdate, canDelete, canResetPassword,
-    canAssignRoles, canReadDepartments, canReadPosts, loading, saving, editorOpen,
-    editorMode, users, roles, departments, posts, departmentOptionsError,
-    postOptionsError, page, pageSize, total, listError, query, form, clearForm,
-    loadUsers, departmentLabel, postLabel, hasDepartmentOption, hasPostOption,
-    search, resetSearch, openCreate, openEdit, handleRoleCheckbox, saveUser,
-    toggleStatus, resetPassword, removeUser, formatDate, pageCount
+    userStore,
+    permissions,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canResetPassword,
+    canAssignRoles,
+    canReadDepartments,
+    canReadPosts,
+    loading,
+    saving,
+    editorOpen,
+    editorMode,
+    users,
+    roles,
+    departments,
+    posts,
+    departmentOptionsError,
+    postOptionsError,
+    page,
+    pageSize,
+    total,
+    listError,
+    query,
+    form,
+    clearForm,
+    loadUsers,
+    departmentLabel,
+    postLabel,
+    hasDepartmentOption,
+    hasPostOption,
+    search,
+    resetSearch,
+    openCreate,
+    openEdit,
+    handleRoleCheckbox,
+    saveUser,
+    toggleStatus,
+    resetPassword,
+    removeUser,
+    formatDate,
+    pageCount
   };
 }

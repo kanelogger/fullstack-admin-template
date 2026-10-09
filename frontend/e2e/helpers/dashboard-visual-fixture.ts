@@ -1,6 +1,7 @@
 import { DashboardOverviewSchema } from "@template/contracts";
 import type { Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { parseRegisteredMenuRoutes } from "../../../scripts/menu-route-metadata.mjs";
 import { installSupabaseSessionMock } from "./supabase-session";
 
 export const dashboardVisualTime = new Date("2026-10-07T02:00:00.000Z");
@@ -126,12 +127,10 @@ const visualExtraPermissions = [
 async function registeredRoutes() {
   const source = await readFile(new URL("../../src/features/menus/menu-routes.registry.ts", import.meta.url), "utf8");
   const seed = await readFile(new URL("../../../supabase/seed.sql", import.meta.url), "utf8");
-  const block = source.match(/export const registeredMenuRoutes:[\s\S]*?=\s*\[([\s\S]*?)\];/)?.[1];
-  if (!block) throw new Error("Could not read registered RouteKey metadata for visual fixtures");
   const seedMenus = new Map([...seed.matchAll(/\(\s*\d+,\s*(?:null|\d+),\s*'route',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'/g)]
     .map(([, routeKey, path, title, icon]) => [routeKey, { path, title, icon }]));
-  const routes = [...block.matchAll(/routeKey:\s*"([^"]+)"[^\n]*label:\s*"([^"]+)"[^\n]*defaultPath:\s*"([^"]+)"[^\n]*requiredPermissionKey:\s*"([^"]+)"/g)]
-    .map(([, routeKey, label, path, requiredPermissionKey], index) => {
+  const routes = parseRegisteredMenuRoutes(source)
+    .map(({ routeKey, label, defaultPath: path, requiredPermissionKey }, index) => {
       const seeded = seedMenus.get(routeKey);
       if (!seeded || seeded.path !== path) throw new Error(`Route ${routeKey} is missing matching visual seed metadata`);
       return { id: String(index + 1), routeKey, label, path, title: seeded.title, icon: seeded.icon, requiredPermissionKey };

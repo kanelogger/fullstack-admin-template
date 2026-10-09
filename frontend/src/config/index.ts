@@ -12,7 +12,7 @@ const getConfig = (key?: string): PlatformConfigs => {
     const arr = key.split(".");
     if (arr && arr.length) {
       let data = config;
-      arr.forEach(v => {
+      arr.forEach((v) => {
         if (data && typeof data[v] !== "undefined") {
           data = data[v];
         } else {
@@ -29,11 +29,11 @@ const getConfig = (key?: string): PlatformConfigs => {
 export const getPlatformConfig = async (app: App): Promise<undefined> => {
   app.config.globalProperties.$config = getConfig();
   return fetch(`${VITE_PUBLIC_PATH}platform-config.json`)
-    .then(async response => {
+    .then(async (response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
-    .then(config => {
+    .then((config) => {
       let $config = app.config.globalProperties.$config;
       // 自动注入系统配置
       if (app && $config && typeof config === "object") {

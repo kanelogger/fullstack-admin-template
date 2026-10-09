@@ -17,16 +17,11 @@ function toggleSidebar() {
 </script>
 
 <template>
-  <header class="navbar flex h-14 min-w-0 items-center gap-3 border-b border-border bg-background/95 px-4 text-foreground backdrop-blur">
-    <SidebarTopCollapse
-      v-if="isMobile"
-      :is-active="sidebarOpened"
-      @toggle-click="toggleSidebar"
-    />
-    <SidebarBreadCrumb
-      v-if="layout !== 'mix' && !isMobile"
-      class="min-w-0 flex-1 pl-2"
-    />
+  <header
+    class="navbar flex h-14 min-w-0 items-center gap-3 border-b border-border bg-background/95 px-4 text-foreground backdrop-blur"
+  >
+    <SidebarTopCollapse v-if="isMobile" :is-active="sidebarOpened" @toggle-click="toggleSidebar" />
+    <SidebarBreadCrumb v-if="layout !== 'mix' && !isMobile" class="min-w-0 flex-1 pl-2" />
     <NavMix v-if="layout === 'mix'" class="min-w-0 flex-1" />
     <SidebarHeaderActions v-if="layout === 'vertical'" class="ml-auto" />
   </header>

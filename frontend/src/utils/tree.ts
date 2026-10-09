@@ -11,7 +11,9 @@ function treeShape<T extends object>(node: T): T & TreeShape {
 }
 
 /** Extract each node's uniqueId in the current tree level. */
-export const extractPathList = <T extends object>(tree: T[]): Array<number | string | undefined> => {
+export const extractPathList = <T extends object>(
+  tree: T[]
+): Array<number | string | undefined> => {
   if (!Array.isArray(tree)) {
     console.warn("tree must be an array");
     return [];
@@ -76,9 +78,9 @@ export const getNodeByUniqueId = <T extends object>(
     return [];
   }
   if (!tree.length) return [];
-  const item = tree.find(node => treeShape(node).uniqueId === uniqueId);
+  const item = tree.find((node) => treeShape(node).uniqueId === uniqueId);
   if (item) return item;
-  const children = tree.flatMap(node => treeShape(node).children ?? []);
+  const children = tree.flatMap((node) => treeShape(node).children ?? []);
   return getNodeByUniqueId(children as unknown as T[], uniqueId);
 };
 
@@ -129,7 +131,7 @@ export const handleTree = <T extends object>(
     nodesById.add(keyOf(read(item, id)));
   }
 
-  const roots = data.filter(item => !nodesById.has(keyOf(read(item, parentId))));
+  const roots = data.filter((item) => !nodesById.has(keyOf(read(item, parentId))));
   const attachChildren = (item: T) => {
     const record = item as Record<string, unknown>;
     const childrenForNode = childrenByParent.get(keyOf(record[id]));

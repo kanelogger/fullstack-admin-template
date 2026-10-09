@@ -83,7 +83,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.inbox",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -98,7 +98,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.inbox",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "service",
@@ -120,7 +120,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.mark-read",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ],
           "rationale": "The literal body was mock fixture text; the current run-owned message verifies the same detail-rendering path."
@@ -136,7 +136,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.mark-read",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "service",
@@ -157,7 +157,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.mark-read",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "service",
@@ -178,7 +178,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "messages.mark-read",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "service",
@@ -206,7 +206,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -221,7 +221,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -236,7 +236,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -251,7 +251,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -266,7 +266,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -281,7 +281,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.navigation",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -311,7 +311,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.notifications",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             }
           ]
         },
@@ -348,7 +348,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.notifications",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "store",
@@ -369,7 +369,7 @@
               "kind": "browser",
               "scenario": "messages-shell",
               "checkpoint": "shell.notifications",
-              "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7"
+              "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf"
             },
             {
               "kind": "store",
@@ -412,7 +412,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.list",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             }
           ]
         },
@@ -443,7 +443,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.upload",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             }
           ]
         },
@@ -474,7 +474,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.upload",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -495,7 +495,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.upload",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -516,7 +516,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.download-delete",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -537,7 +537,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.download-delete",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -558,7 +558,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.download-delete",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -579,7 +579,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.download-delete",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             },
             {
               "kind": "service",
@@ -600,7 +600,7 @@
               "kind": "browser",
               "scenario": "attachments",
               "checkpoint": "attachments.download-delete",
-              "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2"
+              "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174"
             }
           ]
         }
@@ -637,7 +637,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.login-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -658,7 +658,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.login-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -679,7 +679,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.login-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -700,7 +700,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.login-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -743,7 +743,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.operation-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -764,7 +764,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.operation-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -785,7 +785,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.operation-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -828,7 +828,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.exception-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -849,7 +849,7 @@
               "kind": "browser",
               "scenario": "audit",
               "checkpoint": "audit.exception-events",
-              "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36"
+              "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac"
             },
             {
               "kind": "service",
@@ -892,7 +892,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-types",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -937,7 +937,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -952,7 +952,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -967,7 +967,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -982,7 +982,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -997,7 +997,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1012,7 +1012,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-crud",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1027,7 +1027,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.dictionary-types",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ],
           "rationale": "The absence assertion depended on a legacy fixture option, not a user-visible contract; the current route still tests dictionary type CRUD."
@@ -1058,7 +1058,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1073,7 +1073,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1088,7 +1088,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1103,7 +1103,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1118,7 +1118,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1133,7 +1133,7 @@
               "kind": "browser",
               "scenario": "configuration",
               "checkpoint": "configuration.system-values",
-              "runId": "28879bc1-8813-425b-8a35-25896d881ceb"
+              "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e"
             }
           ]
         },
@@ -1363,7 +1363,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.departments",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         },
@@ -1378,7 +1378,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.department-crud",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             },
             {
               "kind": "service",
@@ -1399,7 +1399,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.department-crud",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             },
             {
               "kind": "component",
@@ -1420,7 +1420,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.department-crud",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         },
@@ -1450,7 +1450,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.posts",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         },
@@ -1465,7 +1465,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.posts",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         },
@@ -1480,7 +1480,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.posts",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         },
@@ -1495,7 +1495,7 @@
               "kind": "browser",
               "scenario": "organization",
               "checkpoint": "organization.posts",
-              "runId": "d501e023-a1d5-4fd0-b177-8efea6589901"
+              "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd"
             }
           ]
         }
@@ -1532,7 +1532,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             },
             {
               "kind": "service",
@@ -1553,7 +1553,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1568,7 +1568,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1583,7 +1583,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1598,7 +1598,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1613,7 +1613,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1643,7 +1643,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1658,7 +1658,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "roles.authorization",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             },
             {
               "kind": "service",
@@ -1679,7 +1679,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "menus.registry-crud",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1766,7 +1766,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "menus.registry-crud",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1781,7 +1781,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "menus.registry-crud",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             },
             {
               "kind": "contract",
@@ -1808,7 +1808,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "menus.registry-crud",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         }
@@ -1905,7 +1905,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1920,7 +1920,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1935,7 +1935,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1950,7 +1950,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1965,7 +1965,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -1995,7 +1995,7 @@
               "kind": "browser",
               "scenario": "identity-navigation",
               "checkpoint": "users.manage",
-              "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45"
+              "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f"
             }
           ]
         },
@@ -2018,82 +2018,82 @@
     }
   ],
   "verification": {
-    "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-    "managementInputSha256": "8ce1b13db996e559fbb2db081f0e14badb5bee4ddc3f06f4f871370f62b523f1",
+    "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+    "managementInputSha256": "14a6bed9acf2af41821515f77ba772a010e21103d76d102cd480dd806cec1db3",
     "suites": {
       "pnpm test:unit": {
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "inputSha256": "e76df1c5b04e0d68fbe495b336c8dc92d73a40b54f1db62a01e21a21f8df0451",
-        "verifiedAt": "2026-10-09T00:59:05.795Z",
-        "result": "73 frontend unit, 9 component, 3 Deno, 21 contracts and 74 Node tests passed"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "inputSha256": "813ee58c942788fe8674b07480ac1ce90f6d98dfc0fd053f8ae13b5c473c4822",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "result": "78 frontend unit, 21 component, 3 Deno edge HTTP, 21 shared contract and 78 Node script tests passed"
       },
       "pnpm test:browser": {
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "inputSha256": "24ec67ec08028eecde48be8a038e3111bf3add7aed182c29b5b84377f43aede1",
-        "verifiedAt": "2026-10-08T12:03:01.925Z",
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "inputSha256": "03da54790aca15177476183d235f25907caa1ac2298781ccde495488adb5c291",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
         "result": "14 passed, 2 expected local-Auth skips"
       }
     },
     "browserReports": {
       "messages-shell": {
-        "runId": "f14ee074-17fb-49c3-8bf8-0046ee6656a7",
+        "runId": "fa32a37e-d8c0-43b4-aaa6-f66d72d0ebdf",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.976Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "organization": {
-        "runId": "d501e023-a1d5-4fd0-b177-8efea6589901",
+        "runId": "88f3be60-e29d-4a54-8bc6-63053719f3bd",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "configuration": {
-        "runId": "28879bc1-8813-425b-8a35-25896d881ceb",
+        "runId": "2902b3c3-acd4-4f9c-b769-9ec33a1bef6e",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "dashboard": {
-        "runId": "f18363bc-be30-42e5-9f8a-b02863f5d42a",
+        "runId": "d0bcd327-b2e1-4848-8fb0-d8cc60a9f133",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "identity-navigation": {
-        "runId": "2d3f7032-bbce-4a8c-bc31-1a4169546d45",
+        "runId": "43fb9fdc-741c-476e-9c4c-9199ef3f170f",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "attachments": {
-        "runId": "0610393c-31ff-42c1-81d0-967fa22e50f2",
+        "runId": "91e08acb-5b3c-45be-8994-f7d2d102c174",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "audit": {
-        "runId": "99e18f42-e2ce-47a3-b8a4-6e6153ef3a36",
+        "runId": "6ff9d4e4-63e0-4287-aaa9-6603a16016ac",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       },
       "profile": {
-        "runId": "dfd2e60c-6c0f-4ff4-8d46-b6b84a32230a",
+        "runId": "2dc88896-4183-4929-acf6-43b347746d7f",
         "status": "Pass",
-        "productInputSha256": "5f3f433f6b8b138e3ff44dd4a0a394572e362df62828f9f577390f2ecec9439e",
-        "verifiedAt": "2026-10-08T16:14:20.977Z",
-        "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+        "productInputSha256": "20dd719e09790c30f94a264905dd4e00369fabc46c18275e142e74c194068148",
+        "verifiedAt": "2026-10-09T14:48:26.164Z",
+        "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
       }
     },
-    "scenarioInputSha256": "e9abf3b9433ebd75efdb68762a921f07f46a69932e2588f7dc3ad94bd269ed6e"
+    "scenarioInputSha256": "4698c8d1c32ea3219a111f941fd9f7f23ba0a12d2ecb00543717c7b26fb9f07e"
   }
 }
