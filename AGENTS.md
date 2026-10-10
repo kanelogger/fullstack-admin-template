@@ -9,6 +9,7 @@ PC 浏览器端管理后台模板，运行栈为 Vue 3、Vue Router、Pinia、sh
 - 在仓库根目录执行 `pnpm install`；根 `pnpm-lock.yaml` 管理整个 workspace。
 - 首次启动 Supabase Local 前先选 migration 轨道：`pnpm template:select-migrations -- --track baseline`；已有账本的项目不可换轨。本地状态或 Docker 数据卷无法核实时命令会拒绝修改。
 - 本地开发先启动 OrbStack/Docker-compatible runtime，再运行 `pnpm supabase:start` 和 `pnpm dev`；Vite 使用 8848 端口，Supabase Local 服务端口见 `supabase/config.toml`。
+- Cursor Cloud 的 `start` 会启动 Docker daemon，再运行 `pnpm supabase:start`、`pnpm setup:admin` 和 `pnpm dev`。缺少 `frontend/.env.development` 时从 `frontend/.env.development.example` 复制。`VITE_ROUTER_HISTORY` 必须为 `hash`，否则登录页停在加载动画。这个模板检出保留 `supabase/migrations` 里的历史 migration；只有新建项目副本才运行 `pnpm template:select-migrations`。
 - `pnpm check:migrations` 与 `pnpm check:migration-upgrades` 只在自建临时栈上验收并只清理自建栈；`upgrades` 不重置数据库，探针不入账本且比较前清理。
 - `pnpm supabase:db:reset` 清空当前项目 Local 数据库，只用于可丢弃数据；不得连接远程或用户现有业务数据库。
 
