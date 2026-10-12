@@ -264,7 +264,7 @@ async function rollbackCreatedAuthUser(authUserId: string) {
   if (userError) console.error("managed-user Auth rollback failed", userError.code);
 }
 
-async function createUser(input: CreateAction) {
+async function createUser(input: CreateAction, actor: Actor) {
   const password = `${crypto.randomUUID()}aA1!`;
   const { data: authResult, error: authError } = await adminClient.auth.admin.createUser({
     email: input.input.email.toLowerCase(),
@@ -287,13 +287,17 @@ async function createUser(input: CreateAction) {
       p_phone: input.input.phone,
       p_department_id: input.input.departmentId,
       p_post_id: input.input.postId,
-      p_role_ids: input.input.roleIds
+      p_role_ids: input.input.roleIds,
+      p_actor_profile_id: actor.id
     }
   );
   if (profileError || typeof userId !== "string") {
     await rollbackCreatedAuthUser(authResult.user.id);
     if (profileError) {
       console.error("managed-user profile creation failed", profileError.code);
+      if (profileError.code === "42501") {
+        throw new HttpFailure(403, "FORBIDDEN", "只有超级管理员可以变更超级管理员角色");
+      }
       if (profileError.code === "23505") {
         throw new HttpFailure(409, "CONFLICT", "工号、登录名或邮箱已存在");
       }
@@ -310,7 +314,7 @@ async function createUser(input: CreateAction) {
   }
 }
 
-async function updateUser(input: UpdateAction) {
+async function updateUser(input: UpdateAction, actor: Actor) {
   const { error } = await adminClient.rpc("update_managed_user_profile", {
     p_profile_id: input.input.id,
     p_user_code: input.input.userCode,
@@ -319,10 +323,14 @@ async function updateUser(input: UpdateAction) {
     p_phone: input.input.phone,
     p_department_id: input.input.departmentId,
     p_post_id: input.input.postId,
-    p_role_ids: input.input.roleIds ?? null
+    p_role_ids: input.input.roleIds ?? null,
+    p_actor_profile_id: actor.id
   });
   if (error) {
     console.error("managed-user update failed", error.code);
+    if (error.code === "42501") {
+      throw new HttpFailure(403, "FORBIDDEN", "只有超级管理员可以变更超级管理员角色");
+    }
     if (error.code === "23505") throw new HttpFailure(409, "CONFLICT", "工号或登录名已存在");
     throw new HttpFailure(400, "VALIDATION_ERROR", "用户资料无法保存，请检查角色和资料字段");
   }
@@ -393,10 +401,10 @@ Deno.serve(async request => {
         data = await listRoles(actor);
         break;
       case "create":
-        data = await createUser(input);
+        data = await createUser(input, actor);
         break;
       case "update":
-        data = await updateUser(input);
+        data = await updateUser(input, actor);
         break;
       case "status": {
         if (input.id === actor.id && !input.isActive) {

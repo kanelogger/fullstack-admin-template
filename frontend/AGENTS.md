@@ -8,7 +8,7 @@
 - `src/layouts/`：后台布局、侧栏、顶栏、多标签和通知。
 - `src/router/`：公开错误路由、动态路由和守卫。
 - `src/stores/`：`session`、`permission`、`ui`、`tabs`、`notification` Pinia 状态。
-- `src/features/`：按认证、用户、角色、菜单、组织、字典、配置、消息、附件、审计、Dashboard、Profile 等业务域组织页面和服务。
+- `src/features/`：按认证、用户、角色、菜单、组织、字典、配置、消息、附件、审计、Dashboard、Profile 等业务域组织页面和服务。页面的加载、筛选、权限和表单状态放在该业务域的 composable，页面文件保留模板。
 - `src/components/`：跨业务共享组件；shadcn-vue 组件源码位于 `src/components/ui/`。
 - `src/lib/supabase/`：Supabase JS client。
 - `@template/contracts`：位于 `supabase/functions/_shared/contracts` 的 workspace 包，作为前端与 Edge Functions 唯一 Zod 契约源。

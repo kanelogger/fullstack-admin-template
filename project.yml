@@ -65,6 +65,10 @@ commands:
       command: "pnpm check:docs"
       cwd: .
       command_ref: "package.json#scripts.check:docs"
+    delivery:
+      command: "pnpm check:delivery"
+      cwd: .
+      command_ref: "package.json#scripts.check:delivery"
     test_architecture:
       command: "pnpm check:test-architecture"
       cwd: .

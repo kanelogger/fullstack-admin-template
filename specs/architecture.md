@@ -16,7 +16,7 @@
 - 首位管理员通过根命令 `pnpm setup:admin` 建立。仅限当前 Supabase Local；模板默认登录账号为 `admin`、密码为 `admin123456`、邮箱为 `admin@example.test`。公共注册关闭。
 - `profiles.auth_user_id` 必填并引用 `auth.users.id`；业务实体 ID 为 PostgreSQL BIGINT，在 Zod API 合同中以十进制字符串传输。
 - RLS 是数据安全边界。`current_profile()` 返回本人资料、角色码和权限键；`current_navigation()` 按服务端授权返回菜单。浏览器只按固定 RouteKey registry 装载动态页面。路由守卫和按钮权限提供 UX 控制，不能替代 RLS/Edge/RPC 权限检查。
-- 只有超级管理员可以变更 `SUPER_ADMIN` 成员关系。`authenticated` 直接写入 `user_roles` 时，数据库触发器拒绝该变更；`user-management` 在调用 service-role RPC 前执行同一规则。`administration.users.assign_roles` 仍可分配其他角色。
+- 只有超级管理员可以变更 `SUPER_ADMIN` 成员关系。`authenticated` 直接写入 `user_roles` 时，数据库触发器拒绝该变更。用户创建和更新把调用者、当前成员和角色覆盖放在同一事务里，并先锁住相关行。`administration.users.assign_roles` 仍可分配其他角色。
 - 角色菜单授权复用菜单路由的既有 permission key，不创建第二套 role-menu 关系。按钮权限由角色权限集合及服务端授权函数管理。
 - Auth Session 以 `auth_user_id + JWT session_id` 唯一标识；`session_id` 仅用于客户端旧结果归属判断，服务端仍验证 JWT 和已登记应用 Session。Auth 协调器维护操作版本与待登出归属；Session Store 保存身份，Permission Store 保存授权快照。
 - Auth 的 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED` 在回调之后触发权限与导航刷新；焦点恢复和 60 秒轮询刷新会话。动态路由只在捕获的 `auth_user_id + session_id` 和操作版本仍匹配时安装。资料接口明确拒绝 Session 时按该 Session 清理本地状态；临时错误保留最后验证的 UI 状态。应用发起的 `setSession` / `signOut` 由跨标签 Web Lock 串行化；退出使用捕获 Session 的 token 撤销，仅在持久 Session ID 仍匹配时清本地 Auth Session。通知请求绑定 Profile 接收者、Session ID 检查和订阅版本。
@@ -42,7 +42,7 @@
 - `pnpm supabase:start/status/stop` 管理本地栈；`pnpm dev` 同时启动 Edge Functions 与 Vite (`127.0.0.1:8848`)。Auth 邮件由本地 Mailpit 捕获。
 - BrowserSkill、`check:migrations` 与 `check:migration-upgrades` 创建的隔离栈，只有在 Supabase CLI stop 成功且 Docker 中精确 project label 下的容器、卷和网络均已消失后才记录清理成功。资源查询失败或仍有资源时清理失败，保留恢复目录和诊断信息。
 - Visual 更新只在固定副本中生成候选、原图、差异图和候选 manifest；审阅后 `pnpm test:visual:accept -- --candidate <id>` 才更新登记基线。正式 PNG 不进入视觉源码摘要；明确登记基线增删，CI 只比较不生成或接受候选。
-- GitHub Actions 在 push/pull_request 上执行冻结安装、RouteKey 与测试架构结构检查、lint、typecheck、build、unit、PC browser、固定容器视觉比较和隔离 migration checks；不跑 BrowserSkill，CI 绿色不等于八场景验收通过。无生产部署配置。
+- GitHub Actions 在 push/pull_request 上执行冻结安装、RouteKey 与测试架构结构检查、交付约定、lint、typecheck、build、unit、PC browser、固定容器视觉比较和隔离 migration checks；不跑 BrowserSkill，CI 绿色不等于八场景验收通过。生产发布顺序见 [`docs/delivery.md`](../docs/delivery.md)；本仓库 CI 不连接生产项目。
 
 ### 仓库目录
 

@@ -46,7 +46,12 @@ export function getPluginsList(
     removeConsole({ external: ["src/assets/iconfont/iconfont.js"] }),
     // 打包分析
     ...(lifecycle === "report"
-      ? [visualizer({ open: true, brotliSize: true, filename: "report.html" })]
+      ? [visualizer({
+          open: process.env.BUNDLE_STATS === "1" ? false : true,
+          gzipSize: true,
+          filename: process.env.BUNDLE_STATS === "1" ? "dist/bundle-stats.json" : "report.html",
+          template: process.env.BUNDLE_STATS === "1" ? "raw-data" : "treemap"
+        })]
       : [])
   ];
 }

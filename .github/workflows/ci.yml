@@ -30,6 +30,8 @@ jobs:
         run: pnpm check:test-architecture
       - name: Check documentation references
         run: pnpm check:docs
+      - name: Check delivery convention
+        run: pnpm check:delivery
       - name: Lint
         run: pnpm lint
       - name: Install PC Chromium

@@ -2,7 +2,7 @@
 
 | 维度 | Local | CI | Release |
 | --- | --- | --- | --- |
-| workflow | 根 `package.json`、`project.yml` | `.github/workflows/ci.yml` | 未配置 |
+| workflow | 根 `package.json`、`project.yml` | `.github/workflows/ci.yml` | [`docs/delivery.md`](../delivery.md)；CI 不执行 |
 | 系统 | 当前开发机，以本轮能力探测为准 | GitHub Actions `ubuntu-latest` | 不适用 |
 | Node / pnpm | Node `>=22.13.0`、pnpm `>=9`；锁定 24.18.0 / 12.3.4 | 同版本，使用 frozen lockfile | 不适用 |
 | 数据库 | Supabase Local / Postgres 17 | `check:migrations` 动态创建隔离本地 Supabase project | 不适用 |
@@ -12,4 +12,4 @@
 
 CI 的静态步骤以仓库中的 workflow 文件为准；远程执行状态只由对应 GitHub Actions run 证明。维护本文时更新运行环境和步骤配置，不记录易过期的分支、提交或最近一次运行状态。
 
-当前没有发布或生产部署配置，不推断生产域名、密钥、数据库、备份或发布命令。
+生产发布顺序、迁移失败时的停止条件、密钥和域名配置、备份恢复演练与故障诊断见 [`docs/delivery.md`](../delivery.md)。本仓库不保存生产域名、密钥或数据库目标，CI 也不向生产环境发布。

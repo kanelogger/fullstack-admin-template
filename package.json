@@ -30,6 +30,7 @@
     "build": "pnpm --filter fullstack-admin-frontend build",
     "lint": "eslint . --max-warnings 0 && pnpm exec deno lint supabase/functions",
     "check:docs": "node scripts/check-docs.mjs",
+    "check:delivery": "node scripts/check-delivery.mjs",
     "check:routes": "node scripts/check-routes.mjs",
     "check:test-architecture": "node scripts/check-test-architecture.mjs",
     "check:migration-upgrades": "node scripts/check-migration-upgrades.mjs",

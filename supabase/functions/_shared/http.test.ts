@@ -20,6 +20,17 @@ Deno.test("Edge CORS rejects a different dynamic Vite origin", () => {
   if (responseOrigin !== "null") throw new Error(`Expected rejected origin, received ${responseOrigin}`);
 });
 
+Deno.test("production origin is rejected until APP_ALLOWED_ORIGINS lists it", () => {
+  const origin = "https://admin.example.test";
+  const request = new Request("https://admin.example.test/functions/v1/user-management", {
+    headers: { origin }
+  });
+  const missing = new Headers(corsHeaders(request, "https://other.example.test")).get("Access-Control-Allow-Origin");
+  const listed = new Headers(corsHeaders(request, origin)).get("Access-Control-Allow-Origin");
+  if (missing !== "null") throw new Error(`Expected rejected production origin, received ${missing}`);
+  if (listed !== origin) throw new Error(`Expected listed production origin, received ${listed}`);
+});
+
 Deno.test("JSON and preflight responses use the supplied origin list", () => {
   const request = new Request("http://127.0.0.1/functions/v1/session-login", {
     method: "OPTIONS",

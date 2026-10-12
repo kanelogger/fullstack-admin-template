@@ -19,4 +19,4 @@
 - 当前架构与接口以 [`specs/architecture.md`](specs/architecture.md) 和源码为准；新项目的技术决策按 [`docs/adr/README.md`](docs/adr/README.md) 记录。
 - 权限与凭据处理见 [`rules/security.md`](rules/security.md)。仓库声明的能力不代表当前会话已经获得相应授权。
 - 环境探测结果记录 `scope`、`owner`、`evidence`、`verified_at` 和 `status`。没有本轮证据时不能从旧会话继承 `healthy`。
-- 仓库支持 PC Chromium Playwright、Node/Vue jsdom Vitest、固定 Linux Playwright visual baseline、Supabase 隔离迁移校验，以及由 Agent 显式运行的八场景 BrowserSkill 验收。普通 CI 只跑结构门禁与可自动执行的测试；BrowserSkill 证据不作为 PR 阻塞条件。生产部署和外部服务连接未配置。
+- 仓库支持 PC Chromium Playwright、Node/Vue jsdom Vitest、固定 Linux Playwright visual baseline、Supabase 隔离迁移校验，以及由 Agent 显式运行的八场景 BrowserSkill 验收。普通 CI 只跑结构门禁与可自动执行的测试；BrowserSkill 证据不作为 PR 阻塞条件。生产发布约定见 [`docs/delivery.md`](docs/delivery.md)；本仓库不连接生产项目或外部生产服务。

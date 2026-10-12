@@ -40,16 +40,16 @@ select ok(
   'the trusted Edge Function can query the managed-user read model'
 );
 select ok(
-  has_function_privilege('service_role', 'public.create_managed_user_profile(uuid,text,text,text,text,text,bigint,bigint,bigint[])', 'execute')
-    and has_function_privilege('service_role', 'public.update_managed_user_profile(bigint,text,text,text,text,bigint,bigint,bigint[])', 'execute')
+  has_function_privilege('service_role', 'public.create_managed_user_profile(uuid,text,text,text,text,text,bigint,bigint,bigint[],bigint)', 'execute')
+    and has_function_privilege('service_role', 'public.update_managed_user_profile(bigint,text,text,text,text,bigint,bigint,bigint[],bigint)', 'execute')
     and has_function_privilege('service_role', 'public.set_managed_user_active(bigint,boolean)', 'execute')
     and has_function_privilege('service_role', 'public.soft_delete_managed_user(bigint)', 'execute')
     and has_function_privilege('service_role', 'public.rollback_managed_user_create(uuid)', 'execute'),
   'trusted Edge Functions can execute the transactional user-management RPCs'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.create_managed_user_profile(uuid,text,text,text,text,text,bigint,bigint,bigint[])', 'execute')
-    and not has_function_privilege('authenticated', 'public.update_managed_user_profile(bigint,text,text,text,text,bigint,bigint,bigint[])', 'execute')
+  not has_function_privilege('authenticated', 'public.create_managed_user_profile(uuid,text,text,text,text,text,bigint,bigint,bigint[],bigint)', 'execute')
+    and not has_function_privilege('authenticated', 'public.update_managed_user_profile(bigint,text,text,text,text,bigint,bigint,bigint[],bigint)', 'execute')
     and not has_function_privilege('authenticated', 'public.set_managed_user_active(bigint,boolean)', 'execute')
     and not has_function_privilege('authenticated', 'public.soft_delete_managed_user(bigint)', 'execute')
     and not has_function_privilege('authenticated', 'public.rollback_managed_user_create(uuid)', 'execute'),
@@ -724,6 +724,77 @@ select lives_ok(
     :'super_admin_role_id'
   ),
   'SUPER_ADMIN can remove a SUPER_ADMIN membership by writing user_roles directly'
+);
+reset role;
+
+set local role service_role;
+select throws_ok(
+  $$
+    select public.update_managed_user_profile(
+      profile.id,
+      coalesce(profile.user_code, 'CODEX-RLS-COMMON'),
+      profile.login_name,
+      profile.display_name,
+      profile.phone,
+      profile.department_id,
+      profile.post_id,
+      array[(select id from public.roles where code = 'SUPER_ADMIN')],
+      actor.id
+    )
+    from public.profiles as profile
+    cross join public.profiles as actor
+    where profile.login_name = '__codex_rls_common'
+      and actor.login_name = '__codex_rls_operator'
+  $$,
+  '42501',
+  'Only a super administrator can change super administrator membership',
+  'the user update transaction rejects a non-super-admin granting SUPER_ADMIN'
+);
+select throws_ok(
+  $$
+    select public.update_managed_user_profile(
+      profile.id,
+      coalesce(profile.user_code, 'CODEX-RLS-SUPER'),
+      profile.login_name,
+      profile.display_name,
+      profile.phone,
+      profile.department_id,
+      profile.post_id,
+      array[(select id from public.roles where code = 'COMMON_USER')],
+      actor.id
+    )
+    from public.profiles as profile
+    cross join public.profiles as actor
+    where profile.login_name = '__codex_rls_super'
+      and actor.login_name = '__codex_rls_operator'
+  $$,
+  '42501',
+  'Only a super administrator can change super administrator membership',
+  'the user update transaction rejects a non-super-admin removing SUPER_ADMIN'
+);
+select lives_ok(
+  $$
+    select public.update_managed_user_profile(
+      profile.id,
+      coalesce(profile.user_code, 'CODEX-RLS-' || profile.id::text),
+      profile.login_name,
+      profile.display_name,
+      profile.phone,
+      profile.department_id,
+      profile.post_id,
+      (
+        select array_agg(user_role.role_id)
+        from public.user_roles as user_role
+        where user_role.user_id = profile.id
+      ),
+      actor.id
+    )
+    from public.profiles as profile
+    cross join public.profiles as actor
+    where profile.login_name = '__codex_rls_super'
+      and actor.login_name = '__codex_rls_operator'
+  $$,
+  'the user update transaction allows a non-super-admin to keep the current SUPER_ADMIN membership'
 );
 reset role;
 

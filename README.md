@@ -40,6 +40,7 @@ pnpm dev
 
 ```sh
 pnpm check:docs
+pnpm check:delivery
 pnpm check:routes
 pnpm check:test-architecture
 pnpm format:check

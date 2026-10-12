@@ -13,6 +13,7 @@
 | Supabase Local | `pnpm supabase:start` | OrbStack 或兼容 Docker runtime 启动本地 Postgres、Auth、Storage、Realtime、Edge 与 Mailpit |
 | 开发 | `pnpm dev` | Supabase Local 已运行；同时启动 Edge Function server 和 Vite PC 应用 `127.0.0.1:8848` |
 | 文档引用 | `pnpm check:docs` | 检查活动 Markdown 相对链接和 workspace script 引用 |
+| 交付约定 | `pnpm check:delivery` | 检查发布顺序文档仍在，CI 没有生产发布命令，且工作区 `.env*` 文件没有服务端密钥 |
 | 类型检查 | `pnpm typecheck` | 前端 Vue/TypeScript、共享 Zod package、全部 Deno functions |
 | 前端格式检查 | `pnpm format:check` | Prettier 固定版本检查业务页面、composables 与 message 适配层；CI 执行该检查 |
 | 前端格式修复 | `pnpm format` | 只格式化上述前端文件，不修改设计文档 |
