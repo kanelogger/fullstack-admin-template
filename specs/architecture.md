@@ -1,6 +1,6 @@
 # 当前架构与接口事实
 
-- 最近核实：2026-10-09。静态事实以本文件、`package.json`、`supabase/config.toml`、SQL migrations、共享契约和验证脚本为准；实际行为以代码和测试证据为准。
+- 最近核实：2026-10-12。静态事实以本文件、`package.json`、`supabase/config.toml`、SQL migrations、共享契约和验证脚本为准；实际行为以代码和测试证据为准。
 - 目标用户界面：PC 浏览器；移动端适配与验收不属于模板目标。
 
 ## Workspace 与目录
@@ -16,6 +16,7 @@
 - 首位管理员通过根命令 `pnpm setup:admin` 建立。仅限当前 Supabase Local；模板默认登录账号为 `admin`、密码为 `admin123456`、邮箱为 `admin@example.test`。公共注册关闭。
 - `profiles.auth_user_id` 必填并引用 `auth.users.id`；业务实体 ID 为 PostgreSQL BIGINT，在 Zod API 合同中以十进制字符串传输。
 - RLS 是数据安全边界。`current_profile()` 返回本人资料、角色码和权限键；`current_navigation()` 按服务端授权返回菜单。浏览器只按固定 RouteKey registry 装载动态页面。路由守卫和按钮权限提供 UX 控制，不能替代 RLS/Edge/RPC 权限检查。
+- 只有超级管理员可以变更 `SUPER_ADMIN` 成员关系。`authenticated` 直接写入 `user_roles` 时，数据库触发器拒绝该变更；`user-management` 在调用 service-role RPC 前执行同一规则。`administration.users.assign_roles` 仍可分配其他角色。
 - 角色菜单授权复用菜单路由的既有 permission key，不创建第二套 role-menu 关系。按钮权限由角色权限集合及服务端授权函数管理。
 - Auth Session 以 `auth_user_id + JWT session_id` 唯一标识；`session_id` 仅用于客户端旧结果归属判断，服务端仍验证 JWT 和已登记应用 Session。Auth 协调器维护操作版本与待登出归属；Session Store 保存身份，Permission Store 保存授权快照。
 - Auth 的 `SIGNED_IN`、`TOKEN_REFRESHED`、`USER_UPDATED` 在回调之后触发权限与导航刷新；焦点恢复和 60 秒轮询刷新会话。动态路由只在捕获的 `auth_user_id + session_id` 和操作版本仍匹配时安装。资料接口明确拒绝 Session 时按该 Session 清理本地状态；临时错误保留最后验证的 UI 状态。应用发起的 `setSession` / `signOut` 由跨标签 Web Lock 串行化；退出使用捕获 Session 的 token 撤销，仅在持久 Session ID 仍匹配时清本地 Auth Session。通知请求绑定 Profile 接收者、Session ID 检查和订阅版本。

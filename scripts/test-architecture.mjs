@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { lstat, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -515,7 +515,11 @@ export async function verifyScenarioReport(report, { reportDirectory, currentSum
   }
 
   let expected;
-  try { expected = checkpointMap(rules, report.scenario); } catch (error) { return { valid: false, errors: [...errors, error.message] }; }
+  try {
+    expected = checkpointMap(rules, report.scenario);
+  } catch (error) {
+    return { valid: false, errors: [...errors, error.message], managementDrift, scenarioDrift };
+  }
   const actual = report.checkpoints ?? {};
   for (const checkpointId of expected.keys()) {
     const entry = actual[checkpointId];
@@ -559,6 +563,8 @@ export async function verifyScenarioReport(report, { reportDirectory, currentSum
       } catch { errors.push("BrowserSkill debug evidence is not readable JSON"); }
     }
   }
+
+  return { valid: errors.length === 0, errors, managementDrift, scenarioDrift };
 }
 
 export async function verifyReportSet({ reportPaths, scenarios, root = repositoryRoot } = {}) {

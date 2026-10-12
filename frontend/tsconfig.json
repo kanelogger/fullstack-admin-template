@@ -20,7 +20,8 @@
     "baseUrl": ".",
     "lib": [
       "ESNext",
-      "DOM"
+      "DOM",
+      "DOM.Iterable"
     ],
     "paths": {
       "@/*": [

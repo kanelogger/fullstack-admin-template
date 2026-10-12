@@ -114,6 +114,46 @@ function isSuperAdmin(actor: Actor): boolean {
   return actor.roleCodes.includes("SUPER_ADMIN");
 }
 
+async function assertSuperAdminMembershipUnchanged(
+  actor: Actor,
+  roleIds: string[] | undefined,
+  targetProfileId?: string
+) {
+  if (!roleIds || isSuperAdmin(actor)) return;
+
+  const { data: superAdminRole, error: roleError } = await adminClient
+    .from("roles")
+    .select("id")
+    .eq("code", "SUPER_ADMIN")
+    .maybeSingle();
+  if (roleError || superAdminRole?.id == null) {
+    throw new HttpFailure(500, "INTERNAL_ERROR", "角色校验失败");
+  }
+
+  const { data: requestedRoles, error: requestedError } = await adminClient
+    .from("roles")
+    .select("id")
+    .eq("code", "SUPER_ADMIN")
+    .in("id", roleIds);
+  if (requestedError) throw new HttpFailure(500, "INTERNAL_ERROR", "角色校验失败");
+
+  let targetHasSuperAdmin = false;
+  if (targetProfileId) {
+    const { data: membership, error: membershipError } = await adminClient
+      .from("user_roles")
+      .select("user_id")
+      .eq("user_id", targetProfileId)
+      .eq("role_id", superAdminRole.id)
+      .maybeSingle();
+    if (membershipError) throw new HttpFailure(500, "INTERNAL_ERROR", "角色校验失败");
+    targetHasSuperAdmin = membership != null;
+  }
+
+  if (((requestedRoles?.length ?? 0) > 0) !== targetHasSuperAdmin) {
+    throw new HttpFailure(403, "FORBIDDEN", "只有超级管理员可以变更超级管理员角色");
+  }
+}
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
@@ -337,15 +377,11 @@ Deno.serve(async request => {
       if (roleIds && !actor.permissionKeys.includes("administration.users.assign_roles")) {
         throw new HttpFailure(403, "FORBIDDEN", "没有分配用户角色的权限");
       }
-      if (roleIds && !isSuperAdmin(actor)) {
-        const { data: roles, error: rolesError } = await adminClient
-          .from("roles")
-          .select("id")
-          .eq("code", "SUPER_ADMIN")
-          .in("id", roleIds);
-        if (rolesError) throw new HttpFailure(500, "INTERNAL_ERROR", "角色校验失败");
-        if (roles?.length) throw new HttpFailure(403, "FORBIDDEN", "只有超级管理员可以分配超级管理员角色");
-      }
+      await assertSuperAdminMembershipUnchanged(
+        actor,
+        roleIds,
+        input.action === "update" ? input.input.id : undefined
+      );
     }
 
     let data: unknown;

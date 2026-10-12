@@ -596,5 +596,136 @@ select is(
 );
 reset role;
 
+-- Role ids are identity values. Capture them before switching to authenticated,
+-- because that role may not be allowed to read the SUPER_ADMIN role row.
+select id as super_admin_role_id from public.roles where code = 'SUPER_ADMIN' \gset
+select id as operator_role_id from public.roles where code = 'OPERATOR' \gset
+
+insert into public.role_permissions (role_id, permission_key)
+select role.id, permission.permission_key
+from public.roles as role
+cross join (
+  values
+    ('administration.users.assign_roles'),
+    ('administration.users.read')
+) as permission(permission_key)
+where role.code = 'OPERATOR'
+on conflict do nothing;
+
+select set_config(
+  'request.jwt.claim.sub',
+  (select auth_user_id::text from public.profiles where login_name = '__codex_rls_operator'),
+  true
+) as assigner_claim \gset
+select set_config(
+  'request.jwt.claims',
+  (
+    select jsonb_build_object(
+      'sub', auth_user_id::text,
+      'role', 'authenticated',
+      'session_id', (
+        select allowed_session.session_id::text
+        from app_private.account_password_sessions as allowed_session
+        where allowed_session.auth_user_id = profile.auth_user_id
+        order by allowed_session.authorized_at desc
+        limit 1
+      ),
+      'amr', jsonb_build_array(jsonb_build_object('method', 'password', 'timestamp', 1))
+    )::text
+    from public.profiles as profile where login_name = '__codex_rls_operator'
+  ),
+  true
+) as assigner_claims \gset
+set local role authenticated;
+
+select ok(
+  app_private.has_permission('administration.users.assign_roles')
+    and app_private.has_permission('administration.users.read'),
+  'OPERATOR fixture can read users and assign ordinary roles'
+);
+select ok(
+  not app_private.has_permission('administration.roles.delete'),
+  'OPERATOR fixture remains a non-super-administrator role assigner'
+);
+select throws_ok(
+  format(
+    'insert into public.user_roles (user_id, role_id) values (910000000000001, %s)',
+    :'super_admin_role_id'
+  ),
+  '42501',
+  'Only a super administrator can change super administrator membership',
+  'role assigner cannot grant SUPER_ADMIN by writing user_roles directly'
+);
+select throws_ok(
+  format(
+    'delete from public.user_roles where user_id = 910000000000003 and role_id = %s',
+    :'super_admin_role_id'
+  ),
+  '42501',
+  'Only a super administrator can change super administrator membership',
+  'role assigner cannot remove SUPER_ADMIN by writing user_roles directly'
+);
+select lives_ok(
+  format(
+    'insert into public.user_roles (user_id, role_id) values (910000000000001, %s)',
+    :'operator_role_id'
+  ),
+  'role assigner can grant an ordinary role by writing user_roles directly'
+);
+reset role;
+
+select ok(
+  exists (
+    select 1
+    from public.user_roles as user_role
+    join public.roles as role on role.id = user_role.role_id
+    where user_role.user_id = 910000000000003
+      and role.code = 'SUPER_ADMIN'
+  ),
+  'rejected direct delete leaves the super administrator membership in place'
+);
+
+select set_config(
+  'request.jwt.claim.sub',
+  (select auth_user_id::text from public.profiles where login_name = '__codex_rls_super'),
+  true
+) as super_assign_claim \gset
+select set_config(
+  'request.jwt.claims',
+  (
+    select jsonb_build_object(
+      'sub', auth_user_id::text,
+      'role', 'authenticated',
+      'session_id', (
+        select allowed_session.session_id::text
+        from app_private.account_password_sessions as allowed_session
+        where allowed_session.auth_user_id = profile.auth_user_id
+        order by allowed_session.authorized_at desc
+        limit 1
+      ),
+      'amr', jsonb_build_array(jsonb_build_object('method', 'password', 'timestamp', 1))
+    )::text
+    from public.profiles as profile where login_name = '__codex_rls_super'
+  ),
+  true
+) as super_assign_claims \gset
+set local role authenticated;
+
+select lives_ok(
+  format(
+    'insert into public.user_roles (user_id, role_id) values (910000000000001, %s)',
+    :'super_admin_role_id'
+  ),
+  'SUPER_ADMIN can grant SUPER_ADMIN by writing user_roles directly'
+);
+select lives_ok(
+  format(
+    'delete from public.user_roles where user_id = 910000000000001 and role_id = %s',
+    :'super_admin_role_id'
+  ),
+  'SUPER_ADMIN can remove a SUPER_ADMIN membership by writing user_roles directly'
+);
+reset role;
+
 select * from finish();
 rollback;
