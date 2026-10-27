@@ -12,7 +12,7 @@
 
 ## 本地启动
 
-环境要求：Node.js `>=22.13.0`，推荐使用项目锁定的 Node 24.18.0 与 pnpm 12.3.4。macOS 本地 Supabase 使用 OrbStack 或兼容 Docker API 的容器 runtime。
+环境要求：Node.js `>=22.13.0`，推荐使用项目锁定的 Node 24.22.1 与 pnpm 12.3.4。macOS 本地 Supabase 使用 OrbStack 或兼容 Docker API 的容器 runtime。
 
 从模板创建新项目副本时，在首次启动 Supabase 前运行：
 

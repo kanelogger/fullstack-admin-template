@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | workflow | 根 `package.json`、`project.yml` | `.github/workflows/ci.yml` | [`docs/delivery.md`](../delivery.md)；CI 不执行 |
 | 系统 | 当前开发机，以本轮能力探测为准 | GitHub Actions `ubuntu-latest` | 不适用 |
-| Node / pnpm | Node `>=22.13.0`、pnpm `>=9`；锁定 24.18.0 / 12.3.4 | 同版本，使用 frozen lockfile | 不适用 |
+| Node / pnpm | Node `>=22.13.0`、pnpm `>=9`；锁定 24.22.1 / 12.3.4 | 同版本，使用 frozen lockfile | 不适用 |
 | 数据库 | Supabase Local / Postgres 17 | `check:migrations` 动态创建隔离本地 Supabase project | 不适用 |
 | Browser suite | PC Chromium / Playwright，产物 `test-results/browser` 与 `playwright-report/browser` | 安装 Chromium 与系统依赖，诊断单独上传 | Session 竞态、权限导航和完整路由布局矩阵 |
 | Browser Local Auth | 本地 Supabase/Mailpit，产物位于 `browser-local` 子目录 | 临时迁移栈检查后独立上传 | 恢复、真实登录、CRUD、Realtime、刷新与旧 token RLS 拒绝 |

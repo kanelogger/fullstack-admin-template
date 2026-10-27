@@ -1,6 +1,6 @@
 # 环境命令
 
-所有应用命令从仓库根目录运行，以根 `package.json` 与 `pnpm-lock.yaml` 为准。Node 要求 `>=22.13.0`，pnpm 要求 `>=9`；项目固定 Node 24.18.0 / pnpm 12.3.4。
+所有应用命令从仓库根目录运行，以根 `package.json` 与 `pnpm-lock.yaml` 为准。Node 要求 `>=22.13.0`，pnpm 要求 `>=9`；项目固定 Node 24.22.1 / pnpm 12.3.4。
 
 ## 安装、开发与构建
 

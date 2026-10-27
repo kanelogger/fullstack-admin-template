@@ -38,7 +38,7 @@
 
 ## 本地运行与质量入口
 
-- Node `>=22.13.0`、pnpm `>=9`，项目固定 Node 24.18.0 / pnpm 12.3.4；Postgres Local major version 为 17。
+- Node `>=22.13.0`、pnpm `>=9`，项目固定 Node 24.22.1 / pnpm 12.3.4；Postgres Local major version 为 17。
 - `pnpm supabase:start/status/stop` 管理本地栈；`pnpm dev` 同时启动 Edge Functions 与 Vite (`127.0.0.1:8848`)。Auth 邮件由本地 Mailpit 捕获。
 - BrowserSkill、`check:migrations` 与 `check:migration-upgrades` 创建的隔离栈，只有在 Supabase CLI stop 成功且 Docker 中精确 project label 下的容器、卷和网络均已消失后才记录清理成功。资源查询失败或仍有资源时清理失败，保留恢复目录和诊断信息。
 - Visual 更新只在固定副本中生成候选、原图、差异图和候选 manifest；审阅后 `pnpm test:visual:accept -- --candidate <id>` 才更新登记基线。正式 PNG 不进入视觉源码摘要；明确登记基线增删，CI 只比较不生成或接受候选。

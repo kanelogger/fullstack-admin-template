@@ -6,7 +6,7 @@
 
 | 用途 | 版本 | 命令 |
 | --- | --- | --- |
-| Node | 最低 `>=22.13.0`，Volta 固定 24.18.0 | `node --version`、`volta which node` |
+| Node | 最低 `>=22.13.0`，Volta 固定 24.22.1 | `node --version`、`volta which node` |
 | pnpm | 最低 `>=9`，固定 12.3.4 | `pnpm --version`、`volta which pnpm` |
 
 从仓库根目录执行 `pnpm install`、`pnpm dev`、`pnpm typecheck` 和其他根脚本。workspace 只使用根 `pnpm-lock.yaml`，不在子目录建立第二份 lockfile。
