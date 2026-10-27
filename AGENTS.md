@@ -30,7 +30,7 @@ PC 浏览器端管理后台模板，运行栈为 Vue 3、Vue Router、Pinia、sh
 ## 状态恢复与按需指南
 
 - 开始前阅读 `tasks/README.md` 与未完成任务记录；任务事实以 `tasks/` 为准，本地 `.agents/state/workflow.json` 只是提示。
-- 命令、权限与副作用：`project.yml`；测试：`rules/testing.md`；安全与凭据：`rules/security.md`；架构：`specs/architecture.md`；目标架构：`docs/diagram/architecture.md`；需求 spec：`specs/template.md`。
+- 命令、权限与副作用：`project.yml`；测试：`rules/testing.md`；安全与凭据：`rules/security.md`；代码风格：`rules/code-style.md`；架构：`specs/architecture.md`；目标架构：`docs/diagram/architecture.md`；需求 spec：`specs/template.md`。
 - 环境事实和命令路由：`AI_ENVIRONMENT.md` 与 `docs/agent-environment/`。
 - 进入 `frontend/` 后，读取 `frontend/AGENTS.md`。
 

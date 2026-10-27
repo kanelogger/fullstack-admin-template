@@ -38,6 +38,10 @@ export default tseslint.config(
         varsIgnorePattern: "^_"
       }],
       "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-syntax": ["error", {
+        selector: "ImportNamespaceSpecifier",
+        message: "Use named imports instead of namespace imports (rules/code-style.md)."
+      }],
       "@typescript-eslint/no-unsafe-function-type": "error"
     }
   },

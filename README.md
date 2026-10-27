@@ -94,3 +94,4 @@ pnpm test:agent:start -- --scenario <scenario> --browser <instance-id>
 - [本地命令与副作用](docs/agent-environment/commands.md)
 - [环境服务](docs/agent-environment/services.md)
 - [测试约定](rules/testing.md)
+- [代码风格](rules/code-style.md)
